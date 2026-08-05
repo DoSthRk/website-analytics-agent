@@ -317,6 +317,77 @@ def test_promotion_failure_rolls_back_xlsx_and_all_expected_pngs(tmp_path: Path)
     assert _hash_artifacts(output_path, render_dir) == original_hashes
 
 
+def test_failed_restore_preserves_the_unrestored_backup_for_recovery(
+    tmp_path: Path,
+) -> None:
+    fixture_path = PROJECT_ROOT / "tests" / "fixtures" / "workbook_payload.json"
+    output_path = tmp_path / "report.xlsx"
+    render_dir = tmp_path / "renders"
+    _build_fixture_workbook(fixture_path, output_path, render_dir)
+    original_hashes = _hash_artifacts(output_path, render_dir)
+
+    alternative_payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    alternative_payload["sheets"][0]["rows"][0][0] = "Alternative report"
+    alternative_payload_path = tmp_path / "alternative-payload.json"
+    alternative_payload_path.write_text(
+        json.dumps(alternative_payload), encoding="utf-8"
+    )
+    alternative_output = tmp_path / "alternative.xlsx"
+    alternative_render_dir = tmp_path / "alternative-renders"
+    _build_fixture_workbook(
+        alternative_payload_path, alternative_output, alternative_render_dir
+    )
+
+    rejected = subprocess.run(
+        [
+            os.fspath(NODE),
+            "--input-type=module",
+            "--eval",
+            (
+                "import fs from 'node:fs/promises'; import path from 'node:path'; "
+                "import { superviseRenderer } from './scripts/build_report_workbook.mjs'; "
+                "const [input, output, render, alternateOutput, alternateRender] = process.argv.slice(1); "
+                "try { await superviseRenderer({input, output, renderDir: render}, { "
+                "workerRunner: async (staged) => { "
+                "await fs.copyFile(alternateOutput, staged.output); "
+                "await fs.mkdir(staged.renderDir, {recursive: true}); "
+                "for (const entry of await fs.readdir(alternateRender)) { "
+                "await fs.copyFile(path.join(alternateRender, entry), path.join(staged.renderDir, entry)); "
+                "} return {exitCode: 3221226505, signal: null, stdout: '', stderr: ''}; }, "
+                "move: async (source, destination) => { "
+                "if (source.includes('.staging-') && source.endsWith('readme.png')) { "
+                "throw new Error('forced forward failure'); } "
+                "if (source.includes('.readme.png.previous-') && destination.endsWith('readme.png')) { "
+                "throw new Error('forced restore failure'); } "
+                "await fs.rename(source, destination); } }); process.exit(0); "
+                "} catch (error) { console.error(error.message); process.exit(7); }"
+            ),
+            os.fspath(fixture_path),
+            os.fspath(output_path),
+            os.fspath(render_dir),
+            os.fspath(alternative_output),
+            os.fspath(alternative_render_dir),
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    backup_directories = list(render_dir.glob(".readme.png.previous-*"))
+    assert rejected.returncode == 7
+    assert len(backup_directories) == 1
+    recovery_path = backup_directories[0] / "readme.png"
+    assert hashlib.sha256(recovery_path.read_bytes()).hexdigest() == original_hashes[
+        "readme.png"
+    ]
+    assert hashlib.sha256(output_path.read_bytes()).hexdigest() == original_hashes[
+        "report.xlsx"
+    ]
+    assert not (render_dir / "readme.png").exists()
+    assert str(recovery_path) in rejected.stderr
+    assert "forced restore failure" in rejected.stderr
+
+
 def _run_supervisor_with_noop_worker(
     input_path: Path, output_path: Path, render_path: Path
 ) -> subprocess.CompletedProcess[str]:

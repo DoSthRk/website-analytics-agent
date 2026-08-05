@@ -252,7 +252,11 @@ async function promoteGeneratedArtifacts(staging, finalPaths, move) {
       promoted.push(artifact);
     }
   } catch (error) {
-    await rollbackPromotion(promoted, backups, finalPaths, renderDirectoryCreated, move);
+    try {
+      await rollbackPromotion(promoted, backups, finalPaths, renderDirectoryCreated, move);
+    } catch (rollbackError) {
+      throw new Error(`${error.message}\n${rollbackError.message}`);
+    }
     throw error;
   }
   await discardBackups(backups, "committed");
@@ -271,6 +275,7 @@ async function moveExistingPathToBackup(finalPath, move) {
 
 async function rollbackPromotion(promoted, backups, finalPaths, renderDirectoryCreated, move) {
   const rollbackErrors = [];
+  const recoveryPaths = [];
   for (const artifact of [...promoted].reverse()) {
     try {
       await fs.rm(artifact.final, { force: true });
@@ -282,8 +287,13 @@ async function rollbackPromotion(promoted, backups, finalPaths, renderDirectoryC
     if (!backup) continue;
     try {
       await move(backup.path, backup.final);
+      await discardBackups([backup], "rolled back");
     } catch (error) {
       rollbackErrors.push(error);
+      recoveryPaths.push(backup.path);
+      process.stderr.write(
+        `Rollback restore failed; original artifact remains recoverable at ${backup.path}: ${error.message}\n`,
+      );
     }
   }
   if (renderDirectoryCreated) {
@@ -293,9 +303,11 @@ async function rollbackPromotion(promoted, backups, finalPaths, renderDirectoryC
       if (error?.code !== "ENOENT" && error?.code !== "ENOTEMPTY") rollbackErrors.push(error);
     }
   }
-  await discardBackups(backups, "rolled back");
   if (rollbackErrors.length > 0) {
-    throw new Error(`Promotion rollback failed: ${rollbackErrors.map((error) => error.message).join("; ")}`);
+    throw new Error(
+      `Promotion rollback failed: ${rollbackErrors.map((error) => error.message).join("; ")}\n` +
+      `Recovery backups retained: ${recoveryPaths.join(", ")}`,
+    );
   }
 }
 
