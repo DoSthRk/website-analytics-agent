@@ -7,6 +7,9 @@ const TITLE_FILL = "#17365D";
 const HEADER_FILL = "#1F4E78";
 const LABEL_FILL = "#D9EAF7";
 const LIGHT_BORDER = "#D9E2F3";
+const RENDERER_CLEANUP_EXIT_CODE = 3221226505;
+const MAX_WORKER_LOG_CHARACTERS = 8192;
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const PERCENT_HEADERS = new Set(["ctr", "engagementrate"]);
 const COUNT_HEADERS = new Set([
   "sessions",
@@ -95,30 +98,109 @@ async function buildWorkbook(workerOptions) {
   return { output: workerOptions.output, renderedSheets };
 }
 
-async function superviseRenderer(supervisorOptions) {
+export async function superviseRenderer(
+  supervisorOptions,
+  { workerRunner = runRendererWorker } = {},
+) {
   const payload = JSON.parse(await fs.readFile(supervisorOptions.input, "utf8"));
   validatePayload(payload);
-  const worker = await runRendererWorker(supervisorOptions);
-  const renderedSheets = payload.sheets.map((sheetData) =>
-    path.join(supervisorOptions.renderDir, `${slugify(sheetData.name)}.png`),
+  const staging = await createStagingPaths(supervisorOptions);
+  try {
+    const worker = await workerRunner({
+      ...supervisorOptions,
+      output: staging.output,
+      renderDir: staging.renderDir,
+    });
+    const stagedRenders = payload.sheets.map((sheetData) =>
+      path.join(staging.renderDir, `${slugify(sheetData.name)}.png`),
+    );
+    const verified = await verifyGeneratedArtifacts(staging.output, stagedRenders);
+    const expectedCleanupFault =
+      worker.exitCode === RENDERER_CLEANUP_EXIT_CODE && worker.signal === null;
+    if (!verified || (worker.exitCode !== 0 && !expectedCleanupFault)) {
+      throw new Error(formatWorkerFailure(worker, verified));
+    }
+
+    await promoteGeneratedArtifacts(staging, supervisorOptions);
+    const renderedSheets = payload.sheets.map((sheetData) =>
+      path.join(path.resolve(supervisorOptions.renderDir), `${slugify(sheetData.name)}.png`),
+    );
+    if (expectedCleanupFault) {
+      process.stderr.write(
+        `Artifact Tool renderer worker exited ${worker.exitCode} after staged outputs were verified; this is the documented renderer cleanup fault.\n`,
+      );
+    }
+    return {
+      output: path.resolve(supervisorOptions.output),
+      renderedSheets,
+      workerExitCode: worker.exitCode,
+      outputsVerified: true,
+    };
+  } finally {
+    await fs.rm(staging.outputDirectory, { recursive: true, force: true });
+    await fs.rm(staging.renderDir, { recursive: true, force: true });
+  }
+}
+
+async function createStagingPaths(supervisorOptions) {
+  const finalOutput = path.resolve(supervisorOptions.output);
+  const finalRenderDir = path.resolve(supervisorOptions.renderDir);
+  await fs.mkdir(path.dirname(finalOutput), { recursive: true });
+  await fs.mkdir(path.dirname(finalRenderDir), { recursive: true });
+  const outputDirectory = await fs.mkdtemp(
+    path.join(path.dirname(finalOutput), `.${path.basename(finalOutput)}.staging-`),
   );
-  const verified = await verifyGeneratedArtifacts(supervisorOptions.output, renderedSheets);
-  if (!verified) {
-    throw new Error(
-      `Artifact Tool renderer failed before producing all verified outputs (exit ${worker.exitCode ?? worker.signal ?? "unknown"}).`,
-    );
-  }
-  if (worker.exitCode !== 0) {
-    process.stderr.write(
-      `Artifact Tool renderer worker exited ${worker.exitCode ?? worker.signal} after outputs were verified; this is an isolated renderer cleanup fault.\n`,
-    );
-  }
+  const renderDir = await fs.mkdtemp(
+    path.join(path.dirname(finalRenderDir), `.${path.basename(finalRenderDir)}.staging-`),
+  );
   return {
-    output: supervisorOptions.output,
-    renderedSheets,
-    workerExitCode: worker.exitCode,
-    outputsVerified: true,
+    outputDirectory,
+    output: path.join(outputDirectory, path.basename(finalOutput)),
+    renderDir,
   };
+}
+
+async function promoteGeneratedArtifacts(staging, supervisorOptions) {
+  await promotePath(staging.output, path.resolve(supervisorOptions.output));
+  await promotePath(staging.renderDir, path.resolve(supervisorOptions.renderDir));
+}
+
+async function promotePath(stagedPath, finalPath) {
+  await fs.mkdir(path.dirname(finalPath), { recursive: true });
+  const backup = await moveExistingPathToBackup(finalPath);
+  try {
+    await fs.rename(stagedPath, finalPath);
+  } catch (error) {
+    await restoreBackup(finalPath, backup);
+    throw error;
+  }
+  if (backup) {
+    await fs.rm(backup.directory, { recursive: true, force: true });
+  }
+}
+
+async function moveExistingPathToBackup(finalPath) {
+  try {
+    await fs.lstat(finalPath);
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
+  const directory = await fs.mkdtemp(
+    path.join(path.dirname(finalPath), `.${path.basename(finalPath)}.previous-`),
+  );
+  const pathInBackup = path.join(directory, path.basename(finalPath));
+  await fs.rename(finalPath, pathInBackup);
+  return { directory, path: pathInBackup };
+}
+
+async function restoreBackup(finalPath, backup) {
+  if (!backup) return;
+  try {
+    await fs.rename(backup.path, finalPath);
+  } finally {
+    await fs.rm(backup.directory, { recursive: true, force: true });
+  }
 }
 
 function runRendererWorker(supervisorOptions) {
@@ -137,9 +219,39 @@ function runRendererWorker(supervisorOptions) {
       ],
       { stdio: ["ignore", "pipe", "pipe"] },
     );
+    let stdout = "";
+    let stderr = "";
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (chunk) => {
+      stdout = appendBoundedLog(stdout, chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr = appendBoundedLog(stderr, chunk);
+    });
     child.on("error", reject);
-    child.on("close", (exitCode, signal) => resolve({ exitCode, signal }));
+    child.on("close", (exitCode, signal) => resolve({ exitCode, signal, stdout, stderr }));
   });
+}
+
+function appendBoundedLog(existing, chunk) {
+  if (existing.length >= MAX_WORKER_LOG_CHARACTERS) return existing;
+  const remaining = MAX_WORKER_LOG_CHARACTERS - existing.length;
+  const text = String(chunk);
+  return text.length <= remaining
+    ? existing + text
+    : `${existing + text.slice(0, remaining)}\n[worker log truncated]`;
+}
+
+function formatWorkerFailure(worker, outputsVerified) {
+  const outcome = worker.signal ? `signal ${worker.signal}` : `exit ${worker.exitCode}`;
+  const stdout = worker.stdout?.trim() || "<empty>";
+  const stderr = worker.stderr?.trim() || "<empty>";
+  return [
+    `Artifact Tool renderer failed with ${outcome}; staged outputs verified: ${outputsVerified}.`,
+    `worker stdout: ${stdout}`,
+    `worker stderr: ${stderr}`,
+  ].join("\n");
 }
 
 export async function verifyGeneratedArtifacts(outputPath, renderPaths) {
@@ -148,8 +260,8 @@ export async function verifyGeneratedArtifacts(outputPath, renderPaths) {
     if (!isValidXlsxArchive(output)) return false;
     await Promise.all(
       renderPaths.map(async (renderPath) => {
-        const status = await fs.stat(renderPath);
-        if (!status.isFile() || status.size === 0) {
+        const render = await fs.readFile(renderPath);
+        if (!hasPngSignature(render)) {
           throw new Error(`Missing render ${renderPath}`);
         }
       }),
@@ -158,6 +270,10 @@ export async function verifyGeneratedArtifacts(outputPath, renderPaths) {
   } catch {
     return false;
   }
+}
+
+function hasPngSignature(content) {
+  return content.length >= PNG_SIGNATURE.length && content.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE);
 }
 
 function isDirectInvocation() {

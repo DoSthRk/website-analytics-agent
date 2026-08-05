@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import subprocess
 import zipfile
@@ -91,7 +92,7 @@ def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
 
     result = json.loads(completed.stdout)
     assert result["outputsVerified"] is True
-    assert result["workerExitCode"] != 0
+    assert result["workerExitCode"] == 3221226505
     assert "renderer worker exited" in completed.stderr
     assert zipfile.is_zipfile(output_path)
     with zipfile.ZipFile(output_path) as archive:
@@ -153,3 +154,69 @@ def test_verifier_rejects_a_pk_prefixed_file_that_is_not_a_zip(tmp_path: Path) -
     )
 
     assert verification.stdout == "false"
+
+
+def test_supervisor_rejects_forced_worker_failure_despite_stale_valid_outputs(
+    tmp_path: Path,
+) -> None:
+    fixture_path = PROJECT_ROOT / "tests" / "fixtures" / "workbook_payload.json"
+    output_path = tmp_path / "stale.xlsx"
+    render_dir = tmp_path / "stale-rendered"
+    subprocess.run(
+        [
+            os.fspath(NODE),
+            "scripts/build_report_workbook.mjs",
+            "--input",
+            os.fspath(fixture_path),
+            "--output",
+            os.fspath(output_path),
+            "--render-dir",
+            os.fspath(render_dir),
+        ],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    expected_pngs = sorted(render_dir.glob("*.png"))
+    stale_hashes = {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in [output_path, *expected_pngs]
+    }
+
+    forced_failure = subprocess.run(
+        [
+            os.fspath(NODE),
+            "--input-type=module",
+            "--eval",
+            (
+                "import fs from 'node:fs/promises'; import path from 'node:path'; "
+                "import { superviseRenderer } from './scripts/build_report_workbook.mjs'; "
+                "const [input, output, render] = process.argv.slice(1); "
+                "try { await superviseRenderer({input, output, renderDir: render}, { "
+                "workerRunner: async (staged) => { "
+                "await fs.copyFile(output, staged.output); "
+                "await fs.mkdir(staged.renderDir, {recursive: true}); "
+                "for (const entry of await fs.readdir(render)) { "
+                "await fs.copyFile(path.join(render, entry), path.join(staged.renderDir, entry)); "
+                "} return {exitCode: 1, signal: null, stdout: 'forced stdout', "
+                "stderr: 'forced stderr'}; } }); process.exit(0); "
+                "} catch (error) { console.error(error.message); process.exit(7); }"
+            ),
+            os.fspath(fixture_path),
+            os.fspath(output_path),
+            os.fspath(render_dir),
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert forced_failure.returncode == 7
+    assert "exit 1" in forced_failure.stderr
+    assert "worker stdout: forced stdout" in forced_failure.stderr
+    assert "worker stderr: forced stderr" in forced_failure.stderr
+    assert {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in [output_path, *expected_pngs]
+    } == stale_hashes
