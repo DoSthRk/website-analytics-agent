@@ -78,7 +78,7 @@ def test_validate_config_is_fully_offline(
         "command": "validate-config",
         "site": "demo",
         "config": str(config),
-        "timezone": "Asia/Shanghai",
+        "selection_timezone": "Asia/Shanghai",
         "offline": True,
     }
 
@@ -118,13 +118,29 @@ def test_report_and_audit_state_the_site_timezone_for_each_date_range(
     captured = capsys.readouterr()
     result = json.loads(captured.out)
     audit = json.loads(next(audit_dir.glob("*.json")).read_text(encoding="utf-8"))
-    interpretation = "Date range is interpreted in Asia/Shanghai."
+    interpretation = {
+        "selection": (
+            "Asia/Shanghai is a local convention for relative date requests; "
+            "explicit ISO dates are passed unchanged."
+        ),
+        "ga4": (
+            "GA4 uses its property reporting timezone; verify it matches "
+            "configured selection_timezone (Asia/Shanghai)."
+        ),
+        "gsc": (
+            "GSC startDate and endDate use Pacific Time (PT; UTC-7/UTC-8); "
+            "daily boundaries can differ from selection_timezone."
+        ),
+    }
     assert code == 0
-    assert result["timezone"] == "Asia/Shanghai"
+    assert result["selection_timezone"] == "Asia/Shanghai"
+    assert "timezone" not in result
     assert result["date_range_interpretation"] == interpretation
-    assert result["comparison"]["timezone"] == "Asia/Shanghai"
+    assert result["comparison"]["selection_timezone"] == "Asia/Shanghai"
+    assert "timezone" not in result["comparison"]
     assert result["comparison"]["date_range_interpretation"] == interpretation
-    assert audit["request"]["timezone"] == "Asia/Shanghai"
+    assert audit["request"]["selection_timezone"] == "Asia/Shanghai"
+    assert "timezone" not in audit["request"]
     assert audit["request"]["date_range_interpretation"] == interpretation
 
 
@@ -166,6 +182,12 @@ def test_fixture_report_and_excel_export_are_end_to_end_offline(
     assert report_capture.err == ""
     assert report["complete"] is True
     assert report["comparison"]["kind"] == "previous-period"
+    assert report["comparison"]["date_range"] == {
+        "start": "2026-07-27",
+        "end": "2026-08-02",
+    }
+    assert report["comparison"]["previous_complete"] is True
+    assert report["comparison"]["freshness"]
     assert report["totals"]["ga4"]["sessions"] == 10.0
     assert report["totals"]["gsc"]["clicks"] == 10.0
     assert len(list(cache_dir.rglob("*.json"))) == 4
@@ -179,6 +201,21 @@ def test_fixture_report_and_excel_export_are_end_to_end_offline(
     assert export_capture.err == ""
     assert exported["export"]["outputs_verified"] is True
     assert zipfile.is_zipfile(output)
+    with zipfile.ZipFile(output) as archive:
+        workbook_xml = b"\n".join(
+            archive.read(name)
+            for name in archive.namelist()
+            if name.startswith("xl/") and name.endswith(".xml")
+        ).decode("utf-8")
+    for expected in (
+        "Comparison kind",
+        "previous-period",
+        "Previous date range",
+        "2026-07-27 to 2026-08-02",
+        "Comparison freshness",
+        "Comparison status",
+    ):
+        assert expected in workbook_xml
     assert sorted(path.name for path in output.with_suffix("").with_name("demo.renders").glob("*.png")) == [
         "audit.png",
         "executive-summary.png",

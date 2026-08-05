@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Sequence
-from typing import Protocol
+from typing import Callable, Protocol
 
 from google.analytics.data_v1beta.types import (
     DateRange as GA4DateRange,
@@ -15,6 +16,7 @@ from google.analytics.data_v1beta.types import (
 )
 
 from website_analytics.models import DateRange, SiteConfig
+from website_analytics.retry import DEFAULT_RETRY_POLICY, RetryPolicy, retry_transient
 from website_analytics.url_safety import sanitize_url_query
 
 
@@ -43,8 +45,16 @@ class _AnalyticsDataClient(Protocol):
 class GA4Adapter:
     """Read GA4 reports through an injected Analytics Data API client."""
 
-    def __init__(self, client: _AnalyticsDataClient) -> None:
+    def __init__(
+        self,
+        client: _AnalyticsDataClient,
+        *,
+        retry_policy: RetryPolicy = DEFAULT_RETRY_POLICY,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         self._client = client
+        self._retry_policy = retry_policy
+        self._sleep = sleep
 
     def daily(self, site: SiteConfig, date_range: DateRange) -> list[AnalyticsRow]:
         """Return daily GA4 metrics for a registered site and inclusive date range."""
@@ -83,7 +93,11 @@ class GA4Adapter:
                 limit=_PAGE_SIZE,
                 offset=len(normalized_rows),
             )
-            response = self._client.run_report(request)
+            response = retry_transient(
+                lambda: self._client.run_report(request),
+                policy=self._retry_policy,
+                sleep=self._sleep,
+            )
             page_rows = list(response.rows)
             normalized_rows.extend(
                 _normalize_row(row, dimensions) for row in page_rows

@@ -40,7 +40,7 @@ def test_payload_has_fixed_sheet_order_and_json_safe_typed_numbers() -> None:
             "site": "demo",
             "display_name": "Demo Website",
             "date_range": {"start": "2026-08-03", "end": "2026-08-09"},
-            "timezone": "Asia/Shanghai",
+            "selection_timezone": "Asia/Shanghai",
             "freshness": "2026-08-10T01:00:00Z",
             "comparison": {
                 "metrics": {
@@ -78,11 +78,27 @@ def test_payload_has_fixed_sheet_order_and_json_safe_typed_numbers() -> None:
         ["2026-08-03", 10.0, 0.5],
     ]
     assert payload["sheets"][2]["detail"] is True
-    assert ["Timezone", "Asia/Shanghai"] in payload["sheets"][0]["rows"]
-    assert ["Date interpretation", "Date range is interpreted in Asia/Shanghai."] in payload["sheets"][0]["rows"]
-    assert ["Timezone", "Asia/Shanghai"] in payload["sheets"][1]["rows"]
-    assert ["Date interpretation", "Date range is interpreted in Asia/Shanghai."] in payload["sheets"][1]["rows"]
-    assert ["Timezone", "Asia/Shanghai"] in payload["sheets"][-1]["rows"]
+    semantics = [
+        ["Selection timezone", "Asia/Shanghai"],
+        [
+            "Selection convention",
+            "Local convention only for relative dates; explicit ISO dates are passed unchanged.",
+        ],
+        [
+            "GA4 date boundary",
+            "GA4 uses its property reporting timezone; verify it matches selection timezone.",
+        ],
+        [
+            "GSC date boundary",
+            "GSC uses Pacific Time (PT; UTC-7/UTC-8); daily boundaries can differ.",
+        ],
+    ]
+    for sheet_index in (0, 1, -1):
+        assert all(row in payload["sheets"][sheet_index]["rows"] for row in semantics)
+    assert payload["sheets"][1]["rows"][-2:] == [
+        ["Source", "Metric", "Current"],
+        ["ga4", "sessions", 10.0],
+    ]
     assert json.loads(json.dumps(payload)) == payload
 
 
@@ -106,6 +122,56 @@ def test_workbook_payload_redacts_sensitive_url_parameters_before_excel_export()
     assert parameters["utm_source"] == "partner"
 
 
+def test_workbook_payload_shows_comparison_provenance_before_previous_values() -> None:
+    payload = build_workbook_payload(
+        {
+            "site": "demo",
+            "display_name": "Demo Website",
+            "date_range": {"start": "2026-08-03", "end": "2026-08-09"},
+            "selection_timezone": "Asia/Shanghai",
+            "freshness": "2026-08-10T01:00:00Z",
+            "comparison": {
+                "kind": "previous-period",
+                "date_range": {"start": "2026-07-27", "end": "2026-08-02"},
+                "freshness": "2026-08-03T01:00:00Z",
+                "status": "partial",
+                "previous_complete": False,
+                "source_coverage_complete": True,
+                "metric_coverage_complete": True,
+                "complete": False,
+                "sources": {"ga4": {"status": "ok"}, "gsc": {"status": "partial"}},
+                "metrics": {
+                    "ga4": {
+                        "sessions": {
+                            "current": 10.0,
+                            "previous": 8.0,
+                            "available": True,
+                            "delta": 2.0,
+                        }
+                    }
+                },
+            },
+        },
+        {"GA4 Daily": [{"date": "2026-08-03", "sessions": 10.0}]},
+        {"generated_at": "2026-08-10T01:00:00Z", "sources": {"ga4": {"status": "ok"}}},
+    )
+
+    readme_rows = payload["sheets"][0]["rows"]
+    summary_rows = payload["sheets"][1]["rows"]
+    assert ["Current date range", "2026-08-03 to 2026-08-09"] in readme_rows
+    assert ["Comparison kind", "previous-period"] in readme_rows
+    assert ["Previous date range", "2026-07-27 to 2026-08-02"] in readme_rows
+    assert ["Comparison freshness", "Retrieved: 2026-08-03 01:00 UTC"] in readme_rows
+    assert ["Comparison status", "Partial"] in readme_rows
+    assert ["Previous source completeness", "Partial"] in readme_rows
+    assert ["Metric coverage", "Complete"] in readme_rows
+    assert ["Comparison kind", "previous-period"] in summary_rows
+    assert ["Previous date range", "2026-07-27 to 2026-08-02"] in summary_rows
+    assert summary_rows.index(["Previous date range", "2026-07-27 to 2026-08-02"]) < summary_rows.index(
+        ["Source", "Metric", "Current", "Previous", "Delta"]
+    )
+
+
 def test_exported_workbook_keeps_a_self_describing_readme(
     tmp_path: Path,
 ) -> None:
@@ -114,8 +180,29 @@ def test_exported_workbook_keeps_a_self_describing_readme(
             "site": "demo",
             "display_name": "Demo Website",
             "date_range": {"start": "2026-08-03", "end": "2026-08-09"},
-            "timezone": "Asia/Shanghai",
+            "selection_timezone": "Asia/Shanghai",
             "freshness": "2026-08-10T01:00:00Z",
+            "comparison": {
+                "kind": "previous-period",
+                "date_range": {"start": "2026-07-27", "end": "2026-08-02"},
+                "freshness": "2026-08-03T01:00:00Z",
+                "status": "ok",
+                "previous_complete": True,
+                "source_coverage_complete": True,
+                "metric_coverage_complete": True,
+                "complete": True,
+                "sources": {"ga4": {"status": "ok"}, "gsc": {"status": "ok"}},
+                "metrics": {
+                    "ga4": {
+                        "sessions": {
+                            "current": 1.0,
+                            "previous": 0.0,
+                            "available": True,
+                            "delta": 1.0,
+                        }
+                    }
+                },
+            },
         },
         {
             "GA4 Daily": [{"date": "2026-08-03", "sessions": 1.0}],
@@ -177,6 +264,12 @@ def test_exported_workbook_keeps_a_self_describing_readme(
         "GSC position",
         "GA4 sessions are not GSC clicks",
         "GSC page and query rows can be bounded or capped",
+        "Comparison kind",
+        "previous-period",
+        "Previous date range",
+        "2026-07-27 to 2026-08-02",
+        "Comparison freshness",
+        "Comparison status",
     ):
         assert expected in workbook_xml
 
@@ -214,6 +307,9 @@ def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
         assert "xl/workbook.xml" in archive.namelist()
         workbook = ElementTree.fromstring(archive.read("xl/workbook.xml"))
         audit_sheet = ElementTree.fromstring(archive.read("xl/worksheets/sheet8.xml"))
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    audit_rows = next(sheet["rows"] for sheet in fixture["sheets"] if sheet["name"] == "Audit")
+    audit_header_row = audit_rows.index(["Source", "Status", "Rows", "Freshness"]) + 1
     assert [sheet.attrib["name"] for sheet in workbook.findall("{*}sheets/{*}sheet")] == [
         "README",
         "Executive Summary",
@@ -226,7 +322,7 @@ def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
     ]
     audit_header_styles = [
         cell.attrib.get("s")
-        for cell in audit_sheet.findall("{*}sheetData/{*}row[@r='7']/{*}c")
+        for cell in audit_sheet.findall(f"{{*}}sheetData/{{*}}row[@r='{audit_header_row}']/{{*}}c")
     ]
     assert len(audit_header_styles) == 4
     assert len(set(audit_header_styles)) == 1

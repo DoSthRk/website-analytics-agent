@@ -87,6 +87,13 @@ $env:WEBSITE_ANALYTICS_NODE = '<Node executable path returned by the Codex depen
 
 这会生成固定顺序的 README、Executive Summary、GA4 Daily、GA4 Pages、GSC Daily、GSC Pages、GSC Queries 和 Audit 工作表。输出 JSON 会记录来源状态、日期范围、数据新鲜度和导出验证结果；不会输出原始 Google API JSON。
 
+## 日期边界与时区
+
+配置中的 `selection_timezone`（站点配置字段仍为 `timezone`）只是把“上周”“本月”等相对日期转换为 ISO 日期时使用的本地选择约定；显式输入的 ISO 日期会原样提交，不会被此字段重新解释。
+
+- GA4 报表使用 GA4 property reporting timezone 作为报表日界线；上线前应在 GA4 属性中核对该时区是否与 `selection_timezone` 一致。[官方 GA4 Property timeZone 文档](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1alpha/properties#Property.FIELDS.time_zone)
+- Search Console 的 `startDate` / `endDate` 按 Pacific Time (PT, UTC-7/UTC-8) 解释，所以与 GA4 或本地选择约定的每日边界可能不同。[官方 Search Analytics query 文档](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)
+
 ### Excel test runtime contract
 
 Renderer integration tests discover Node.js from `WEBSITE_ANALYTICS_NODE` first, then `node on PATH`. They skip only when neither executable is available or the local `@oai/artifact-tool` runtime has not been linked. On a fresh clone, run **load workspace dependencies**, set `WEBSITE_ANALYTICS_NODE` when Node is not on PATH, then run `scripts/setup-artifact-tool-runtime.ps1` with the Node modules path returned by the dependency loader. The project never guesses a runtime path, installs packages, or relies on a global Artifact Tool installation.

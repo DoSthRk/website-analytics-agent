@@ -13,7 +13,7 @@ description: Use when analyzing GA4、GSC 网站流量、官网流量、自然�
 
 1. 从请求中提取站点、目标（拉取、报告或 Excel）、日期和比较方式。
 2. 缺少必要信息时，一次只补充一个缺失输入：优先询问 `site key`，其次询问日期范围，再询问导出路径或比较方式。
-3. 将“上周”“本月”等自然语言转换为站点时区下的明确、含首尾两端的 `YYYY-MM-DD` 日期范围；绝不悄悄延长、缩短或混用范围。
+3. 将“上周”“本月”等自然语言转换为由 `selection_timezone` 表示的本地选择约定下的明确、含首尾两端的 `YYYY-MM-DD` 日期范围；该约定只用于解析相对日期，用户给出的 ISO 日期保持不变，绝不悄悄延长、缩短或混用范围。
 
 不要新增、编辑或猜测 `config/sites.yaml`；没有已登记的站点时，请用户先完成配置。
 
@@ -63,3 +63,9 @@ description: Use when analyzing GA4、GSC 网站流量、官网流量、自然�
 ```
 
 随后按 JSON 中的 `sources`、`date_range`、`freshness`、`status` 和 `comparison` 汇报；若返回 `partial` 或退出码 `3`，先解释边界，停止任何“完整明细”的结论。
+
+## 日期边界与时区
+
+- `selection_timezone` 是本地 Agent 将相对日期转换为 ISO 日期的选择约定，不会作为 API 时区参数传入，也不能证明数据日界线。
+- GA4 Data API 的报表遵循 GA4 property reporting timezone；先在 GA4 属性中核对它是否与配置的 `selection_timezone` 一致。官方说明：[GA4 Property timeZone](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1alpha/properties#Property.FIELDS.time_zone)。
+- Search Console 的 `startDate` 与 `endDate` 按 Pacific Time (PT, UTC-7/UTC-8) 解释，因此每日边界可能与选择约定不同。官方说明：[Search Analytics query](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)。

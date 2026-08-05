@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
@@ -37,6 +38,95 @@ class FakeGSCService:
 
     def searchanalytics(self) -> FakeSearchAnalytics:
         return self.resource
+
+
+@dataclass(frozen=True)
+class FakeRetryPolicy:
+    max_attempts: int = 3
+    initial_delay_seconds: float = 0.25
+    max_delay_seconds: float = 0.5
+
+
+class StatusError(RuntimeError):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"HTTP {status_code}")
+        self.status_code = status_code
+
+
+class RetryingFakeRequest:
+    def __init__(self, outcomes: list[dict[str, object] | Exception]) -> None:
+        self.outcomes = outcomes
+        self.execute_calls = 0
+
+    def execute(self) -> dict[str, object]:
+        self.execute_calls += 1
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+class RetryingFakeSearchAnalytics:
+    def __init__(self, request: RetryingFakeRequest) -> None:
+        self.request = request
+        self.calls: list[tuple[str, dict[str, object]]] = []
+
+    def query(self, *, siteUrl: str, body: dict[str, object]) -> RetryingFakeRequest:
+        self.calls.append((siteUrl, body))
+        return self.request
+
+
+class RetryingFakeGSCService:
+    def __init__(self, request: RetryingFakeRequest) -> None:
+        self.resource = RetryingFakeSearchAnalytics(request)
+
+    def searchanalytics(self) -> RetryingFakeSearchAnalytics:
+        return self.resource
+
+
+def test_query_retries_transient_connection_failure_then_succeeds() -> None:
+    request = RetryingFakeRequest([ConnectionError("temporary network failure"), {"rows": []}])
+    delays: list[float] = []
+
+    result = GSCAdapter(
+        RetryingFakeGSCService(request),
+        retry_policy=FakeRetryPolicy(),
+        sleep=delays.append,
+    ).query(_site(), _date_range(), ("date",))
+
+    assert result == []
+    assert request.execute_calls == 2
+    assert delays == [0.25]
+
+
+def test_query_raises_after_bounded_transient_retries() -> None:
+    request = RetryingFakeRequest([StatusError(429), StatusError(429), StatusError(429)])
+    delays: list[float] = []
+
+    with pytest.raises(StatusError, match="HTTP 429"):
+        GSCAdapter(
+            RetryingFakeGSCService(request),
+            retry_policy=FakeRetryPolicy(),
+            sleep=delays.append,
+        ).query(_site(), _date_range(), ("date",))
+
+    assert request.execute_calls == 3
+    assert delays == [0.25, 0.5]
+
+
+def test_query_does_not_retry_non_transient_http_failure() -> None:
+    request = RetryingFakeRequest([StatusError(403)])
+    delays: list[float] = []
+
+    with pytest.raises(StatusError, match="HTTP 403"):
+        GSCAdapter(
+            RetryingFakeGSCService(request),
+            retry_policy=FakeRetryPolicy(),
+            sleep=delays.append,
+        ).query(_site(), _date_range(), ("date",))
+
+    assert request.execute_calls == 1
+    assert delays == []
 
 
 def test_daily_query_sends_safe_gsc_request_and_normalizes_metrics() -> None:

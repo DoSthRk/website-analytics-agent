@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Literal, Protocol, TypedDict
+from typing import Callable, Literal, Protocol, TypedDict
 
 from website_analytics.models import DateRange, SiteConfig
+from website_analytics.retry import DEFAULT_RETRY_POLICY, RetryPolicy, retry_transient
 from website_analytics.url_safety import sanitize_url_query
 
 
@@ -63,8 +65,16 @@ class GSCAdapter:
     exhaustive representation of query-level Search Console data.
     """
 
-    def __init__(self, service: _GSCService) -> None:
+    def __init__(
+        self,
+        service: _GSCService,
+        *,
+        retry_policy: RetryPolicy = DEFAULT_RETRY_POLICY,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
         self._service = service
+        self._retry_policy = retry_policy
+        self._sleep = sleep
 
     def query(
         self,
@@ -92,7 +102,7 @@ class GSCAdapter:
         rows: list[GSCRow] = []
         truncated = False
         for start_row in range(0, _MAX_ROWS, _BATCH_SIZE):
-            response = self._service.searchanalytics().query(
+            request = self._service.searchanalytics().query(
                 siteUrl=site.gsc_property_url,
                 body={
                     "startDate": date_range.start.isoformat(),
@@ -103,7 +113,12 @@ class GSCAdapter:
                     "rowLimit": _BATCH_SIZE,
                     "startRow": start_row,
                 },
-            ).execute()
+            )
+            response = retry_transient(
+                request.execute,
+                policy=self._retry_policy,
+                sleep=self._sleep,
+            )
             batch = _response_rows(response)
             rows.extend(_normalize_row(row, requested_dimensions) for row in batch)
             if len(batch) < _BATCH_SIZE:

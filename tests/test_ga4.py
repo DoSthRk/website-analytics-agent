@@ -66,6 +66,79 @@ class PaginatedFakeGA4Client:
         return self.responses.pop(0)
 
 
+@dataclass(frozen=True)
+class FakeRetryPolicy:
+    max_attempts: int = 3
+    initial_delay_seconds: float = 0.25
+    max_delay_seconds: float = 0.5
+
+
+class StatusError(RuntimeError):
+    def __init__(self, status_code: int) -> None:
+        super().__init__(f"HTTP {status_code}")
+        self.status_code = status_code
+
+
+class RetryingFakeGA4Client:
+    def __init__(self, outcomes: list[FakeResponse | Exception]) -> None:
+        self.outcomes = outcomes
+        self.requests: list[object] = []
+
+    def run_report(self, request: object) -> FakeResponse:
+        self.requests.append(request)
+        outcome = self.outcomes.pop(0)
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+def test_daily_retries_transient_http_failure_then_succeeds() -> None:
+    client = RetryingFakeGA4Client(
+        [StatusError(500), FakeResponse(rows=())]
+    )
+    delays: list[float] = []
+
+    result = GA4Adapter(
+        client,
+        retry_policy=FakeRetryPolicy(),
+        sleep=delays.append,
+    ).daily(_site(), _date_range())
+
+    assert result == []
+    assert len(client.requests) == 2
+    assert delays == [0.25]
+
+
+def test_daily_raises_after_bounded_transient_retries() -> None:
+    client = RetryingFakeGA4Client([StatusError(429), StatusError(429), StatusError(429)])
+    delays: list[float] = []
+
+    with pytest.raises(StatusError, match="HTTP 429"):
+        GA4Adapter(
+            client,
+            retry_policy=FakeRetryPolicy(),
+            sleep=delays.append,
+        ).daily(_site(), _date_range())
+
+    assert len(client.requests) == 3
+    assert delays == [0.25, 0.5]
+
+
+def test_daily_does_not_retry_non_transient_http_failure() -> None:
+    client = RetryingFakeGA4Client([StatusError(403)])
+    delays: list[float] = []
+
+    with pytest.raises(StatusError, match="HTTP 403"):
+        GA4Adapter(
+            client,
+            retry_policy=FakeRetryPolicy(),
+            sleep=delays.append,
+        ).daily(_site(), _date_range())
+
+    assert len(client.requests) == 1
+    assert delays == []
+
+
 def test_daily_sends_expected_ga4_request_and_normalizes_iso_date() -> None:
     client = FakeGA4Client(_response_from_fixture("ga4_report.json"))
 

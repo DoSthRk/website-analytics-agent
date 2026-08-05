@@ -23,3 +23,9 @@
 - **GA4 sessions 永不等于 GSC clicks**：两者的采集位置、归因、去重和口径不同，只能并列观察趋势。
 - `totalUsers` 和 `activeUsers` 都是区间聚合的去重用户数，不能按日累计来构造区间总数。
 - GSC 的 query/page 明细可能被截断：工具会为 Pages 和 Queries 施加行数上限。出现 `partial`、`truncated: true` 或退出码 `3` 时，只能描述已返回的明细，不能声称覆盖全部搜索词或页面。
+
+## 日期边界与时区
+
+- `selection_timezone` 只是将“上周”“本月”等相对日期转成 ISO 日期的本地选择约定；显式给出的 ISO 日期会原样传给数据源。
+- GA4 数据按 property reporting timezone 划分报表日界线。使用前应核对 GA4 属性的时区是否与 `selection_timezone` 一致；该属性时区是报表日界线，详见 [GA4 Property timeZone](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1alpha/properties#Property.FIELDS.time_zone)。
+- GSC 的 `startDate` 和 `endDate` 按 Pacific Time (PT, UTC-7/UTC-8) 解释，因此与 GA4 或 `selection_timezone` 的日界线可能不同，详见 [Search Analytics query](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)。

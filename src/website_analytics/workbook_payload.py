@@ -28,7 +28,7 @@ def build_workbook_payload(
     _validate_detail_names(details)
     site = _text(report.get("display_name") or report.get("site"))
     date_range = _date_range_text(report.get("date_range"))
-    timezone = _text(report.get("timezone"))
+    selection_timezone = _text(report.get("selection_timezone"))
     freshness = _freshness_text(report.get("freshness") or audit.get("generated_at"))
     source_names = _source_names(details, audit)
 
@@ -36,13 +36,24 @@ def build_workbook_payload(
         _sheet(
             "README",
             "readme",
-            _readme_rows(site, date_range, timezone, freshness, source_names),
+            _readme_rows(
+                site,
+                date_range,
+                selection_timezone,
+                freshness,
+                source_names,
+                report.get("comparison"),
+            ),
         ),
         _sheet(
             "Executive Summary",
             "summary",
             _summary_rows(
-                site, date_range, timezone, freshness, report.get("comparison")
+                site,
+                date_range,
+                selection_timezone,
+                freshness,
+                report.get("comparison"),
             ),
         ),
     ]
@@ -62,7 +73,14 @@ def build_workbook_payload(
         _sheet(
             "Audit",
             "audit",
-            _audit_rows(site, date_range, timezone, freshness, audit),
+            _audit_rows(
+                site,
+                date_range,
+                selection_timezone,
+                freshness,
+                audit,
+                report.get("comparison"),
+            ),
         )
     )
     payload = {"sheets": sheets}
@@ -77,18 +95,28 @@ def _sheet(
 
 
 def _summary_rows(
-    site: str, date_range: str, timezone: str, freshness: str, comparison: object
+    site: str,
+    date_range: str,
+    selection_timezone: str,
+    freshness: str,
+    comparison: object,
 ) -> list[list[Any]]:
+    comparison_rows = _comparison_rows(comparison)
     rows: list[list[Any]] = [
         ["Executive Summary"],
         ["Site", site],
-        ["Date range", date_range],
-        ["Timezone", timezone],
-        ["Date interpretation", _date_interpretation_text(timezone)],
+        ["Current date range", date_range],
+        *_date_semantics_rows(selection_timezone),
         ["Freshness", freshness],
-        [],
-        ["Source", "Metric", "Current", "Previous", "Delta"],
     ]
+    if comparison_rows:
+        rows.extend(comparison_rows)
+    rows.append([])
+    rows.append(
+        ["Source", "Metric", "Current", "Previous", "Delta"]
+        if comparison_rows
+        else ["Source", "Metric", "Current"]
+    )
     metrics = comparison.get("metrics", {}) if isinstance(comparison, Mapping) else {}
     if not isinstance(metrics, Mapping):
         return rows
@@ -100,15 +128,19 @@ def _summary_rows(
             values = source_metrics[metric]
             if not isinstance(values, Mapping):
                 continue
-            rows.append(
-                [
-                    _json_value(source),
-                    _json_value(metric),
-                    _json_value(values.get("current")),
-                    _json_value(values.get("previous")),
-                    _json_value(values.get("delta")),
-                ]
-            )
+            row = [
+                _json_value(source),
+                _json_value(metric),
+                _json_value(values.get("current")),
+            ]
+            if comparison_rows:
+                row.extend(
+                    [
+                        _json_value(values.get("previous")),
+                        _json_value(values.get("delta")),
+                    ]
+                )
+            rows.append(row)
     return rows
 
 
@@ -130,18 +162,22 @@ def _detail_rows(records: Sequence[Mapping[str, Any]]) -> list[list[Any]]:
 
 
 def _audit_rows(
-    site: str, date_range: str, timezone: str, freshness: str, audit: Mapping[str, Any]
+    site: str,
+    date_range: str,
+    selection_timezone: str,
+    freshness: str,
+    audit: Mapping[str, Any],
+    comparison: object,
 ) -> list[list[Any]]:
     rows: list[list[Any]] = [
         ["Audit Manifest"],
         ["Site", site],
-        ["Date range", date_range],
-        ["Timezone", timezone],
-        ["Date interpretation", _date_interpretation_text(timezone)],
+        ["Current date range", date_range],
+        *_date_semantics_rows(selection_timezone),
         ["Generated at", _freshness_text(audit.get("generated_at") or freshness)],
-        [],
-        ["Source", "Status", "Rows", "Freshness"],
     ]
+    rows.extend(_comparison_rows(comparison))
+    rows.extend([[], ["Source", "Status", "Rows", "Freshness"]])
     sources = audit.get("sources", {})
     if not isinstance(sources, Mapping):
         return rows
@@ -163,18 +199,21 @@ def _audit_rows(
 def _readme_rows(
     site: str,
     date_range: str,
-    timezone: str,
+    selection_timezone: str,
     freshness: str,
     source_names: Sequence[str],
+    comparison: object,
 ) -> list[list[Any]]:
-    return [
+    rows: list[list[Any]] = [
         ["Website Analytics Report"],
         ["Site", site],
-        ["Date range", date_range],
-        ["Timezone", timezone],
-        ["Date interpretation", _date_interpretation_text(timezone)],
+        ["Current date range", date_range],
+        *_date_semantics_rows(selection_timezone),
         ["Freshness", freshness],
         ["Sources", ", ".join(source_names)],
+    ]
+    rows.extend(_comparison_rows(comparison))
+    rows.extend([
         [],
         ["Metric semantics"],
         ["GA4 sessions", "Visits/session starts tracked by GA4."],
@@ -201,15 +240,77 @@ def _readme_rows(
             "GSC detail scope",
             "GSC page and query rows can be bounded or capped; partial reports are not exhaustive.",
         ],
+    ])
+    return rows
+
+
+def _comparison_rows(comparison: object) -> list[list[Any]]:
+    if not isinstance(comparison, Mapping):
+        return []
+    kind = _text(comparison.get("kind"))
+    previous_date_range = _date_range_text(comparison.get("date_range"))
+    if not kind or not previous_date_range:
+        return []
+    rows: list[list[Any]] = [
+        ["Comparison kind", kind],
+        ["Previous date range", previous_date_range],
     ]
+    freshness = _freshness_text(comparison.get("freshness"))
+    if freshness:
+        rows.append(["Comparison freshness", freshness])
+    status = _completion_text(comparison.get("complete"))
+    if status:
+        rows.append(["Comparison status", status])
+    previous_complete = _completion_text(comparison.get("previous_complete"))
+    if previous_complete:
+        rows.append(["Previous source completeness", previous_complete])
+    source_coverage = _completion_text(comparison.get("source_coverage_complete"))
+    if source_coverage:
+        rows.append(["Source coverage", source_coverage])
+    metric_coverage = _completion_text(comparison.get("metric_coverage_complete"))
+    if metric_coverage:
+        rows.append(["Metric coverage", metric_coverage])
+    source_statuses = _source_status_text(comparison.get("sources"))
+    if source_statuses:
+        rows.append(["Previous source status", source_statuses])
+    return rows
 
 
-def _date_interpretation_text(timezone: str) -> str:
-    return (
-        f"Date range is interpreted in {timezone}."
-        if timezone
-        else "Date range is interpreted in the site timezone."
-    )
+def _completion_text(value: object) -> str:
+    if value is True:
+        return "Complete"
+    if value is False:
+        return "Partial"
+    return ""
+
+
+def _source_status_text(value: object) -> str:
+    if not isinstance(value, Mapping):
+        return ""
+    statuses = []
+    for source in sorted(value):
+        status = value[source]
+        label = _text(status.get("status")) if isinstance(status, Mapping) else ""
+        statuses.append(f"{str(source).upper()}: {label or 'unknown'}")
+    return "; ".join(statuses)
+
+
+def _date_semantics_rows(selection_timezone: str) -> list[list[Any]]:
+    return [
+        ["Selection timezone", selection_timezone],
+        [
+            "Selection convention",
+            "Local convention only for relative dates; explicit ISO dates are passed unchanged.",
+        ],
+        [
+            "GA4 date boundary",
+            "GA4 uses its property reporting timezone; verify it matches selection timezone.",
+        ],
+        [
+            "GSC date boundary",
+            "GSC uses Pacific Time (PT; UTC-7/UTC-8); daily boundaries can differ.",
+        ],
+    ]
 
 
 def _source_names(

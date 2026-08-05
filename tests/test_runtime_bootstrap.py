@@ -52,3 +52,18 @@ def test_readme_documents_codex_loader_node_and_bootstrap_steps() -> None:
     assert "node on PATH" in text
     assert "setup-artifact-tool-runtime.ps1" in text
     assert "Renderer integration tests" in text
+
+
+def test_analytics_docs_distinguish_selection_convention_from_source_boundaries() -> None:
+    readme = (PROJECT_ROOT / "README.md").read_text(encoding="utf-8")
+    skill = (PROJECT_ROOT / "skill" / "website-analytics" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    metrics = (
+        PROJECT_ROOT / "skill" / "website-analytics" / "references" / "metrics.md"
+    ).read_text(encoding="utf-8")
+
+    for text in (readme, skill, metrics):
+        assert "selection_timezone" in text
+        assert "Pacific Time" in text
+        assert "property reporting timezone" in text
