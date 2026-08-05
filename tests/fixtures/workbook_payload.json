@@ -1,0 +1,89 @@
+{
+  "sheets": [
+    {
+      "name": "README",
+      "kind": "readme",
+      "detail": false,
+      "rows": [
+        ["Website Analytics Report"],
+        ["Site", "Demo Website"],
+        ["Date range", "2026-08-03 to 2026-08-09"],
+        ["Freshness", "Retrieved: 2026-08-10 01:00 UTC"],
+        ["Sources", "GA4, GSC"]
+      ]
+    },
+    {
+      "name": "Executive Summary",
+      "kind": "summary",
+      "detail": false,
+      "rows": [
+        ["Executive Summary"],
+        ["Site", "Demo Website"],
+        ["Date range", "2026-08-03 to 2026-08-09"],
+        ["Freshness", "Retrieved: 2026-08-10 01:00 UTC"],
+        [],
+        ["Source", "Metric", "Current", "Previous", "Delta"],
+        ["ga4", "sessions", 120.0, 100.0, 20.0],
+        ["gsc", "ctr", 0.1, 0.08, 0.02]
+      ]
+    },
+    {
+      "name": "GA4 Daily",
+      "kind": "detail",
+      "detail": true,
+      "rows": [
+        ["date", "sessions", "engagementRate"],
+        ["2026-08-03", 10.0, 0.5],
+        ["2026-08-04", 12.0, 0.55]
+      ]
+    },
+    {
+      "name": "GA4 Pages",
+      "kind": "detail",
+      "detail": true,
+      "rows": [
+        ["landingPagePlusQueryString", "sessions", "screenPageViews"],
+        ["/products", 15.0, 35.0]
+      ]
+    },
+    {
+      "name": "GSC Daily",
+      "kind": "detail",
+      "detail": true,
+      "rows": [
+        ["date", "clicks", "impressions", "ctr", "position"],
+        ["2026-08-03", 3.0, 30.0, 0.1, 5.5]
+      ]
+    },
+    {
+      "name": "GSC Pages",
+      "kind": "detail",
+      "detail": true,
+      "rows": [
+        ["page", "clicks", "impressions", "ctr", "position"],
+        ["https://example.com/products", 3.0, 30.0, 0.1, 5.5]
+      ]
+    },
+    {
+      "name": "GSC Queries",
+      "kind": "detail",
+      "detail": true,
+      "rows": [
+        ["query", "clicks", "impressions", "ctr", "position"],
+        ["custom antibody", 3.0, 30.0, 0.1, 5.5]
+      ]
+    },
+    {
+      "name": "Audit",
+      "kind": "audit",
+      "detail": false,
+      "rows": [
+        ["Audit Manifest"],
+        ["Generated at", "Retrieved: 2026-08-10 01:00 UTC"],
+        ["Source", "Status", "Rows", "Freshness"],
+        ["ga4", "ok", 3.0, "Retrieved: 2026-08-10 01:00 UTC"],
+        ["gsc", "ok", 3.0, "Retrieved: 2026-08-10 01:00 UTC"]
+      ]
+    }
+  ]
+}
