@@ -1,0 +1,11 @@
+{
+  "rows": [
+    {
+      "keys": ["https://example.com/products"],
+      "clicks": 5,
+      "impressions": 50,
+      "ctr": 0.1,
+      "position": 4
+    }
+  ]
+}

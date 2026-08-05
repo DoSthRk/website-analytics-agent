@@ -1,0 +1,26 @@
+{
+  "dimensionHeaders": [{"name": "date"}],
+  "metricHeaders": [
+    {"name": "sessions"},
+    {"name": "totalUsers"},
+    {"name": "activeUsers"},
+    {"name": "engagedSessions"},
+    {"name": "engagementRate"},
+    {"name": "screenPageViews"},
+    {"name": "keyEvents"}
+  ],
+  "rows": [
+    {
+      "dimensionValues": [{"value": "20260803"}],
+      "metricValues": [
+        {"value": "10"},
+        {"value": "8"},
+        {"value": "7"},
+        {"value": "6"},
+        {"value": "0.6"},
+        {"value": "30"},
+        {"value": "2"}
+      ]
+    }
+  ]
+}
