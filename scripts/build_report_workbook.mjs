@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 const TITLE_FILL = "#17365D";
 const HEADER_FILL = "#1F4E78";
@@ -30,11 +31,13 @@ const FIXED_SHEET_NAMES = new Set([
   "Audit",
 ]);
 
-const options = parseArgs(process.argv.slice(2));
-const result = options.worker
-  ? await buildWorkbook(options)
-  : await superviseRenderer(options);
-process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+if (isDirectInvocation()) {
+  const options = parseArgs(process.argv.slice(2));
+  const result = options.worker
+    ? await buildWorkbook(options)
+    : await superviseRenderer(options);
+  process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+}
 
 async function buildWorkbook(workerOptions) {
   const { SpreadsheetFile, Workbook } = await import("@oai/artifact-tool");
@@ -139,10 +142,10 @@ function runRendererWorker(supervisorOptions) {
   });
 }
 
-async function verifyGeneratedArtifacts(outputPath, renderPaths) {
+export async function verifyGeneratedArtifacts(outputPath, renderPaths) {
   try {
     const output = await fs.readFile(outputPath);
-    if (output.length < 4 || output[0] !== 0x50 || output[1] !== 0x4b) return false;
+    if (!isValidXlsxArchive(output)) return false;
     await Promise.all(
       renderPaths.map(async (renderPath) => {
         const status = await fs.stat(renderPath);
@@ -155,6 +158,67 @@ async function verifyGeneratedArtifacts(outputPath, renderPaths) {
   } catch {
     return false;
   }
+}
+
+function isDirectInvocation() {
+  const scriptPath = process.argv[1];
+  return Boolean(scriptPath) && import.meta.url === pathToFileURL(scriptPath).href;
+}
+
+function isValidXlsxArchive(content) {
+  const localFileHeader = 0x04034b50;
+  const centralDirectoryHeader = 0x02014b50;
+  const endOfCentralDirectory = 0x06054b50;
+  if (content.length < 22 || content.readUInt32LE(0) !== localFileHeader) return false;
+
+  const eocdOffset = findEndOfCentralDirectory(content, endOfCentralDirectory);
+  if (eocdOffset < 0 || eocdOffset + 22 > content.length) return false;
+  const commentLength = content.readUInt16LE(eocdOffset + 20);
+  if (eocdOffset + 22 + commentLength !== content.length) return false;
+  const diskNumber = content.readUInt16LE(eocdOffset + 4);
+  const centralDirectoryDisk = content.readUInt16LE(eocdOffset + 6);
+  const entriesOnDisk = content.readUInt16LE(eocdOffset + 8);
+  const totalEntries = content.readUInt16LE(eocdOffset + 10);
+  const centralDirectorySize = content.readUInt32LE(eocdOffset + 12);
+  const centralDirectoryOffset = content.readUInt32LE(eocdOffset + 16);
+  if (
+    diskNumber !== 0 ||
+    centralDirectoryDisk !== 0 ||
+    entriesOnDisk !== totalEntries ||
+    totalEntries === 0 ||
+    centralDirectoryOffset + centralDirectorySize > eocdOffset
+  ) {
+    return false;
+  }
+
+  const names = new Set();
+  let offset = centralDirectoryOffset;
+  for (let index = 0; index < totalEntries; index += 1) {
+    if (offset + 46 > eocdOffset || content.readUInt32LE(offset) !== centralDirectoryHeader) {
+      return false;
+    }
+    const nameLength = content.readUInt16LE(offset + 28);
+    const extraLength = content.readUInt16LE(offset + 30);
+    const entryCommentLength = content.readUInt16LE(offset + 32);
+    const entryEnd = offset + 46 + nameLength + extraLength + entryCommentLength;
+    if (entryEnd > eocdOffset) return false;
+    names.add(content.subarray(offset + 46, offset + 46 + nameLength).toString("utf8"));
+    offset = entryEnd;
+  }
+  return (
+    offset === centralDirectoryOffset + centralDirectorySize &&
+    names.has("[Content_Types].xml") &&
+    names.has("xl/workbook.xml") &&
+    names.has("xl/_rels/workbook.xml.rels")
+  );
+}
+
+function findEndOfCentralDirectory(content, signature) {
+  const start = Math.max(0, content.length - 0xffff - 22);
+  for (let offset = content.length - 22; offset >= start; offset -= 1) {
+    if (content.readUInt32LE(offset) === signature) return offset;
+  }
+  return -1;
 }
 
 function parseArgs(args) {

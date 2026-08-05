@@ -72,7 +72,7 @@ def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
     output_path = tmp_path / "fixture.xlsx"
     render_dir = tmp_path / "rendered"
 
-    subprocess.run(
+    completed = subprocess.run(
         [
             os.fspath(NODE),
             "scripts/build_report_workbook.mjs",
@@ -89,6 +89,10 @@ def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
         text=True,
     )
 
+    result = json.loads(completed.stdout)
+    assert result["outputsVerified"] is True
+    assert result["workerExitCode"] != 0
+    assert "renderer worker exited" in completed.stderr
     assert zipfile.is_zipfile(output_path)
     with zipfile.ZipFile(output_path) as archive:
         assert "xl/workbook.xml" in archive.namelist()
@@ -120,3 +124,32 @@ def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
         "gsc-queries.png",
         "readme.png",
     ]
+
+
+def test_verifier_rejects_a_pk_prefixed_file_that_is_not_a_zip(tmp_path: Path) -> None:
+    invalid_xlsx = tmp_path / "not-a-workbook.xlsx"
+    invalid_xlsx.write_bytes(b"PK\x03\x04not a real ZIP archive")
+    rendered_sheet = tmp_path / "readme.png"
+    rendered_sheet.write_bytes(b"not-empty-png-placeholder")
+
+    verification = subprocess.run(
+        [
+            os.fspath(NODE),
+            "--input-type=module",
+            "--eval",
+            (
+                "import { verifyGeneratedArtifacts } from "
+                "'./scripts/build_report_workbook.mjs'; "
+                "const verified = await verifyGeneratedArtifacts(process.argv[1], "
+                "[process.argv[2]]); process.stdout.write(String(verified));"
+            ),
+            os.fspath(invalid_xlsx),
+            os.fspath(rendered_sheet),
+        ],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert verification.stdout == "false"
