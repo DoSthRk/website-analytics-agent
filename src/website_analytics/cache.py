@@ -20,6 +20,16 @@ _SECRET_KEY_PARTS = (
     "api_key",
 )
 _UNSAFE_COMPONENT_CHARACTERS = frozenset('<>:"/\\|?*')
+_WINDOWS_RESERVED_DOS_NAMES = frozenset(
+    (
+        "con",
+        "prn",
+        "aux",
+        "nul",
+        *(f"com{number}" for number in range(1, 10)),
+        *(f"lpt{number}" for number in range(1, 10)),
+    )
+)
 
 
 def write_cached_json(
@@ -128,12 +138,19 @@ def _validate_component(value: object, label: str) -> None:
         not isinstance(value, str)
         or not value
         or value in {".", ".."}
+        or value.endswith((".", " "))
+        or _is_windows_reserved_component(value)
         or any(
             character in _UNSAFE_COMPONENT_CHARACTERS or ord(character) < 32
             for character in value
         )
     ):
         raise ValueError(f"{label} must be a safe single path component")
+
+
+def _is_windows_reserved_component(value: str) -> bool:
+    device_name = value.split(".", maxsplit=1)[0].rstrip(" ").casefold()
+    return device_name in _WINDOWS_RESERVED_DOS_NAMES
 
 
 def _path_within_root(candidate: Path, root: Path) -> Path:

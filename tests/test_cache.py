@@ -8,6 +8,25 @@ import pytest
 from website_analytics.cache import write_audit_manifest, write_cached_json
 
 
+_WINDOWS_DOS_DEVICE_NAMES = (
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    *(f"COM{number}" for number in range(1, 10)),
+    *(f"LPT{number}" for number in range(1, 10)),
+)
+_WINDOWS_COLLIDING_COMPONENTS = (
+    "demo.",
+    "demo ",
+    "...",
+    "nUl",
+    "cOn.cache",
+    *_WINDOWS_DOS_DEVICE_NAMES,
+    *(f"{name}.cache" for name in _WINDOWS_DOS_DEVICE_NAMES),
+)
+
+
 def test_cache_request_hash_is_deterministic_and_redacts_secret_values(tmp_path) -> None:
     first_request = {
         "property": "123",
@@ -51,6 +70,22 @@ def test_cache_request_hash_is_deterministic_and_redacts_secret_values(tmp_path)
     ],
 )
 def test_cache_rejects_unsafe_site_and_source_path_components(
+    tmp_path, site_key: str, source: str
+) -> None:
+    with pytest.raises(ValueError, match="safe single path component"):
+        write_cached_json(tmp_path, site_key, source, {"property": "123"}, [])
+
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("site_key", "source"),
+    [
+        *((component, "ga4") for component in _WINDOWS_COLLIDING_COMPONENTS),
+        *(("demo", component) for component in _WINDOWS_COLLIDING_COMPONENTS),
+    ],
+)
+def test_cache_rejects_windows_normalized_or_reserved_components_before_writes(
     tmp_path, site_key: str, source: str
 ) -> None:
     with pytest.raises(ValueError, match="safe single path component"):
