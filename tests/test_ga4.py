@@ -35,16 +35,31 @@ class FakeRow:
 @dataclass(frozen=True)
 class FakeResponse:
     rows: tuple[FakeRow, ...]
+    row_count: int | None = None
 
 
 class FakeGA4Client:
     def __init__(self, response: FakeResponse) -> None:
         self.response = response
         self.requests: list[object] = []
+        self._returned_response = False
 
     def run_report(self, request: object) -> FakeResponse:
         self.requests.append(request)
+        if self._returned_response:
+            return FakeResponse(rows=())
+        self._returned_response = True
         return self.response
+
+
+class PaginatedFakeGA4Client:
+    def __init__(self, responses: list[FakeResponse]) -> None:
+        self.responses = responses
+        self.requests: list[object] = []
+
+    def run_report(self, request: object) -> FakeResponse:
+        self.requests.append(request)
+        return self.responses.pop(0)
 
 
 def test_daily_sends_expected_ga4_request_and_normalizes_iso_date() -> None:
@@ -56,6 +71,8 @@ def test_daily_sends_expected_ga4_request_and_normalizes_iso_date() -> None:
     assert request.property == "properties/123456789"
     assert [dimension.name for dimension in request.dimensions] == ["date"]
     assert [metric.name for metric in request.metrics] == list(METRICS)
+    assert request.limit == 250000
+    assert request.offset == 0
     assert result == [
         {
             "date": "2026-08-03",
@@ -109,6 +126,32 @@ def test_daily_returns_empty_list_for_response_without_rows() -> None:
     assert GA4Adapter(client).daily(_site(), _date_range()) == []
 
 
+def test_pages_paginates_until_authoritative_row_count_and_retains_rows() -> None:
+    client = PaginatedFakeGA4Client(
+        [
+            FakeResponse(
+                rows=(
+                    _page_row("/first", "1"),
+                    _page_row("/second", "2"),
+                ),
+                row_count=3,
+            ),
+            FakeResponse(rows=(_page_row("/third", "3"),), row_count=3),
+        ]
+    )
+
+    result = GA4Adapter(client).pages(_site(), _date_range())
+
+    assert [request.limit for request in client.requests] == [250000, 250000]
+    assert [request.offset for request in client.requests] == [0, 2]
+    assert [row["landingPagePlusQueryString"] for row in result] == [
+        "/first",
+        "/second",
+        "/third",
+    ]
+    assert [row["sessions"] for row in result] == [1.0, 2.0, 3.0]
+
+
 def _response_from_fixture(name: str) -> FakeResponse:
     payload = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
     return FakeResponse(
@@ -123,6 +166,21 @@ def _response_from_fixture(name: str) -> FakeResponse:
             )
             for row in payload["rows"]
         )
+    )
+
+
+def _page_row(page: str, sessions: str) -> FakeRow:
+    return FakeRow(
+        dimension_values=(FakeValue(page),),
+        metric_values=(
+            FakeValue(sessions),
+            FakeValue("1"),
+            FakeValue("1"),
+            FakeValue("1"),
+            FakeValue("1"),
+            FakeValue("1"),
+            FakeValue("1"),
+        ),
     )
 
 

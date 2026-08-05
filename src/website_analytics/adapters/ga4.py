@@ -29,6 +29,7 @@ _METRICS = (
 
 _DAILY_DIMENSIONS = ("date",)
 _PAGE_DIMENSIONS = ("landingPagePlusQueryString",)
+_PAGE_SIZE = 250_000
 
 AnalyticsRow = dict[str, str | float]
 
@@ -58,22 +59,34 @@ class GA4Adapter:
         date_range: DateRange,
         dimensions: tuple[str, ...],
     ) -> list[AnalyticsRow]:
-        request = RunReportRequest(
-            property=f"properties/{site.ga4_property_id}",
-            dimensions=[Dimension(name=name) for name in dimensions],
-            metrics=[Metric(name=name) for name in _METRICS],
-            date_ranges=[
-                GA4DateRange(
-                    start_date=date_range.start.isoformat(),
-                    end_date=date_range.end.isoformat(),
-                )
-            ],
-        )
-        response = self._client.run_report(request)
-        return [
-            _normalize_row(row, dimensions)
-            for row in response.rows
-        ]
+        normalized_rows: list[AnalyticsRow] = []
+        while True:
+            request = RunReportRequest(
+                property=f"properties/{site.ga4_property_id}",
+                dimensions=[Dimension(name=name) for name in dimensions],
+                metrics=[Metric(name=name) for name in _METRICS],
+                date_ranges=[
+                    GA4DateRange(
+                        start_date=date_range.start.isoformat(),
+                        end_date=date_range.end.isoformat(),
+                    )
+                ],
+                limit=_PAGE_SIZE,
+                offset=len(normalized_rows),
+            )
+            response = self._client.run_report(request)
+            page_rows = list(response.rows)
+            normalized_rows.extend(
+                _normalize_row(row, dimensions) for row in page_rows
+            )
+
+            row_count = _row_count(response)
+            if row_count is not None and len(normalized_rows) >= row_count:
+                return normalized_rows
+            if not page_rows:
+                if row_count is None:
+                    return normalized_rows
+                raise ValueError("GA4 response ended before its reported row_count")
 
 
 def _normalize_row(row: Row, dimensions: Sequence[str]) -> AnalyticsRow:
@@ -90,6 +103,15 @@ def _normalize_row(row: Row, dimensions: Sequence[str]) -> AnalyticsRow:
         }
     )
     return normalized
+
+
+def _row_count(response: RunReportResponse) -> int | None:
+    value = getattr(response, "row_count", None)
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError("GA4 response row_count must be a non-negative integer")
+    return value
 
 
 def _normalize_dimension_value(dimension: str, value: str) -> str:
