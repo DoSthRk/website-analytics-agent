@@ -16,14 +16,26 @@ _WINDOWS_DOS_DEVICE_NAMES = (
     *(f"COM{number}" for number in range(1, 10)),
     *(f"LPT{number}" for number in range(1, 10)),
 )
+_WINDOWS_SUPERSCRIPT_DOS_DEVICE_NAMES = (
+    "COM¹",
+    "COM²",
+    "COM³",
+    "LPT¹",
+    "LPT²",
+    "LPT³",
+)
 _WINDOWS_COLLIDING_COMPONENTS = (
     "demo.",
     "demo ",
     "...",
     "nUl",
     "cOn.cache",
+    "com¹",
+    "lPt³.cache",
     *_WINDOWS_DOS_DEVICE_NAMES,
     *(f"{name}.cache" for name in _WINDOWS_DOS_DEVICE_NAMES),
+    *_WINDOWS_SUPERSCRIPT_DOS_DEVICE_NAMES,
+    *(f"{name}.cache" for name in _WINDOWS_SUPERSCRIPT_DOS_DEVICE_NAMES),
 )
 
 

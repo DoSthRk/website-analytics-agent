@@ -28,6 +28,12 @@ _WINDOWS_RESERVED_DOS_NAMES = frozenset(
         "nul",
         *(f"com{number}" for number in range(1, 10)),
         *(f"lpt{number}" for number in range(1, 10)),
+        "com¹",
+        "com²",
+        "com³",
+        "lpt¹",
+        "lpt²",
+        "lpt³",
     )
 )
 
