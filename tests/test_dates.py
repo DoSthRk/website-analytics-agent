@@ -18,3 +18,10 @@ def test_previous_period_has_the_same_length_and_ends_before_current_range() -> 
 def test_parse_date_range_rejects_an_end_before_start() -> None:
     with pytest.raises(DateRangeError, match="on or after"):
         parse_date_range("2026-08-09", "2026-08-03")
+
+
+def test_previous_period_rejects_a_range_without_an_earlier_period() -> None:
+    date_range = parse_date_range("0001-01-01", "0001-01-01")
+
+    with pytest.raises(DateRangeError, match="no available previous period"):
+        previous_period(date_range)

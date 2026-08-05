@@ -24,6 +24,9 @@ def parse_date_range(start: str, end: str) -> DateRange:
 
 def previous_period(date_range: DateRange) -> DateRange:
     """Return the equal-length date range immediately before ``date_range``."""
-    length = date_range.end - date_range.start
-    previous_end = date_range.start - timedelta(days=1)
-    return DateRange(start=previous_end - length, end=previous_end)
+    try:
+        length = date_range.end - date_range.start
+        previous_end = date_range.start - timedelta(days=1)
+        return DateRange(start=previous_end - length, end=previous_end)
+    except OverflowError as error:
+        raise DateRangeError("no available previous period for this date range") from error

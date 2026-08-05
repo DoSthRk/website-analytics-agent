@@ -57,3 +57,57 @@ sites:
 
     with pytest.raises(ConfigError, match="display_name"):
         load_sites(config_path)
+
+
+def test_load_sites_rejects_duplicate_yaml_site_key(tmp_path) -> None:
+    config_path = tmp_path / "sites.yaml"
+    config_path.write_text(
+        """
+sites:
+  demo:
+    display_name: First demo
+    domains:
+      - example.com
+    timezone: Asia/Shanghai
+    ga4_property_id: 123
+    gsc_property_url: sc-domain:example.com
+  demo:
+    display_name: Second demo
+    domains:
+      - example.com
+    timezone: Asia/Shanghai
+    ga4_property_id: 456
+    gsc_property_url: sc-domain:example.com
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="duplicate YAML key 'demo'"):
+        load_sites(config_path)
+
+
+def test_load_sites_rejects_site_keys_that_collide_after_trimming(tmp_path) -> None:
+    config_path = tmp_path / "sites.yaml"
+    config_path.write_text(
+        """
+sites:
+  demo:
+    display_name: First demo
+    domains:
+      - example.com
+    timezone: Asia/Shanghai
+    ga4_property_id: 123
+    gsc_property_url: sc-domain:example.com
+  ' demo ':
+    display_name: Second demo
+    domains:
+      - example.com
+    timezone: Asia/Shanghai
+    ga4_property_id: 456
+    gsc_property_url: sc-domain:example.com
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="duplicate site key 'demo'"):
+        load_sites(config_path)

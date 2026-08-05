@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Hashable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -13,11 +13,44 @@ class ConfigError(ValueError):
     """Raised when a site configuration cannot be used safely."""
 
 
+class _DuplicateYamlKeyError(yaml.YAMLError):
+    """Raised when a YAML mapping repeats a key."""
+
+
+class _DuplicateKeySafeLoader(yaml.SafeLoader):
+    """Safe YAML loader that rejects duplicate keys in every mapping."""
+
+
+def _construct_unique_mapping(
+    loader: _DuplicateKeySafeLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[Hashable, Any]:
+    mapping: dict[Hashable, Any] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if not isinstance(key, Hashable):
+            raise yaml.constructor.ConstructorError(
+                "while constructing a mapping",
+                node.start_mark,
+                "found unhashable key",
+                key_node.start_mark,
+            )
+        if key in mapping:
+            raise _DuplicateYamlKeyError(f"duplicate YAML key {key!r}")
+        mapping[key] = loader.construct_object(value_node, deep=deep)
+    return mapping
+
+
+_DuplicateKeySafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_mapping,
+)
+
+
 def load_sites(path: str | Path) -> dict[str, SiteConfig]:
     """Load and validate the registered sites from a YAML configuration file."""
     try:
         with Path(path).open(encoding="utf-8") as config_file:
-            document = yaml.safe_load(config_file)
+            document = yaml.load(config_file, Loader=_DuplicateKeySafeLoader)
     except (OSError, yaml.YAMLError) as error:
         raise ConfigError(f"could not load site configuration: {error}") from error
 
@@ -33,6 +66,8 @@ def load_sites(path: str | Path) -> dict[str, SiteConfig]:
         if not isinstance(raw_key, str) or not raw_key.strip():
             raise ConfigError("site keys must be nonblank strings")
         site_key = raw_key.strip()
+        if site_key in sites:
+            raise ConfigError(f"duplicate site key '{site_key}' after trimming")
         if not isinstance(raw_site, Mapping):
             raise ConfigError(f"site '{site_key}' must be a mapping")
 
