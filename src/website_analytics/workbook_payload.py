@@ -28,6 +28,7 @@ def build_workbook_payload(
     _validate_detail_names(details)
     site = _text(report.get("display_name") or report.get("site"))
     date_range = _date_range_text(report.get("date_range"))
+    timezone = _text(report.get("timezone"))
     freshness = _freshness_text(report.get("freshness") or audit.get("generated_at"))
     source_names = _source_names(details, audit)
 
@@ -35,18 +36,14 @@ def build_workbook_payload(
         _sheet(
             "README",
             "readme",
-            [
-                ["Website Analytics Report"],
-                ["Site", site],
-                ["Date range", date_range],
-                ["Freshness", freshness],
-                ["Sources", ", ".join(source_names)],
-            ],
+            _readme_rows(site, date_range, timezone, freshness, source_names),
         ),
         _sheet(
             "Executive Summary",
             "summary",
-            _summary_rows(site, date_range, freshness, report.get("comparison")),
+            _summary_rows(
+                site, date_range, timezone, freshness, report.get("comparison")
+            ),
         ),
     ]
 
@@ -65,7 +62,7 @@ def build_workbook_payload(
         _sheet(
             "Audit",
             "audit",
-            _audit_rows(site, date_range, freshness, audit),
+            _audit_rows(site, date_range, timezone, freshness, audit),
         )
     )
     payload = {"sheets": sheets}
@@ -80,12 +77,14 @@ def _sheet(
 
 
 def _summary_rows(
-    site: str, date_range: str, freshness: str, comparison: object
+    site: str, date_range: str, timezone: str, freshness: str, comparison: object
 ) -> list[list[Any]]:
     rows: list[list[Any]] = [
         ["Executive Summary"],
         ["Site", site],
         ["Date range", date_range],
+        ["Timezone", timezone],
+        ["Date interpretation", _date_interpretation_text(timezone)],
         ["Freshness", freshness],
         [],
         ["Source", "Metric", "Current", "Previous", "Delta"],
@@ -131,12 +130,14 @@ def _detail_rows(records: Sequence[Mapping[str, Any]]) -> list[list[Any]]:
 
 
 def _audit_rows(
-    site: str, date_range: str, freshness: str, audit: Mapping[str, Any]
+    site: str, date_range: str, timezone: str, freshness: str, audit: Mapping[str, Any]
 ) -> list[list[Any]]:
     rows: list[list[Any]] = [
         ["Audit Manifest"],
         ["Site", site],
         ["Date range", date_range],
+        ["Timezone", timezone],
+        ["Date interpretation", _date_interpretation_text(timezone)],
         ["Generated at", _freshness_text(audit.get("generated_at") or freshness)],
         [],
         ["Source", "Status", "Rows", "Freshness"],
@@ -157,6 +158,58 @@ def _audit_rows(
             ]
         )
     return rows
+
+
+def _readme_rows(
+    site: str,
+    date_range: str,
+    timezone: str,
+    freshness: str,
+    source_names: Sequence[str],
+) -> list[list[Any]]:
+    return [
+        ["Website Analytics Report"],
+        ["Site", site],
+        ["Date range", date_range],
+        ["Timezone", timezone],
+        ["Date interpretation", _date_interpretation_text(timezone)],
+        ["Freshness", freshness],
+        ["Sources", ", ".join(source_names)],
+        [],
+        ["Metric semantics"],
+        ["GA4 sessions", "Visits/session starts tracked by GA4."],
+        [
+            "GA4 users",
+            "Users are unique within the selected interval; interval aggregates are not daily sums.",
+        ],
+        ["GA4 key events", "Configured GA4 key-event count."],
+        ["GSC clicks", "Google Search result clicks."],
+        ["GSC impressions", "Google Search result impressions."],
+        ["GSC CTR", "Clicks divided by impressions."],
+        ["GSC position", "Impression-weighted average search position."],
+        [],
+        ["Limitations"],
+        [
+            "GA4 vs GSC",
+            "GA4 sessions are not GSC clicks; the platforms measure different actions.",
+        ],
+        [
+            "GA4 user aggregation",
+            "Users are unique within an interval; do not add daily user values.",
+        ],
+        [
+            "GSC detail scope",
+            "GSC page and query rows can be bounded or capped; partial reports are not exhaustive.",
+        ],
+    ]
+
+
+def _date_interpretation_text(timezone: str) -> str:
+    return (
+        f"Date range is interpreted in {timezone}."
+        if timezone
+        else "Date range is interpreted in the site timezone."
+    )
 
 
 def _source_names(

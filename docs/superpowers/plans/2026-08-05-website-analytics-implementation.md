@@ -407,7 +407,8 @@ await output.save(outputPath);
 
 ~~~powershell
 python -m pytest tests/test_excel.py -q
-C:\Users\dosth\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe scripts\build_report_workbook.mjs --input tests\fixtures\workbook_payload.json --output exports\fixture.xlsx --render-dir exports\rendered
+$node = if ($env:WEBSITE_ANALYTICS_NODE) { $env:WEBSITE_ANALYTICS_NODE } else { (Get-Command node -ErrorAction Stop).Source }
+& $node scripts\build_report_workbook.mjs --input tests\fixtures\workbook_payload.json --output exports\fixture.xlsx --render-dir exports\rendered
 python -c "import zipfile; print(zipfile.is_zipfile('exports\\fixture.xlsx'))"
 git add src/website_analytics/workbook_payload.py scripts/build_report_workbook.mjs tests/test_excel.py
 git commit -m "feat: export analytics workbook"

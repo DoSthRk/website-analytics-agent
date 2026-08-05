@@ -86,3 +86,7 @@ $env:WEBSITE_ANALYTICS_NODE = '<Node executable path returned by the Codex depen
 ```
 
 这会生成固定顺序的 README、Executive Summary、GA4 Daily、GA4 Pages、GSC Daily、GSC Pages、GSC Queries 和 Audit 工作表。输出 JSON 会记录来源状态、日期范围、数据新鲜度和导出验证结果；不会输出原始 Google API JSON。
+
+### Excel test runtime contract
+
+Renderer integration tests discover Node.js from `WEBSITE_ANALYTICS_NODE` first, then `node on PATH`. They skip only when neither executable is available or the local `@oai/artifact-tool` runtime has not been linked. On a fresh clone, run **load workspace dependencies**, set `WEBSITE_ANALYTICS_NODE` when Node is not on PATH, then run `scripts/setup-artifact-tool-runtime.ps1` with the Node modules path returned by the dependency loader. The project never guesses a runtime path, installs packages, or relies on a global Artifact Tool installation.

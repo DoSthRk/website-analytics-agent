@@ -13,7 +13,8 @@ def compare_totals(
     _validate_metric_values(current, "current")
     _validate_metric_values(previous, "previous")
 
-    metrics: dict[str, dict[str, dict[str, int | float | None]]] = {}
+    metrics: dict[str, dict[str, dict[str, int | float | bool | None]]] = {}
+    metric_coverage_complete = True
     for source in sorted(set(current) | set(previous)):
         current_metrics = current.get(source, {})
         previous_metrics = previous.get(source, {})
@@ -21,16 +22,25 @@ def compare_totals(
         for metric in sorted(set(current_metrics) | set(previous_metrics)):
             current_value = current_metrics.get(metric)
             previous_value = previous_metrics.get(metric)
+            available = current_value is not None and previous_value is not None
+            metric_coverage_complete = metric_coverage_complete and available
             source_metrics[metric] = {
                 "current": current_value,
                 "previous": previous_value,
+                "available": available,
                 "delta": (
                     current_value - previous_value
-                    if current_value is not None and previous_value is not None
+                    if available
                     else None
                 ),
             }
-    return {"complete": set(current) == set(previous), "metrics": metrics}
+    source_coverage_complete = set(current) == set(previous)
+    return {
+        "complete": source_coverage_complete and metric_coverage_complete,
+        "source_coverage_complete": source_coverage_complete,
+        "metric_coverage_complete": metric_coverage_complete,
+        "metrics": metrics,
+    }
 
 
 def _validate_metric_values(

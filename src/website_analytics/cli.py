@@ -177,6 +177,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "command": args.command,
                     "site": site.site_key,
                     "config": str(args.config),
+                    "timezone": site.timezone,
                     "offline": True,
                 }
             )
@@ -192,13 +193,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         current = _collect_dataset(site, date_range, args.fixture_dir)
         previous = _collect_dataset(site, comparison_range, args.fixture_dir)
         comparison = compare_totals(current["totals"], previous["totals"])
-        metric_coverage_complete = comparison["complete"]
-        comparison_complete = bool(previous["complete"] and metric_coverage_complete)
+        metric_coverage_complete = comparison["metric_coverage_complete"]
+        comparison_complete = bool(previous["complete"] and comparison["complete"])
         result = _base_result(args.command, site, current)
         result["comparison"] = {
             "kind": args.compare,
             "date_range": _range_json(comparison_range),
+            "timezone": site.timezone,
+            "date_range_interpretation": _date_range_interpretation(site),
             "sources": previous["audit"]["sources"],
+            "source_coverage_complete": comparison["source_coverage_complete"],
             "metric_coverage_complete": metric_coverage_complete,
             "complete": comparison_complete,
             "metrics": comparison["metrics"],
@@ -226,6 +230,8 @@ def main(argv: Sequence[str] | None = None) -> int:
                     "site": site.site_key,
                     "display_name": site.display_name,
                     "date_range": _range_json(date_range),
+                    "timezone": site.timezone,
+                    "date_range_interpretation": _date_range_interpretation(site),
                     "freshness": current["freshness"],
                     "comparison": comparison,
                 },
@@ -457,6 +463,8 @@ def _base_result(command: str, site: SiteConfig, dataset: Mapping[str, Any]) -> 
         "site": site.site_key,
         "display_name": site.display_name,
         "date_range": _range_json(dataset["date_range"]),
+        "timezone": site.timezone,
+        "date_range_interpretation": _date_range_interpretation(site),
         "freshness": dataset["freshness"],
         "complete": dataset["complete"],
         "sources": dataset["audit"]["sources"],
@@ -466,6 +474,10 @@ def _base_result(command: str, site: SiteConfig, dataset: Mapping[str, Any]) -> 
 
 def _range_json(date_range: DateRange) -> dict[str, str]:
     return {"start": date_range.start.isoformat(), "end": date_range.end.isoformat()}
+
+
+def _date_range_interpretation(site: SiteConfig) -> str:
+    return f"Date range is interpreted in {site.timezone}."
 
 
 def _persist_dataset(
@@ -488,6 +500,8 @@ def _persist_dataset(
         "command": command,
         "site": site.site_key,
         "date_range": _range_json(current["date_range"]),
+        "timezone": site.timezone,
+        "date_range_interpretation": _date_range_interpretation(site),
     }
     if previous is not None:
         request["previous_date_range"] = _range_json(previous["date_range"])

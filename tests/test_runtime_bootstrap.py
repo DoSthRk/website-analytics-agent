@@ -49,4 +49,6 @@ def test_readme_documents_codex_loader_node_and_bootstrap_steps() -> None:
 
     assert "load workspace dependencies" in text
     assert "WEBSITE_ANALYTICS_NODE" in text
+    assert "node on PATH" in text
     assert "setup-artifact-tool-runtime.ps1" in text
+    assert "Renderer integration tests" in text

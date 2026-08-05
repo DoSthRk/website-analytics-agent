@@ -3,19 +3,35 @@ from __future__ import annotations
 import json
 import hashlib
 import os
+import shutil
 import subprocess
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
 from urllib.parse import parse_qsl, urlsplit
 
+import pytest
+
 from website_analytics.workbook_payload import DETAIL_SHEET_ORDER, build_workbook_payload
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-NODE = Path(
-    r"C:\Users\dosth\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
-)
+
+
+def _renderer_node_or_skip() -> str:
+    configured = os.environ.get("WEBSITE_ANALYTICS_NODE")
+    node = configured or shutil.which("node")
+    if not node or not Path(node).is_file():
+        pytest.skip(
+            "Renderer integration requires WEBSITE_ANALYTICS_NODE or node on PATH. "
+            "Run the documented Excel runtime bootstrap first."
+        )
+    if not (PROJECT_ROOT / "node_modules" / "@oai" / "artifact-tool").is_dir():
+        pytest.skip(
+            "Renderer integration requires local @oai/artifact-tool. "
+            "Run scripts/setup-artifact-tool-runtime.ps1 with the Codex dependency loader output."
+        )
+    return node
 
 
 def test_payload_has_fixed_sheet_order_and_json_safe_typed_numbers() -> None:
@@ -24,6 +40,7 @@ def test_payload_has_fixed_sheet_order_and_json_safe_typed_numbers() -> None:
             "site": "demo",
             "display_name": "Demo Website",
             "date_range": {"start": "2026-08-03", "end": "2026-08-09"},
+            "timezone": "Asia/Shanghai",
             "freshness": "2026-08-10T01:00:00Z",
             "comparison": {
                 "metrics": {
@@ -61,9 +78,11 @@ def test_payload_has_fixed_sheet_order_and_json_safe_typed_numbers() -> None:
         ["2026-08-03", 10.0, 0.5],
     ]
     assert payload["sheets"][2]["detail"] is True
-    assert payload["sheets"][0]["rows"][3][1] == "Retrieved: 2026-08-10 01:00 UTC"
-    assert payload["sheets"][1]["rows"][3][1] == "Retrieved: 2026-08-10 01:00 UTC"
-    assert payload["sheets"][-1]["rows"][3][1] == "Retrieved: 2026-08-10 01:00 UTC"
+    assert ["Timezone", "Asia/Shanghai"] in payload["sheets"][0]["rows"]
+    assert ["Date interpretation", "Date range is interpreted in Asia/Shanghai."] in payload["sheets"][0]["rows"]
+    assert ["Timezone", "Asia/Shanghai"] in payload["sheets"][1]["rows"]
+    assert ["Date interpretation", "Date range is interpreted in Asia/Shanghai."] in payload["sheets"][1]["rows"]
+    assert ["Timezone", "Asia/Shanghai"] in payload["sheets"][-1]["rows"]
     assert json.loads(json.dumps(payload)) == payload
 
 
@@ -87,6 +106,81 @@ def test_workbook_payload_redacts_sensitive_url_parameters_before_excel_export()
     assert parameters["utm_source"] == "partner"
 
 
+def test_exported_workbook_keeps_a_self_describing_readme(
+    tmp_path: Path,
+) -> None:
+    payload = build_workbook_payload(
+        {
+            "site": "demo",
+            "display_name": "Demo Website",
+            "date_range": {"start": "2026-08-03", "end": "2026-08-09"},
+            "timezone": "Asia/Shanghai",
+            "freshness": "2026-08-10T01:00:00Z",
+        },
+        {
+            "GA4 Daily": [{"date": "2026-08-03", "sessions": 1.0}],
+            "GSC Daily": [{"date": "2026-08-03", "clicks": 1.0}],
+        },
+        {
+            "generated_at": "2026-08-10T01:00:00Z",
+            "sources": {"ga4": {"status": "ok"}, "gsc": {"status": "ok"}},
+        },
+    )
+    readme_rows = payload["sheets"][0]["rows"]
+    expected_rows = [
+        ["Metric semantics"],
+        ["GA4 sessions", "Visits/session starts tracked by GA4."],
+        [
+            "GA4 users",
+            "Users are unique within the selected interval; interval aggregates are not daily sums.",
+        ],
+        ["GA4 key events", "Configured GA4 key-event count."],
+        ["GSC clicks", "Google Search result clicks."],
+        ["GSC impressions", "Google Search result impressions."],
+        ["GSC CTR", "Clicks divided by impressions."],
+        ["GSC position", "Impression-weighted average search position."],
+        ["Limitations"],
+        [
+            "GA4 vs GSC",
+            "GA4 sessions are not GSC clicks; the platforms measure different actions.",
+        ],
+        [
+            "GA4 user aggregation",
+            "Users are unique within an interval; do not add daily user values.",
+        ],
+        [
+            "GSC detail scope",
+            "GSC page and query rows can be bounded or capped; partial reports are not exhaustive.",
+        ],
+    ]
+    assert all(row in readme_rows for row in expected_rows)
+
+    input_path = tmp_path / "payload.json"
+    output_path = tmp_path / "report.xlsx"
+    render_dir = tmp_path / "renders"
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+    _build_fixture_workbook(input_path, output_path, render_dir)
+
+    with zipfile.ZipFile(output_path) as archive:
+        workbook_xml = b"\n".join(
+            archive.read(name)
+            for name in archive.namelist()
+            if name.startswith("xl/") and name.endswith(".xml")
+        ).decode("utf-8")
+    for expected in (
+        "GA4 sessions",
+        "GA4 users",
+        "GA4 key events",
+        "GSC clicks",
+        "GSC impressions",
+        "GSC CTR",
+        "GSC position",
+        "GA4 sessions are not GSC clicks",
+        "GSC page and query rows can be bounded or capped",
+    ):
+        assert expected in workbook_xml
+
+
 def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
     tmp_path: Path,
 ) -> None:
@@ -96,7 +190,7 @@ def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
 
     completed = subprocess.run(
         [
-            os.fspath(NODE),
+            os.fspath(_renderer_node_or_skip()),
             "scripts/build_report_workbook.mjs",
             "--input",
             os.fspath(fixture_path),
@@ -132,7 +226,7 @@ def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
     ]
     audit_header_styles = [
         cell.attrib.get("s")
-        for cell in audit_sheet.findall("{*}sheetData/{*}row[@r='3']/{*}c")
+        for cell in audit_sheet.findall("{*}sheetData/{*}row[@r='7']/{*}c")
     ]
     assert len(audit_header_styles) == 4
     assert len(set(audit_header_styles)) == 1
@@ -156,7 +250,7 @@ def test_verifier_rejects_a_pk_prefixed_file_that_is_not_a_zip(tmp_path: Path) -
 
     verification = subprocess.run(
         [
-            os.fspath(NODE),
+            os.fspath(_renderer_node_or_skip()),
             "--input-type=module",
             "--eval",
             (
@@ -185,7 +279,7 @@ def test_supervisor_rejects_forced_worker_failure_despite_stale_valid_outputs(
     render_dir = tmp_path / "stale-rendered"
     subprocess.run(
         [
-            os.fspath(NODE),
+            os.fspath(_renderer_node_or_skip()),
             "scripts/build_report_workbook.mjs",
             "--input",
             os.fspath(fixture_path),
@@ -207,7 +301,7 @@ def test_supervisor_rejects_forced_worker_failure_despite_stale_valid_outputs(
 
     forced_failure = subprocess.run(
         [
-            os.fspath(NODE),
+            os.fspath(_renderer_node_or_skip()),
             "--input-type=module",
             "--eval",
             (
@@ -302,7 +396,7 @@ def test_promotion_failure_rolls_back_xlsx_and_all_expected_pngs(tmp_path: Path)
 
     rejected = subprocess.run(
         [
-            os.fspath(NODE),
+            os.fspath(_renderer_node_or_skip()),
             "--input-type=module",
             "--eval",
             (
@@ -361,7 +455,7 @@ def test_failed_restore_preserves_the_unrestored_backup_for_recovery(
 
     rejected = subprocess.run(
         [
-            os.fspath(NODE),
+            os.fspath(_renderer_node_or_skip()),
             "--input-type=module",
             "--eval",
             (
@@ -414,7 +508,7 @@ def _run_supervisor_with_noop_worker(
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [
-            os.fspath(NODE),
+            os.fspath(_renderer_node_or_skip()),
             "--input-type=module",
             "--eval",
             (
@@ -437,7 +531,7 @@ def _run_supervisor_with_noop_worker(
 def _build_fixture_workbook(input_path: Path, output_path: Path, render_dir: Path) -> None:
     subprocess.run(
         [
-            os.fspath(NODE),
+            os.fspath(_renderer_node_or_skip()),
             "scripts/build_report_workbook.mjs",
             "--input",
             os.fspath(input_path),

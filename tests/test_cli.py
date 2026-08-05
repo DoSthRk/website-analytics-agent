@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import zipfile
 from datetime import date
@@ -16,9 +17,22 @@ from website_analytics.cli import build_parser
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 FIXTURES = PROJECT_ROOT / "tests" / "fixtures"
-NODE = Path(
-    r"C:\Users\dosth\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe"
-)
+
+
+def _renderer_node_or_skip() -> str:
+    configured = os.environ.get("WEBSITE_ANALYTICS_NODE")
+    node = configured or shutil.which("node")
+    if not node or not Path(node).is_file():
+        pytest.skip(
+            "Renderer integration requires WEBSITE_ANALYTICS_NODE or node on PATH. "
+            "Run the documented Excel runtime bootstrap first."
+        )
+    if not (PROJECT_ROOT / "node_modules" / "@oai" / "artifact-tool").is_dir():
+        pytest.skip(
+            "Renderer integration requires local @oai/artifact-tool. "
+            "Run scripts/setup-artifact-tool-runtime.ps1 with the Codex dependency loader output."
+        )
+    return node
 
 
 def test_validate_config_parser_accepts_registered_site() -> None:
@@ -64,8 +78,54 @@ def test_validate_config_is_fully_offline(
         "command": "validate-config",
         "site": "demo",
         "config": str(config),
+        "timezone": "Asia/Shanghai",
         "offline": True,
     }
+
+
+def test_report_and_audit_state_the_site_timezone_for_each_date_range(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = _copy_config(tmp_path)
+    cache_dir = tmp_path / "cache"
+    audit_dir = tmp_path / "audits"
+    monkeypatch.setattr(
+        cli,
+        "_create_live_adapters",
+        lambda: (_ for _ in ()).throw(AssertionError("fixture mode used Google clients")),
+    )
+
+    code = cli.main(
+        [
+            "report",
+            "--site",
+            "demo",
+            "--start",
+            "2026-08-03",
+            "--end",
+            "2026-08-09",
+            "--config",
+            str(config),
+            "--fixture-dir",
+            str(FIXTURES),
+            "--cache-dir",
+            str(cache_dir),
+            "--audit-dir",
+            str(audit_dir),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    result = json.loads(captured.out)
+    audit = json.loads(next(audit_dir.glob("*.json")).read_text(encoding="utf-8"))
+    interpretation = "Date range is interpreted in Asia/Shanghai."
+    assert code == 0
+    assert result["timezone"] == "Asia/Shanghai"
+    assert result["date_range_interpretation"] == interpretation
+    assert result["comparison"]["timezone"] == "Asia/Shanghai"
+    assert result["comparison"]["date_range_interpretation"] == interpretation
+    assert audit["request"]["timezone"] == "Asia/Shanghai"
+    assert audit["request"]["date_range_interpretation"] == interpretation
 
 
 def test_fixture_report_and_excel_export_are_end_to_end_offline(
@@ -75,7 +135,7 @@ def test_fixture_report_and_excel_export_are_end_to_end_offline(
     cache_dir = tmp_path / "cache"
     audit_dir = tmp_path / "audits"
     output = tmp_path / "demo.xlsx"
-    monkeypatch.setenv("WEBSITE_ANALYTICS_NODE", str(NODE))
+    monkeypatch.setenv("WEBSITE_ANALYTICS_NODE", _renderer_node_or_skip())
     monkeypatch.setattr(
         cli,
         "_create_live_adapters",
@@ -499,6 +559,84 @@ def test_previous_period_truncation_makes_report_and_export_unambiguously_partia
     assert export_capture.err == ""
     assert exported["status"] == "partial"
     assert exported["comparison"]["sources"]["gsc"]["truncated"] is True
+    assert not output.exists()
+
+
+def test_zero_impression_comparison_marks_missing_gsc_ratios_unavailable_and_blocks_export(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = _copy_config(tmp_path)
+    cache_dir = tmp_path / "cache"
+    audit_dir = tmp_path / "audits"
+    output = tmp_path / "zero-impressions.xlsx"
+    current = _period_dataset(
+        cli.DateRange(start=date(2026, 8, 3), end=date(2026, 8, 9)),
+        gsc_status="ok",
+        truncated=False,
+    )
+    previous = _period_dataset(
+        cli.DateRange(start=date(2026, 7, 27), end=date(2026, 8, 2)),
+        gsc_status="ok",
+        truncated=False,
+    )
+    current["totals"] = {"ga4": {"sessions": 1.0}, "gsc": {"clicks": 0.0, "impressions": 0.0}}
+    previous["totals"] = {
+        "ga4": {"sessions": 1.0},
+        "gsc": {"clicks": 4.0, "impressions": 20.0, "ctr": 0.2, "position": 5.5},
+    }
+    monkeypatch.setattr(
+        cli,
+        "_collect_dataset",
+        lambda site, date_range, fixture_dir: current
+        if date_range.start == date(2026, 8, 3)
+        else previous,
+    )
+    common = [
+        "--site",
+        "demo",
+        "--start",
+        "2026-08-03",
+        "--end",
+        "2026-08-09",
+        "--config",
+        str(config),
+        "--fixture-dir",
+        str(tmp_path),
+        "--cache-dir",
+        str(cache_dir),
+        "--audit-dir",
+        str(audit_dir),
+    ]
+
+    report_code = cli.main(["report", *common])
+
+    report_capture = capsys.readouterr()
+    report = json.loads(report_capture.out)
+    assert report_code == 3
+    assert report["status"] == "partial"
+    assert report["sources"]["gsc"]["status"] == "ok"
+    assert report["comparison"]["metric_coverage_complete"] is False
+    assert report["comparison"]["complete"] is False
+    assert report["comparison"]["metrics"]["gsc"]["ctr"] == {
+        "current": None,
+        "previous": 0.2,
+        "available": False,
+        "delta": None,
+    }
+    assert report["comparison"]["metrics"]["gsc"]["position"] == {
+        "current": None,
+        "previous": 5.5,
+        "available": False,
+        "delta": None,
+    }
+
+    export_code = cli.main(["export-excel", *common, "--output", str(output)])
+
+    export_capture = capsys.readouterr()
+    exported = json.loads(export_capture.out)
+    assert export_code == 3
+    assert exported["status"] == "partial"
+    assert exported["comparison"]["metric_coverage_complete"] is False
     assert not output.exists()
 
 

@@ -539,6 +539,9 @@ function formatSheet(sheet, sheetData, rows) {
   const allRange = sheet.getRangeByIndexes(0, 0, rowCount, columnCount);
   allRange.format.wrapText = true;
   applyColumnWidths(sheet, rows);
+  if (sheetData.kind === "readme") {
+    allRange.format.autofitRows();
+  }
 
   if (sheetData.detail) {
     styleHeader(sheet.getRangeByIndexes(0, 0, 1, columnCount));
