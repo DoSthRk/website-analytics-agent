@@ -5,7 +5,12 @@
 面向本地 Agent 的源 Skill 位于 `skill/website-analytics/`，其中包含受限命令流程和指标口径。仓库只跟踪该源包，不会自动安装到用户的 Codex skills 目录；审阅通过后再由用户按本机的 Skill 安装流程安装。可用以下命令检查源包结构：
 
 ```powershell
-.\.venv\Scripts\python.exe -X utf8 C:\Users\dosth\.codex\skills\.system\skill-creator\scripts\quick_validate.py skill\website-analytics
+$codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME '.codex' }
+$validator = Join-Path $codexHome 'skills\.system\skill-creator\scripts\quick_validate.py'
+if (-not (Test-Path -LiteralPath $validator)) {
+    throw "找不到 Skill validator；请使用包含 skill-creator 的 Codex 安装环境。"
+}
+& .\.venv\Scripts\python.exe -X utf8 $validator skill\website-analytics
 ```
 
 一个面向本地 Agent 的官网数据命令行工具：将已登记官网的 GA4 与 Google Search Console（GSC）数据拉取、对比、缓存审计并导出为 Excel。第一阶段只覆盖 **GA4 + GSC**，所有数据访问均为只读。
