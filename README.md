@@ -32,6 +32,8 @@ Copy-Item config\sites.example.yaml config\sites.yaml
 
 成功时标准输出为 JSON，退出码为 `0`。参数或配置不合法时退出码为 `2`；数据源失败或只有部分来源成功时为 `3`。
 
+对 `report` 与 `export-excel`，顶层 `sources` 表示当前期来源状态，`comparison.sources` 表示比较期来源状态；两期任一来源被截断时，顶层与 `comparison.complete` 都会是 `false`，并返回 `status: "partial"` 与退出码 `3`。
+
 ## 日常使用
 
 以下命令都只接受已登记的 `--site` 与 ISO 日期（`YYYY-MM-DD`）。`report` 和 `export-excel` 默认同比紧邻的等长上一周期；可选的另一种受限比较为 `--compare previous-4-weeks`。

@@ -434,6 +434,111 @@ def test_partial_export_retains_audit_context_and_returns_json_exit_three(
     assert not output.exists()
 
 
+def test_previous_period_truncation_makes_report_and_export_unambiguously_partial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = _copy_config(tmp_path)
+    cache_dir = tmp_path / "cache"
+    audit_dir = tmp_path / "audits"
+    output = tmp_path / "previous-partial.xlsx"
+    current = _period_dataset(
+        cli.DateRange(start=date(2026, 8, 3), end=date(2026, 8, 9)),
+        gsc_status="ok",
+        truncated=False,
+    )
+    previous = _period_dataset(
+        cli.DateRange(start=date(2026, 7, 27), end=date(2026, 8, 2)),
+        gsc_status="partial",
+        truncated=True,
+    )
+    monkeypatch.setattr(
+        cli,
+        "_collect_dataset",
+        lambda site, date_range, fixture_dir: current
+        if date_range.start == date(2026, 8, 3)
+        else previous,
+    )
+    common = [
+        "--site",
+        "demo",
+        "--start",
+        "2026-08-03",
+        "--end",
+        "2026-08-09",
+        "--config",
+        str(config),
+        "--fixture-dir",
+        str(tmp_path),
+        "--cache-dir",
+        str(cache_dir),
+        "--audit-dir",
+        str(audit_dir),
+    ]
+
+    report_code = cli.main(["report", *common])
+
+    report_capture = capsys.readouterr()
+    report = json.loads(report_capture.out)
+    assert report_code == 3
+    assert report_capture.err == ""
+    assert report["status"] == "partial"
+    assert report["complete"] is False
+    assert report["sources"]["gsc"]["status"] == "ok"
+    assert report["comparison"]["complete"] is False
+    assert report["comparison"]["metric_coverage_complete"] is True
+    assert report["comparison"]["sources"]["gsc"]["status"] == "partial"
+    assert report["comparison"]["sources"]["gsc"]["truncated"] is True
+    assert list(audit_dir.glob("*.json"))
+    assert list((cache_dir / "demo" / "gsc").glob("*.json"))
+
+    export_code = cli.main(["export-excel", *common, "--output", str(output)])
+
+    export_capture = capsys.readouterr()
+    exported = json.loads(export_capture.out)
+    assert export_code == 3
+    assert export_capture.err == ""
+    assert exported["status"] == "partial"
+    assert exported["comparison"]["sources"]["gsc"]["truncated"] is True
+    assert not output.exists()
+
+
+def _period_dataset(
+    date_range: cli.DateRange, *, gsc_status: str, truncated: bool
+) -> dict[str, object]:
+    details = {
+        "GA4 Daily": [],
+        "GA4 Pages": [],
+        "GSC Daily": [],
+        "GSC Pages": [],
+        "GSC Queries": [],
+    }
+    return {
+        "date_range": date_range,
+        "freshness": "2026-08-10T00:00:00Z",
+        "details": details,
+        "totals": {"ga4": {"sessions": 1.0}, "gsc": {"clicks": 1.0}},
+        "complete": gsc_status == "ok",
+        "audit": {
+            "generated_at": "2026-08-10T00:00:00Z",
+            "sources": {
+                "ga4": {"status": "ok", "rows": 0},
+                "gsc": {
+                    "status": gsc_status,
+                    "rows": 50000 if truncated else 0,
+                    "truncated": truncated,
+                    "details": {
+                        "GSC Pages": {
+                            "truncated": truncated,
+                            "row_cap": 50000,
+                            "rows": 50000 if truncated else 0,
+                        }
+                    },
+                },
+            },
+        },
+    }
+
+
 def _copy_config(tmp_path: Path) -> Path:
     destination = tmp_path / "sites.yaml"
     shutil.copy(PROJECT_ROOT / "config" / "sites.example.yaml", destination)

@@ -192,15 +192,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         current = _collect_dataset(site, date_range, args.fixture_dir)
         previous = _collect_dataset(site, comparison_range, args.fixture_dir)
         comparison = compare_totals(current["totals"], previous["totals"])
+        metric_coverage_complete = comparison["complete"]
+        comparison_complete = bool(previous["complete"] and metric_coverage_complete)
         result = _base_result(args.command, site, current)
         result["comparison"] = {
             "kind": args.compare,
             "date_range": _range_json(comparison_range),
-            **comparison,
+            "sources": previous["audit"]["sources"],
+            "metric_coverage_complete": metric_coverage_complete,
+            "complete": comparison_complete,
+            "metrics": comparison["metrics"],
         }
-        result["complete"] = bool(
-            current["complete"] and previous["complete"] and comparison["complete"]
-        )
+        result["complete"] = bool(current["complete"] and comparison_complete)
+        result["status"] = "ok" if result["complete"] else "partial"
 
         if args.command == "report":
             _persist_dataset(args, site, current, command=args.command, previous=previous)
