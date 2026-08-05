@@ -111,3 +111,48 @@ sites:
 
     with pytest.raises(ConfigError, match="duplicate site key 'demo'"):
         load_sites(config_path)
+
+
+def test_load_sites_rejects_unexpected_root_field(tmp_path) -> None:
+    config_path = tmp_path / "sites.yaml"
+    config_path.write_text(
+        """
+sites:
+  demo:
+    display_name: Demo site
+    domains:
+      - example.com
+    timezone: Asia/Shanghai
+    ga4_property_id: 123
+    gsc_property_url: sc-domain:example.com
+environment: production
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="unexpected root field 'environment'"):
+        load_sites(config_path)
+
+
+def test_load_sites_rejects_unexpected_site_field(tmp_path) -> None:
+    config_path = tmp_path / "sites.yaml"
+    config_path.write_text(
+        """
+sites:
+  demo:
+    display_name: Demo site
+    domains:
+      - example.com
+    timezone: Asia/Shanghai
+    ga4_property_id: 123
+    gsc_property_url: sc-domain:example.com
+    key_event:
+      - generate_lead
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(
+        ConfigError, match="site 'demo' has unexpected field 'key_event'"
+    ):
+        load_sites(config_path)

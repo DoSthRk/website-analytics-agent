@@ -9,6 +9,19 @@ import yaml
 from website_analytics.models import SiteConfig
 
 
+_ROOT_FIELDS = frozenset({"sites"})
+_SITE_FIELDS = frozenset(
+    {
+        "display_name",
+        "domains",
+        "timezone",
+        "ga4_property_id",
+        "gsc_property_url",
+        "key_events",
+    }
+)
+
+
 class ConfigError(ValueError):
     """Raised when a site configuration cannot be used safely."""
 
@@ -56,6 +69,7 @@ def load_sites(path: str | Path) -> dict[str, SiteConfig]:
 
     if not isinstance(document, Mapping):
         raise ConfigError("site configuration must be a mapping containing 'sites'")
+    _reject_unexpected_fields(document, _ROOT_FIELDS, "unexpected root field")
 
     raw_sites = document.get("sites")
     if not isinstance(raw_sites, Mapping):
@@ -70,6 +84,11 @@ def load_sites(path: str | Path) -> dict[str, SiteConfig]:
             raise ConfigError(f"duplicate site key '{site_key}' after trimming")
         if not isinstance(raw_site, Mapping):
             raise ConfigError(f"site '{site_key}' must be a mapping")
+        _reject_unexpected_fields(
+            raw_site,
+            _SITE_FIELDS,
+            f"site '{site_key}' has unexpected field",
+        )
 
         sites[site_key] = SiteConfig(
             site_key=site_key,
@@ -90,6 +109,16 @@ def require_site(sites: Mapping[str, SiteConfig], key: str) -> SiteConfig:
         return sites[key]
     except KeyError as error:
         raise ConfigError(f"site '{key}' is not registered") from error
+
+
+def _reject_unexpected_fields(
+    mapping: Mapping[Any, Any], allowed_fields: frozenset[str], message_prefix: str
+) -> None:
+    unexpected_fields = sorted(
+        (repr(field) for field in mapping if field not in allowed_fields)
+    )
+    if unexpected_fields:
+        raise ConfigError(f"{message_prefix} {unexpected_fields[0]}")
 
 
 def _required_text(site: Mapping[str, Any], site_key: str, field: str) -> str:
