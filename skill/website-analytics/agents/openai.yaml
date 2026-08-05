@@ -1,0 +1,4 @@
+interface:
+  display_name: "Website Analytics"
+  short_description: "安全汇总和导出已登记官网的 GA4、GSC 流量、自然搜索及页面表现数据"
+  default_prompt: "使用 $website-analytics 分析 demo 官网上周的 GA4 和 GSC 流量。"

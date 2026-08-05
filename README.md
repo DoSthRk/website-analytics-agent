@@ -1,5 +1,13 @@
 # Website Analytics Agent
 
+## Codex Skill 源包
+
+面向本地 Agent 的源 Skill 位于 `skill/website-analytics/`，其中包含受限命令流程和指标口径。仓库只跟踪该源包，不会自动安装到用户的 Codex skills 目录；审阅通过后再由用户按本机的 Skill 安装流程安装。可用以下命令检查源包结构：
+
+```powershell
+.\.venv\Scripts\python.exe -X utf8 C:\Users\dosth\.codex\skills\.system\skill-creator\scripts\quick_validate.py skill\website-analytics
+```
+
 一个面向本地 Agent 的官网数据命令行工具：将已登记官网的 GA4 与 Google Search Console（GSC）数据拉取、对比、缓存审计并导出为 Excel。第一阶段只覆盖 **GA4 + GSC**，所有数据访问均为只读。
 
 工具只接受配置文件中登记的网站，不提供任意 URL、任意 API 请求体、维度、SQL 或凭据参数。命令结果只会输出机器可读 JSON；输入和配置错误输出到标准错误。
