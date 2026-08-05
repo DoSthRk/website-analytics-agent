@@ -4,9 +4,9 @@
 
 **Goal:** Build a local, read-only GA4/GSC reporting CLI with a Codex Skill, fixture-driven tests, audit manifests, and Excel exports.
 
-**Architecture:** Place deterministic API calls, normalization, comparison, caching, audit generation, and workbook creation in a Python package. The Codex Skill only turns a natural-language request into validated CLI arguments and interprets structured output. Inject Google clients into adapters so every test runs with fixtures and never needs a Google account.
+**Architecture:** Place deterministic API calls, normalization, comparison, caching, audit generation, and JSON workbook-payload creation in a Python package. Build XLSX files through one Node.js Artifact Tool script, invoked by the CLI. The Codex Skill only turns a natural-language request into validated CLI arguments and interprets structured output. Inject Google clients into adapters so every test runs with fixtures and never needs a Google account.
 
-**Tech Stack:** Python 3.11+, google-analytics-data, google-api-python-client, google-auth, PyYAML, openpyxl, pytest, and standard-library argparse/json/dataclasses.
+**Tech Stack:** Python 3.11+, google-analytics-data, google-api-python-client, google-auth, PyYAML, pytest, Node.js, and the bundled @oai/artifact-tool.
 
 ---
 
@@ -73,7 +73,6 @@ dependencies = [
   "google-analytics-data>=0.18,<1",
   "google-api-python-client>=2,<3",
   "google-auth>=2,<3",
-  "openpyxl>=3.1,<4",
   "PyYAML>=6,<7",
 ]
 [project.optional-dependencies]
@@ -363,58 +362,54 @@ git commit -m "feat: add audit cache and period comparison"
 
 Expected: 2 passed.
 
-### Task 5: Export a structurally verifiable Excel workbook
+### Task 5: Export and visually verify an Excel workbook through Artifact Tool
 
 **Files:**
 
-- Create: src\website_analytics\excel.py
+- Create: src\website_analytics\workbook_payload.py
+- Create: scripts\build_report_workbook.mjs
 - Create: tests\test_excel.py
 
 - [ ] **Step 1: write a failing workbook test.**
 
 ~~~python
-from openpyxl import load_workbook
-from website_analytics.excel import export_workbook
+from website_analytics.workbook_payload import build_workbook_payload
 
-def test_workbook_has_data_and_audit_sheets(tmp_path):
-    path = export_workbook(tmp_path / "report.xlsx", {"site": "demo"}, {"GA4 Daily": [{"date": "2026-08-03", "sessions": 10.0}], "GSC Daily": [{"date": "2026-08-03", "clicks": 3.0}]}, {"sources": {"ga4": {"rows": 1}}})
-    book = load_workbook(path, data_only=True)
-    assert book.sheetnames == ["README", "Executive Summary", "GA4 Daily", "GSC Daily", "Audit"]
-    assert book["GA4 Daily"]["B2"].value == 10.0
+def test_payload_has_fixed_sheet_order_and_typed_numbers():
+    payload = build_workbook_payload({"site": "demo"}, {"GA4 Daily": [{"date": "2026-08-03", "sessions": 10.0}], "GSC Daily": [{"date": "2026-08-03", "clicks": 3.0}]}, {"sources": {"ga4": {"rows": 1}}})
+    assert [sheet["name"] for sheet in payload["sheets"]] == ["README", "Executive Summary", "GA4 Daily", "GSC Daily", "Audit"]
+    assert payload["sheets"][2]["rows"][1][1] == 10.0
 ~~~
 
 - [ ] **Step 2: run the test before exporter implementation.**
 
 Run: python -m pytest tests/test_excel.py -q
 
-Expected: FAIL with missing excel module.
+Expected: FAIL with missing workbook_payload module.
 
 - [ ] **Step 3: implement fixed sheet order and formatting.**
 
-Create README, Executive Summary, supplied detail sheets in the order GA4 Daily, GA4 Pages, GSC Daily, GSC Pages, GSC Queries, then Audit. Detail sheets use keys as headers, frozen header row, bold fill, percent formatting for ctr and engagementRate, and a maximum 48-character column width. Keep missing values blank, not the string None.
+Create README, Executive Summary, supplied detail sheets in the order GA4 Daily, GA4 Pages, GSC Daily, GSC Pages, GSC Queries, then Audit. Python creates only a JSON-safe payload. The .mjs builder must use @oai/artifact-tool block writes to create worksheets, hide gridlines, freeze detail-sheet header rows, apply bold dark header fills, format ctr and engagementRate as 0.0%, cap columns at 48 characters, and render every populated sheet to PNG before exporting XLSX. Keep missing values blank, not the string None.
 
-~~~python
-DETAIL_ORDER = ("GA4 Daily", "GA4 Pages", "GSC Daily", "GSC Pages", "GSC Queries")
-
-def export_workbook(path, readme, sheets, audit):
-    book = Workbook()
-    book.remove(book.active)
-    _write_key_values(book.create_sheet("README"), readme)
-    _write_summary(book.create_sheet("Executive Summary"), sheets)
-    for name in DETAIL_ORDER:
-        if name in sheets:
-            _write_rows(book.create_sheet(name), sheets[name])
-    _write_key_values(book.create_sheet("Audit"), audit)
-    book.save(path)
-    return path
+~~~javascript
+const workbook = Workbook.create();
+for (const sheetData of payload.sheets) {
+  const sheet = workbook.worksheets.add(sheetData.name);
+  sheet.showGridLines = false;
+  sheet.getRangeByIndexes(0, 0, sheetData.rows.length, sheetData.rows[0].length).values = sheetData.rows;
+  if (sheetData.detail) sheet.freezePanes.freezeRows(1);
+}
+const output = await SpreadsheetFile.exportXlsx(workbook);
+await output.save(outputPath);
 ~~~
 
 - [ ] **Step 4: verify workbook ZIP integrity and commit.**
 
 ~~~powershell
 python -m pytest tests/test_excel.py -q
-python -c "import zipfile; from website_analytics.excel import export_workbook; p=export_workbook('exports\fixture.xlsx',{'site':'demo'},{},{}) ; print(zipfile.is_zipfile(p))"
-git add src/website_analytics/excel.py tests/test_excel.py
+C:\Users\dosth\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\bin\node.exe scripts\build_report_workbook.mjs --input tests\fixtures\workbook_payload.json --output exports\fixture.xlsx --render-dir exports\rendered
+python -c "import zipfile; print(zipfile.is_zipfile('exports\\fixture.xlsx'))"
+git add src/website_analytics/workbook_payload.py scripts/build_report_workbook.mjs tests/test_excel.py
 git commit -m "feat: export analytics workbook"
 ~~~
 
@@ -512,7 +507,7 @@ Define GA4 sessions/users/key events and GSC clicks/impressions/CTR/position in 
 
 ~~~powershell
 python -m pytest -q
-python -c "from openpyxl import load_workbook; b=load_workbook('exports\demo.xlsx',read_only=True); assert {'README','Executive Summary','GA4 Daily','GSC Daily','Audit'} <= set(b.sheetnames); print('workbook verified')"
+python -c "import zipfile; assert zipfile.is_zipfile('exports\\demo.xlsx'); print('workbook verified')"
 git status --short
 ~~~
 
@@ -532,4 +527,4 @@ Copy only the reviewed skill directory to C:\Users\dosth\.codex\skills\website-a
 
 - **Spec coverage:** Tasks 2 through 7 respectively implement configuration/date safety, both Google sources, auditable caching/comparison, the required workbook, CLI/fixture execution, and the Codex Skill. Every specified non-goal remains excluded.
 - **Placeholder scan:** This plan has no deferred implementation markers. Installation is an explicit user-review gate, not omitted work.
-- **Type consistency:** SiteConfig and DateRange are used by both adapters; all report commands depend on the same configuration contract; export_workbook is the only workbook entry point.
+- **Type consistency:** SiteConfig and DateRange are used by both adapters; all report commands depend on the same configuration contract; build_workbook_payload plus scripts/build_report_workbook.mjs are the only workbook entry points.
