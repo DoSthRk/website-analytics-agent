@@ -100,11 +100,12 @@ async function buildWorkbook(workerOptions) {
 
 export async function superviseRenderer(
   supervisorOptions,
-  { workerRunner = runRendererWorker } = {},
+  { workerRunner = runRendererWorker, move = fs.rename } = {},
 ) {
   const payload = JSON.parse(await fs.readFile(supervisorOptions.input, "utf8"));
   validatePayload(payload);
-  const staging = await createStagingPaths(supervisorOptions);
+  const finalPaths = await validateFinalPaths(supervisorOptions, payload);
+  const staging = await createStagingPaths(finalPaths);
   try {
     const worker = await workerRunner({
       ...supervisorOptions,
@@ -121,18 +122,15 @@ export async function superviseRenderer(
       throw new Error(formatWorkerFailure(worker, verified));
     }
 
-    await promoteGeneratedArtifacts(staging, supervisorOptions);
-    const renderedSheets = payload.sheets.map((sheetData) =>
-      path.join(path.resolve(supervisorOptions.renderDir), `${slugify(sheetData.name)}.png`),
-    );
+    await promoteGeneratedArtifacts(staging, finalPaths, move);
     if (expectedCleanupFault) {
       process.stderr.write(
         `Artifact Tool renderer worker exited ${worker.exitCode} after staged outputs were verified; this is the documented renderer cleanup fault.\n`,
       );
     }
     return {
-      output: path.resolve(supervisorOptions.output),
-      renderedSheets,
+      output: finalPaths.output,
+      renderedSheets: finalPaths.renderPaths,
       workerExitCode: worker.exitCode,
       outputsVerified: true,
     };
@@ -142,64 +140,175 @@ export async function superviseRenderer(
   }
 }
 
-async function createStagingPaths(supervisorOptions) {
-  const finalOutput = path.resolve(supervisorOptions.output);
-  const finalRenderDir = path.resolve(supervisorOptions.renderDir);
-  await fs.mkdir(path.dirname(finalOutput), { recursive: true });
-  await fs.mkdir(path.dirname(finalRenderDir), { recursive: true });
-  const outputDirectory = await fs.mkdtemp(
-    path.join(path.dirname(finalOutput), `.${path.basename(finalOutput)}.staging-`),
-  );
-  const renderDir = await fs.mkdtemp(
-    path.join(path.dirname(finalRenderDir), `.${path.basename(finalRenderDir)}.staging-`),
-  );
-  return {
-    outputDirectory,
-    output: path.join(outputDirectory, path.basename(finalOutput)),
+async function validateFinalPaths(supervisorOptions, payload) {
+  const input = path.resolve(supervisorOptions.input);
+  const output = path.resolve(supervisorOptions.output);
+  const renderDir = path.resolve(supervisorOptions.renderDir);
+  const workingRoot = path.resolve(process.cwd());
+  if (path.extname(output).toLowerCase() !== ".xlsx") {
+    throw new Error("--output must be an absent or non-symlink regular .xlsx file");
+  }
+  if (output === input || output === renderDir || output === workingRoot) {
+    throw new Error("--output must not target the input, render directory, or working root");
+  }
+  if (renderDir === input || renderDir === output || renderDir === workingRoot) {
+    throw new Error("--render-dir must not target the input, output, or working root");
+  }
+  if (isPathWithin(renderDir, output)) {
+    throw new Error("--output must not be inside --render-dir");
+  }
+  await assertFileTarget(output, "--output must be an absent or non-symlink regular .xlsx file");
+  await assertDirectoryTarget(
     renderDir,
+    "--render-dir must be an absent or non-symlink directory",
+  );
+
+  const renderPaths = payload.sheets.map((sheetData) =>
+    path.resolve(renderDir, `${slugify(sheetData.name)}.png`),
+  );
+  for (const renderPath of renderPaths) {
+    if (!isPathWithin(renderDir, renderPath)) {
+      throw new Error("expected render path must stay within --render-dir");
+    }
+    await assertFileTarget(
+      renderPath,
+      "expected render file must be absent or a non-symlink regular file",
+    );
+  }
+  return {
+    input,
+    output,
+    renderDir,
+    renderPaths,
+    renderDirExisted: await pathExists(renderDir),
   };
 }
 
-async function promoteGeneratedArtifacts(staging, supervisorOptions) {
-  await promotePath(staging.output, path.resolve(supervisorOptions.output));
-  await promotePath(staging.renderDir, path.resolve(supervisorOptions.renderDir));
+async function assertFileTarget(target, message) {
+  const status = await lstatOrNull(target);
+  if (status && (status.isSymbolicLink() || !status.isFile())) throw new Error(message);
 }
 
-async function promotePath(stagedPath, finalPath) {
-  await fs.mkdir(path.dirname(finalPath), { recursive: true });
-  const backup = await moveExistingPathToBackup(finalPath);
-  try {
-    await fs.rename(stagedPath, finalPath);
-  } catch (error) {
-    await restoreBackup(finalPath, backup);
-    throw error;
-  }
-  if (backup) {
-    await fs.rm(backup.directory, { recursive: true, force: true });
-  }
+async function assertDirectoryTarget(target, message) {
+  const status = await lstatOrNull(target);
+  if (status && (status.isSymbolicLink() || !status.isDirectory())) throw new Error(message);
 }
 
-async function moveExistingPathToBackup(finalPath) {
+async function lstatOrNull(target) {
   try {
-    await fs.lstat(finalPath);
+    return await fs.lstat(target);
   } catch (error) {
     if (error?.code === "ENOENT") return null;
     throw error;
   }
+}
+
+async function pathExists(target) {
+  return (await lstatOrNull(target)) !== null;
+}
+
+function isPathWithin(parent, candidate) {
+  const relative = path.relative(parent, candidate);
+  return relative !== "" && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+
+async function createStagingPaths(finalPaths) {
+  await fs.mkdir(path.dirname(finalPaths.output), { recursive: true });
+  await fs.mkdir(path.dirname(finalPaths.renderDir), { recursive: true });
+  const outputDirectory = await fs.mkdtemp(
+    path.join(path.dirname(finalPaths.output), `.${path.basename(finalPaths.output)}.staging-`),
+  );
+  const renderDir = await fs.mkdtemp(
+    path.join(path.dirname(finalPaths.renderDir), `.${path.basename(finalPaths.renderDir)}.staging-`),
+  );
+  return {
+    outputDirectory,
+    output: path.join(outputDirectory, path.basename(finalPaths.output)),
+    renderDir,
+  };
+}
+
+async function promoteGeneratedArtifacts(staging, finalPaths, move) {
+  const artifacts = [
+    { staged: staging.output, final: finalPaths.output },
+    ...finalPaths.renderPaths.map((final) => ({
+      staged: path.join(staging.renderDir, path.basename(final)),
+      final,
+    })),
+  ];
+  const backups = [];
+  const promoted = [];
+  let renderDirectoryCreated = false;
+  try {
+    for (const artifact of artifacts) {
+      backups.push(await moveExistingPathToBackup(artifact.final, move));
+    }
+    if (!finalPaths.renderDirExisted) {
+      await fs.mkdir(finalPaths.renderDir);
+      renderDirectoryCreated = true;
+    }
+    for (const artifact of artifacts) {
+      await move(artifact.staged, artifact.final);
+      promoted.push(artifact);
+    }
+  } catch (error) {
+    await rollbackPromotion(promoted, backups, finalPaths, renderDirectoryCreated, move);
+    throw error;
+  }
+  await discardBackups(backups, "committed");
+}
+
+async function moveExistingPathToBackup(finalPath, move) {
+  const status = await lstatOrNull(finalPath);
+  if (!status) return null;
   const directory = await fs.mkdtemp(
     path.join(path.dirname(finalPath), `.${path.basename(finalPath)}.previous-`),
   );
-  const pathInBackup = path.join(directory, path.basename(finalPath));
-  await fs.rename(finalPath, pathInBackup);
-  return { directory, path: pathInBackup };
+  const backupPath = path.join(directory, path.basename(finalPath));
+  await move(finalPath, backupPath);
+  return { directory, path: backupPath, final: finalPath };
 }
 
-async function restoreBackup(finalPath, backup) {
-  if (!backup) return;
-  try {
-    await fs.rename(backup.path, finalPath);
-  } finally {
-    await fs.rm(backup.directory, { recursive: true, force: true });
+async function rollbackPromotion(promoted, backups, finalPaths, renderDirectoryCreated, move) {
+  const rollbackErrors = [];
+  for (const artifact of [...promoted].reverse()) {
+    try {
+      await fs.rm(artifact.final, { force: true });
+    } catch (error) {
+      rollbackErrors.push(error);
+    }
+  }
+  for (const backup of [...backups].reverse()) {
+    if (!backup) continue;
+    try {
+      await move(backup.path, backup.final);
+    } catch (error) {
+      rollbackErrors.push(error);
+    }
+  }
+  if (renderDirectoryCreated) {
+    try {
+      await fs.rmdir(finalPaths.renderDir);
+    } catch (error) {
+      if (error?.code !== "ENOENT" && error?.code !== "ENOTEMPTY") rollbackErrors.push(error);
+    }
+  }
+  await discardBackups(backups, "rolled back");
+  if (rollbackErrors.length > 0) {
+    throw new Error(`Promotion rollback failed: ${rollbackErrors.map((error) => error.message).join("; ")}`);
+  }
+}
+
+async function discardBackups(backups, outcome) {
+  for (const backup of backups) {
+    if (!backup) continue;
+    try {
+      await fs.rm(backup.directory, { recursive: true, force: true });
+    } catch (error) {
+      process.stderr.write(
+        `Promotion ${outcome}, but recoverable backup remains at ${backup.directory}: ${error.message}\n`,
+      );
+    }
   }
 }
 

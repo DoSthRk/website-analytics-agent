@@ -220,3 +220,149 @@ def test_supervisor_rejects_forced_worker_failure_despite_stale_valid_outputs(
         path.name: hashlib.sha256(path.read_bytes()).hexdigest()
         for path in [output_path, *expected_pngs]
     } == stale_hashes
+
+
+def test_supervisor_rejects_existing_directory_as_output_without_modifying_it(
+    tmp_path: Path,
+) -> None:
+    fixture_path = PROJECT_ROOT / "tests" / "fixtures" / "workbook_payload.json"
+    output_directory = tmp_path / "not-an-xlsx"
+    output_directory.mkdir()
+    sentinel = output_directory / "keep.txt"
+    sentinel.write_text("unchanged", encoding="utf-8")
+    render_dir = tmp_path / "renders"
+
+    rejected = _run_supervisor_with_noop_worker(
+        fixture_path, output_directory, render_dir
+    )
+
+    assert rejected.returncode == 7
+    assert "--output must be an absent or non-symlink regular .xlsx file" in rejected.stderr
+    assert sentinel.read_text(encoding="utf-8") == "unchanged"
+    assert not render_dir.exists()
+
+
+def test_supervisor_rejects_existing_file_as_render_dir_without_modifying_it(
+    tmp_path: Path,
+) -> None:
+    fixture_path = PROJECT_ROOT / "tests" / "fixtures" / "workbook_payload.json"
+    output_path = tmp_path / "report.xlsx"
+    render_file = tmp_path / "not-a-directory"
+    render_file.write_text("unchanged", encoding="utf-8")
+
+    rejected = _run_supervisor_with_noop_worker(
+        fixture_path, output_path, render_file
+    )
+
+    assert rejected.returncode == 7
+    assert "--render-dir must be an absent or non-symlink directory" in rejected.stderr
+    assert render_file.read_text(encoding="utf-8") == "unchanged"
+    assert not output_path.exists()
+
+
+def test_promotion_failure_rolls_back_xlsx_and_all_expected_pngs(tmp_path: Path) -> None:
+    fixture_path = PROJECT_ROOT / "tests" / "fixtures" / "workbook_payload.json"
+    output_path = tmp_path / "report.xlsx"
+    render_dir = tmp_path / "renders"
+    _build_fixture_workbook(fixture_path, output_path, render_dir)
+
+    alternative_payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    alternative_payload["sheets"][0]["rows"][0][0] = "Alternative report"
+    alternative_payload_path = tmp_path / "alternative-payload.json"
+    alternative_payload_path.write_text(
+        json.dumps(alternative_payload), encoding="utf-8"
+    )
+    alternative_output = tmp_path / "alternative.xlsx"
+    alternative_render_dir = tmp_path / "alternative-renders"
+    _build_fixture_workbook(
+        alternative_payload_path, alternative_output, alternative_render_dir
+    )
+    original_hashes = _hash_artifacts(output_path, render_dir)
+
+    rejected = subprocess.run(
+        [
+            os.fspath(NODE),
+            "--input-type=module",
+            "--eval",
+            (
+                "import fs from 'node:fs/promises'; import path from 'node:path'; "
+                "import { superviseRenderer } from './scripts/build_report_workbook.mjs'; "
+                "const [input, output, render, alternateOutput, alternateRender] = process.argv.slice(1); "
+                "try { await superviseRenderer({input, output, renderDir: render}, { "
+                "workerRunner: async (staged) => { "
+                "await fs.copyFile(alternateOutput, staged.output); "
+                "await fs.mkdir(staged.renderDir, {recursive: true}); "
+                "for (const entry of await fs.readdir(alternateRender)) { "
+                "await fs.copyFile(path.join(alternateRender, entry), path.join(staged.renderDir, entry)); "
+                "} return {exitCode: 3221226505, signal: null, stdout: '', stderr: ''}; }, "
+                "move: async (source, destination) => { "
+                "if (source.includes('.staging-') && source.endsWith('readme.png')) { "
+                "throw new Error('forced second promotion failure'); } "
+                "await fs.rename(source, destination); } }); process.exit(0); "
+                "} catch (error) { console.error(error.message); process.exit(7); }"
+            ),
+            os.fspath(fixture_path),
+            os.fspath(output_path),
+            os.fspath(render_dir),
+            os.fspath(alternative_output),
+            os.fspath(alternative_render_dir),
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert rejected.returncode == 7
+    assert "forced second promotion failure" in rejected.stderr
+    assert _hash_artifacts(output_path, render_dir) == original_hashes
+
+
+def _run_supervisor_with_noop_worker(
+    input_path: Path, output_path: Path, render_path: Path
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [
+            os.fspath(NODE),
+            "--input-type=module",
+            "--eval",
+            (
+                "import { superviseRenderer } from './scripts/build_report_workbook.mjs'; "
+                "const [input, output, render] = process.argv.slice(1); "
+                "try { await superviseRenderer({input, output, renderDir: render}, { "
+                "workerRunner: async () => { throw new Error('worker should not run'); } }); "
+                "process.exit(0); } catch (error) { console.error(error.message); process.exit(7); }"
+            ),
+            os.fspath(input_path),
+            os.fspath(output_path),
+            os.fspath(render_path),
+        ],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _build_fixture_workbook(input_path: Path, output_path: Path, render_dir: Path) -> None:
+    subprocess.run(
+        [
+            os.fspath(NODE),
+            "scripts/build_report_workbook.mjs",
+            "--input",
+            os.fspath(input_path),
+            "--output",
+            os.fspath(output_path),
+            "--render-dir",
+            os.fspath(render_dir),
+        ],
+        cwd=PROJECT_ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def _hash_artifacts(output_path: Path, render_dir: Path) -> dict[str, str]:
+    return {
+        path.name: hashlib.sha256(path.read_bytes()).hexdigest()
+        for path in [output_path, *sorted(render_dir.glob("*.png"))]
+    }
