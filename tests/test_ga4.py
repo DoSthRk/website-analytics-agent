@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+import pytest
+from google.analytics.data_v1beta.types import RunReportResponse
+
+import website_analytics.adapters.ga4 as ga4
 from website_analytics.adapters.ga4 import GA4Adapter
 from website_analytics.models import DateRange, SiteConfig
 
@@ -126,7 +129,10 @@ def test_daily_returns_empty_list_for_response_without_rows() -> None:
     assert GA4Adapter(client).daily(_site(), _date_range()) == []
 
 
-def test_pages_paginates_until_authoritative_row_count_and_retains_rows() -> None:
+def test_pages_paginates_until_authoritative_row_count_and_retains_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ga4, "_PAGE_SIZE", 2)
     client = PaginatedFakeGA4Client(
         [
             FakeResponse(
@@ -142,7 +148,7 @@ def test_pages_paginates_until_authoritative_row_count_and_retains_rows() -> Non
 
     result = GA4Adapter(client).pages(_site(), _date_range())
 
-    assert [request.limit for request in client.requests] == [250000, 250000]
+    assert [request.limit for request in client.requests] == [2, 2]
     assert [request.offset for request in client.requests] == [0, 2]
     assert [row["landingPagePlusQueryString"] for row in result] == [
         "/first",
@@ -152,21 +158,40 @@ def test_pages_paginates_until_authoritative_row_count_and_retains_rows() -> Non
     assert [row["sessions"] for row in result] == [1.0, 2.0, 3.0]
 
 
-def _response_from_fixture(name: str) -> FakeResponse:
-    payload = json.loads((FIXTURES / name).read_text(encoding="utf-8"))
-    return FakeResponse(
-        rows=tuple(
-            FakeRow(
-                dimension_values=tuple(
-                    FakeValue(value["value"]) for value in row["dimensionValues"]
+def test_pages_raises_when_empty_page_precedes_authoritative_row_count(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(ga4, "_PAGE_SIZE", 2)
+    client = PaginatedFakeGA4Client(
+        [
+            FakeResponse(
+                rows=(
+                    _page_row("/first", "1"),
+                    _page_row("/second", "2"),
                 ),
-                metric_values=tuple(
-                    FakeValue(value["value"]) for value in row["metricValues"]
-                ),
-            )
-            for row in payload["rows"]
-        )
+                row_count=3,
+            ),
+            FakeResponse(rows=(), row_count=3),
+        ]
     )
+
+    with pytest.raises(
+        ValueError, match="GA4 response ended before its reported row_count"
+    ):
+        GA4Adapter(client).pages(_site(), _date_range())
+
+    assert [request.offset for request in client.requests] == [0, 2]
+
+
+def test_fixture_response_preserves_google_row_count() -> None:
+    response = _response_from_fixture("ga4_report.json")
+
+    assert isinstance(response, RunReportResponse)
+    assert response.row_count == 1
+
+
+def _response_from_fixture(name: str) -> RunReportResponse:
+    return RunReportResponse.from_json((FIXTURES / name).read_text(encoding="utf-8"))
 
 
 def _page_row(page: str, sessions: str) -> FakeRow:

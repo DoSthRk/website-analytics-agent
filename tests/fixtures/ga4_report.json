@@ -9,6 +9,7 @@
     {"name": "screenPageViews"},
     {"name": "keyEvents"}
   ],
+  "rowCount": 1,
   "rows": [
     {
       "dimensionValues": [{"value": "20260803"}],
