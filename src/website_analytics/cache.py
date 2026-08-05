@@ -19,6 +19,7 @@ _SECRET_KEY_PARTS = (
     "password",
     "api_key",
 )
+_UNSAFE_COMPONENT_CHARACTERS = frozenset('<>:"/\\|?*')
 
 
 def write_cached_json(
@@ -127,8 +128,10 @@ def _validate_component(value: object, label: str) -> None:
         not isinstance(value, str)
         or not value
         or value in {".", ".."}
-        or "/" in value
-        or "\\" in value
+        or any(
+            character in _UNSAFE_COMPONENT_CHARACTERS or ord(character) < 32
+            for character in value
+        )
     ):
         raise ValueError(f"{label} must be a safe single path component")
 

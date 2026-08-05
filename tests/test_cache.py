@@ -46,6 +46,8 @@ def test_cache_request_hash_is_deterministic_and_redacts_secret_values(tmp_path)
         ("..", "ga4"),
         ("demo/site", "ga4"),
         ("demo", "gsc\\nested"),
+        ("C:", "ga4"),
+        ("demo", "C:"),
     ],
 )
 def test_cache_rejects_unsafe_site_and_source_path_components(
@@ -53,6 +55,8 @@ def test_cache_rejects_unsafe_site_and_source_path_components(
 ) -> None:
     with pytest.raises(ValueError, match="safe single path component"):
         write_cached_json(tmp_path, site_key, source, {"property": "123"}, [])
+
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_audit_manifest_redacts_nested_secrets_and_hashes_output(tmp_path) -> None:

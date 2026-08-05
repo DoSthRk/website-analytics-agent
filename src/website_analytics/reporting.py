@@ -9,18 +9,19 @@ def compare_totals(
     current: Mapping[str, Mapping[str, int | float]],
     previous: Mapping[str, Mapping[str, int | float]],
 ) -> dict[str, Any]:
-    """Compare source totals using source-qualified metric names."""
+    """Compare source totals with collision-proof nested source and metric keys."""
     _validate_metric_values(current, "current")
     _validate_metric_values(previous, "previous")
 
-    metrics: dict[str, dict[str, Any]] = {}
+    metrics: dict[str, dict[str, dict[str, int | float | None]]] = {}
     for source in sorted(set(current) | set(previous)):
         current_metrics = current.get(source, {})
         previous_metrics = previous.get(source, {})
+        source_metrics = metrics.setdefault(source, {})
         for metric in sorted(set(current_metrics) | set(previous_metrics)):
             current_value = current_metrics.get(metric)
             previous_value = previous_metrics.get(metric)
-            metrics[f"{source}.{metric}"] = {
+            source_metrics[metric] = {
                 "current": current_value,
                 "previous": previous_value,
                 "delta": (
