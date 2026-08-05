@@ -11,13 +11,14 @@ from website_analytics import __version__
 
 
 _REDACTION_MARKER = "[REDACTED]"
-_SECRET_KEY_PARTS = (
+_NORMALIZED_SECRET_KEY_PARTS = (
     "token",
     "secret",
     "credential",
     "authorization",
     "password",
-    "api_key",
+    "privatekey",
+    "apikey",
 )
 _UNSAFE_COMPONENT_CHARACTERS = frozenset('<>:"/\\|?*')
 _WINDOWS_RESERVED_DOS_NAMES = frozenset(
@@ -136,7 +137,10 @@ def _redact(value: Any) -> Any:
 
 
 def _is_secret_key(key: object) -> bool:
-    return isinstance(key, str) and any(part in key.casefold() for part in _SECRET_KEY_PARTS)
+    if not isinstance(key, str):
+        return False
+    normalized_key = "".join(character for character in key.casefold() if character.isalnum())
+    return any(part in normalized_key for part in _NORMALIZED_SECRET_KEY_PARTS)
 
 
 def _validate_component(value: object, label: str) -> None:

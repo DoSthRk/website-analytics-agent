@@ -132,6 +132,50 @@ def test_audit_manifest_redacts_nested_secrets_and_hashes_output(tmp_path) -> No
     assert manifest["package_version"] == "0.1.0"
 
 
+@pytest.mark.parametrize(
+    "secret_key",
+    (
+        "private_key",
+        "private-key",
+        "privateKey",
+        "password",
+        "clientSecret",
+        "token",
+        "accessToken",
+        "refresh_token",
+        "apiKey",
+        "x-goog-api-key",
+    ),
+)
+def test_audit_manifest_redacts_normalized_sensitive_keys_in_nested_payloads(
+    tmp_path, secret_key: str
+) -> None:
+    raw_secret = f"raw-{secret_key}-value"
+    manifest_path = tmp_path / "audit.json"
+
+    write_audit_manifest(
+        manifest_path,
+        {
+            "diagnostic": "safe-request-value",
+            "nested": {"connection": {secret_key: raw_secret}},
+        },
+        {
+            "ga4": {
+                "diagnostic": "safe-status-value",
+                "headers": {secret_key: raw_secret},
+            }
+        },
+    )
+
+    manifest_text = manifest_path.read_text(encoding="utf-8")
+    manifest = json.loads(manifest_text)
+    assert manifest["request"]["nested"]["connection"][secret_key] == "[REDACTED]"
+    assert manifest["source_statuses"]["ga4"]["headers"][secret_key] == "[REDACTED]"
+    assert manifest["request"]["diagnostic"] == "safe-request-value"
+    assert manifest["source_statuses"]["ga4"]["diagnostic"] == "safe-status-value"
+    assert raw_secret not in manifest_text
+
+
 def test_audit_manifest_rejects_a_missing_output_path(tmp_path) -> None:
     manifest_path = tmp_path / "audit.json"
 
