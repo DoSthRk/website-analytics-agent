@@ -10,4 +10,9 @@ audits/
 exports/
 *.token.json
 *.credentials.json
+/token.json
+/credentials.json
+/client_secret*.json
+/service-account.json
+/local-secrets/
 node_modules/
