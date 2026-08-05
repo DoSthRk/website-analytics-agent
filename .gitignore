@@ -1,0 +1,12 @@
+.worktrees/
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+config/sites.yaml
+cache/
+audits/
+exports/
+*.token.json
+*.credentials.json
+node_modules/
