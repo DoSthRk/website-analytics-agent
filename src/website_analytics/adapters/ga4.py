@@ -15,6 +15,7 @@ from google.analytics.data_v1beta.types import (
 )
 
 from website_analytics.models import DateRange, SiteConfig
+from website_analytics.url_safety import sanitize_url_query
 
 
 _METRICS = (
@@ -52,6 +53,14 @@ class GA4Adapter:
     def pages(self, site: SiteConfig, date_range: DateRange) -> list[AnalyticsRow]:
         """Return GA4 metrics grouped by landing page and query string."""
         return self._run(site, date_range, _PAGE_DIMENSIONS)
+
+    def aggregate(self, site: SiteConfig, date_range: DateRange) -> list[AnalyticsRow]:
+        """Return one interval-level GA4 row without a grouping dimension.
+
+        Interval unique-user metrics are only valid at this aggregate level;
+        callers must not derive them by adding daily unique-user rows.
+        """
+        return self._run(site, date_range, ())
 
     def _run(
         self,
@@ -117,4 +126,4 @@ def _row_count(response: RunReportResponse) -> int | None:
 def _normalize_dimension_value(dimension: str, value: str) -> str:
     if dimension == "date" and len(value) == 8 and value.isdigit():
         return f"{value[:4]}-{value[4:6]}-{value[6:]}"
-    return value
+    return sanitize_url_query(value)

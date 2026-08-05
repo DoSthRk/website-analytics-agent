@@ -10,11 +10,11 @@
 - 不在命令行、配置文件或缓存中保存、显示或传递凭据。`config/sites.yaml`、缓存、审计和导出目录默认均被 Git 忽略。
 - 实际访问数据时使用 Google Application Default Credentials（ADC），或由 Google 客户端库使用 `GOOGLE_APPLICATION_CREDENTIALS` 所指向的本机凭据文件。不要把凭据内容复制进本项目，也不要提交该文件。
 - `validate-config` 完全离线，不会创建 Google 客户端；带 `--fixture-dir` 的数据命令也完全离线。
-- GSC 明细查询受 API 行数上限约束，不能视为所有查询词的完整导出。
+- GSC Pages 与 GSC Queries 明细最多读取 50,000 行；如果触及该上限，结果会以结构化 `truncated: true` 标记为部分结果、命令返回码为 `3`，不能视为完整查询词或页面导出。
 
 ## 安装与站点配置
 
-需要 Python 3.11+；Excel 导出还需要 Node.js 和项目附带的 Artifact Tool 运行环境。
+需要 Python 3.11+；Excel 导出还需要 Node.js 和 Codex 工作区提供的 Artifact Tool 运行环境。
 
 ```powershell
 python -m venv .venv
@@ -48,6 +48,19 @@ Copy-Item config\sites.example.yaml config\sites.yaml
 ```
 
 如果系统找不到 `node`，设置 `WEBSITE_ANALYTICS_NODE` 为本机 Node.js 可执行文件路径后再运行导出。该环境变量仅用于定位 Node.js，不应存放任何密钥。
+
+### 首次克隆后的 Excel 运行环境
+
+项目不会提交 `node_modules`，也不会安装或下载 npm 包。首次克隆时，请先在 Codex 中运行 **load workspace dependencies**，取得其返回的 Node.js 可执行文件路径和 Node modules 目录路径；两项路径都只来自本机 Codex 运行环境。
+
+在项目根目录以占位符替换为上一步返回的路径（不要把真实路径、凭据或任何密钥写进仓库）：
+
+```powershell
+$env:WEBSITE_ANALYTICS_NODE = '<Node executable path returned by the Codex dependency loader>'
+.\scripts\setup-artifact-tool-runtime.ps1 -NodeModulesPath '<Node modules directory returned by the Codex dependency loader>'
+```
+
+脚本会验证目录中存在 `@oai/artifact-tool`，然后仅在本项目下创建被 Git 忽略的 `node_modules` junction。它不会猜测路径、安装依赖或覆盖已有目录；如本地 runtime 缺失，`export-excel` 会给出相同的修复提示。
 
 ## 无 Google 账号的离线演示
 

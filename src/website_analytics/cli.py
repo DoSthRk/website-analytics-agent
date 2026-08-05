@@ -20,20 +20,22 @@ from typing import Any
 from google.analytics.data_v1beta.types import RunReportResponse
 
 from website_analytics.adapters.ga4 import GA4Adapter
-from website_analytics.adapters.gsc import GSCAdapter
+from website_analytics.adapters.gsc import GSCAdapter, GSCQueryResult
 from website_analytics.cache import write_audit_manifest, write_cached_json
 from website_analytics.config import ConfigError, load_sites, require_site
 from website_analytics.dates import DateRangeError, parse_date_range, previous_period
 from website_analytics.models import DateRange, SiteConfig
 from website_analytics.reporting import compare_totals
+from website_analytics.url_safety import sanitize_url_values
 from website_analytics.workbook_payload import build_workbook_payload
 
 
-_GA4_TOTAL_METRICS = (
+_GA4_INTERVAL_METRICS = (
     "sessions",
     "totalUsers",
     "activeUsers",
     "engagedSessions",
+    "engagementRate",
     "screenPageViews",
     "keyEvents",
 )
@@ -65,7 +67,10 @@ class _FixtureGA4Client:
         raw = _read_fixture(self._fixture_dir, "ga4_report.json")
         dimensions = getattr(request, "dimensions", ())
         dimension_name = getattr(dimensions[0], "name", "") if dimensions else ""
-        if dimension_name == "landingPagePlusQueryString":
+        if not dimensions:
+            for row in raw.get("rows", []):
+                row["dimensionValues"] = []
+        elif dimension_name == "landingPagePlusQueryString":
             for row in raw.get("rows", []):
                 row["dimensionValues"][0]["value"] = "/fixture-landing-page"
         return RunReportResponse.from_json(json.dumps(raw))
@@ -203,7 +208,15 @@ def main(argv: Sequence[str] | None = None) -> int:
 
         if args.command == "export-excel":
             _validate_output_path(args.output)
-            _require_complete(result)
+            if not result["complete"]:
+                _persist_dataset(
+                    args,
+                    site,
+                    current,
+                    command=args.command,
+                    previous=previous,
+                )
+                return _write_stdout(result, 3)
             payload = build_workbook_payload(
                 {
                     "site": site.site_key,
@@ -251,17 +264,25 @@ def _collect_dataset(
 
     def collect(
         source: str,
-        runner: Callable[[], Mapping[str, list[dict[str, str | float]]]],
-        totaler: Callable[[Mapping[str, list[dict[str, str | float]]]], dict[str, float]],
+        runner: Callable[
+            [],
+            tuple[
+                Mapping[str, list[dict[str, str | float]]],
+                dict[str, float],
+                Mapping[str, Any],
+            ],
+        ],
     ) -> None:
         try:
-            source_details = dict(runner())
+            source_details, source_totals, source_metadata = runner()
+            source_details = dict(source_details)
             details.update(source_details)
-            totals[source] = totaler(source_details)
+            totals[source] = source_totals
             statuses[source] = {
                 "status": "ok",
                 "rows": sum(len(rows) for rows in source_details.values()),
                 "freshness": freshness,
+                **source_metadata,
             }
         except Exception as error:
             statuses[source] = {
@@ -273,20 +294,18 @@ def _collect_dataset(
 
     collect(
         "ga4",
-        lambda: {
-            "GA4 Daily": ga4.daily(site, date_range),
-            "GA4 Pages": ga4.pages(site, date_range),
-        },
-        _ga4_totals,
+        lambda: (
+            {
+                "GA4 Daily": ga4.daily(site, date_range),
+                "GA4 Pages": ga4.pages(site, date_range),
+            },
+            _ga4_totals(ga4.aggregate(site, date_range)),
+            {},
+        ),
     )
     collect(
         "gsc",
-        lambda: {
-            "GSC Daily": gsc.query(site, date_range, ["date"]),
-            "GSC Pages": gsc.query(site, date_range, ["page"]),
-            "GSC Queries": gsc.query(site, date_range, ["query"]),
-        },
-        _gsc_totals,
+        lambda: _gsc_source_data(gsc, site, date_range),
     )
     complete = all(status["status"] == "ok" for status in statuses.values())
     return {
@@ -341,14 +360,48 @@ def _read_fixture(fixture_dir: Path, name: str) -> dict[str, Any]:
     return copy.deepcopy(document)
 
 
-def _ga4_totals(details: Mapping[str, list[dict[str, str | float]]]) -> dict[str, float]:
-    daily = details.get("GA4 Daily", [])
-    totals = {metric: _sum_metric(daily, metric) for metric in _GA4_TOTAL_METRICS}
-    sessions = totals["sessions"]
-    engaged_sessions = totals["engagedSessions"]
-    if sessions:
-        totals["engagementRate"] = engaged_sessions / sessions
-    return totals
+def _ga4_totals(interval_rows: Sequence[Mapping[str, str | float]]) -> dict[str, float]:
+    """Use GA4's no-dimension report for interval metrics and unique users."""
+    return {
+        metric: _sum_metric(interval_rows, metric) for metric in _GA4_INTERVAL_METRICS
+    }
+
+
+def _gsc_source_data(
+    gsc: GSCAdapter, site: SiteConfig, date_range: DateRange
+) -> tuple[
+    Mapping[str, list[dict[str, str | float]]], dict[str, float], Mapping[str, Any]
+]:
+    daily = gsc.query_result(site, date_range, ["date"])
+    pages = gsc.query_result(site, date_range, ["page"])
+    queries = gsc.query_result(site, date_range, ["query"])
+    details = {
+        "GSC Daily": list(daily.rows),
+        "GSC Pages": list(pages.rows),
+        "GSC Queries": list(queries.rows),
+    }
+    capped_details = {
+        name: _gsc_detail_metadata(result)
+        for name, result in (("GSC Pages", pages), ("GSC Queries", queries))
+    }
+    truncated = any(metadata["truncated"] for metadata in capped_details.values())
+    return (
+        details,
+        _gsc_totals(details),
+        {
+            "status": "partial" if truncated else "ok",
+            "truncated": truncated,
+            "details": capped_details,
+        },
+    )
+
+
+def _gsc_detail_metadata(result: GSCQueryResult) -> dict[str, Any]:
+    return {
+        "rows": len(result.rows),
+        "row_cap": result.row_cap,
+        "truncated": result.truncated,
+    }
 
 
 def _gsc_totals(details: Mapping[str, list[dict[str, str | float]]]) -> dict[str, float]:
@@ -450,7 +503,7 @@ def _write_cache(root: Path, site_key: str, dataset: Mapping[str, Any]) -> None:
         "gsc": ("GSC Daily", "GSC Pages", "GSC Queries"),
     }.items():
         status = dataset["audit"]["sources"].get(source, {})
-        if status.get("status") != "ok":
+        if status.get("status") not in {"ok", "partial"}:
             continue
         rows = {name: dataset["details"].get(name, []) for name in detail_names}
         write_cached_json(root, site_key, source, {"source": source, **date_range}, rows)
@@ -468,6 +521,7 @@ def _validate_output_path(output: Path) -> None:
 
 def _run_workbook_builder(payload: Mapping[str, Any], output: Path) -> dict[str, Any]:
     node = _find_node()
+    _preflight_artifact_runtime()
     if not _BUILDER_SCRIPT.is_file():
         raise DataSourceError("Artifact Tool workbook builder is unavailable")
     render_dir = output.with_suffix("").with_name(f"{output.stem}.renders")
@@ -523,9 +577,13 @@ def _find_node() -> str:
     )
 
 
-def _require_complete(result: Mapping[str, Any]) -> None:
-    if not result.get("complete"):
-        raise DataSourceError("cannot export an incomplete GA4/GSC report")
+def _preflight_artifact_runtime() -> None:
+    runtime_path = _PROJECT_ROOT / "node_modules" / "@oai" / "artifact-tool"
+    if not runtime_path.is_dir():
+        raise DataSourceError(
+            "Artifact Tool runtime is unavailable. Run scripts/setup-artifact-tool-runtime.ps1 "
+            "with the explicit Node modules directory returned by the Codex dependency loader."
+        )
 
 
 def _freshness() -> str:
@@ -533,7 +591,9 @@ def _freshness() -> str:
 
 
 def _write_stdout(payload: Mapping[str, Any], code: int = 0) -> int:
-    sys.stdout.write(json.dumps(payload, ensure_ascii=False, allow_nan=False) + "\n")
+    sys.stdout.write(
+        json.dumps(sanitize_url_values(payload), ensure_ascii=False, allow_nan=False) + "\n"
+    )
     return code
 
 

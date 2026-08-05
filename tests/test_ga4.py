@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from urllib.parse import parse_qsl, urlsplit
 
 import pytest
 from google.analytics.data_v1beta.types import RunReportResponse
@@ -123,10 +124,58 @@ def test_pages_sends_landing_page_dimension_and_normalizes_values() -> None:
     ]
 
 
+def test_pages_redacts_sensitive_url_parameter_values_and_retains_utm() -> None:
+    client = FakeGA4Client(
+        FakeResponse(
+            rows=(
+                FakeRow(
+                    dimension_values=(FakeValue("/products?access_token=do-not-output&utm_source=ad"),),
+                    metric_values=tuple(FakeValue("1") for _ in METRICS),
+                ),
+            )
+        )
+    )
+
+    row = GA4Adapter(client).pages(_site(), _date_range())[0]
+    parameters = dict(parse_qsl(urlsplit(str(row["landingPagePlusQueryString"])).query))
+
+    assert parameters["access_token"] == "[REDACTED]"
+    assert parameters["utm_source"] == "ad"
+
+
 def test_daily_returns_empty_list_for_response_without_rows() -> None:
     client = FakeGA4Client(FakeResponse(rows=()))
 
     assert GA4Adapter(client).daily(_site(), _date_range()) == []
+
+
+def test_aggregate_requests_interval_metrics_without_a_dimension() -> None:
+    client = FakeGA4Client(
+        FakeResponse(
+            rows=(
+                FakeRow(
+                    dimension_values=(),
+                    metric_values=tuple(FakeValue("10") for _ in METRICS),
+                ),
+            )
+        )
+    )
+
+    result = GA4Adapter(client).aggregate(_site(), _date_range())
+
+    request = client.requests[0]
+    assert list(request.dimensions) == []
+    assert result == [
+        {
+            "sessions": 10.0,
+            "totalUsers": 10.0,
+            "activeUsers": 10.0,
+            "engagedSessions": 10.0,
+            "engagementRate": 10.0,
+            "screenPageViews": 10.0,
+            "keyEvents": 10.0,
+        }
+    ]
 
 
 def test_pages_paginates_until_authoritative_row_count_and_retains_rows(

@@ -107,6 +107,19 @@ def test_query_fetches_second_batch_only_after_full_first_batch() -> None:
     assert len(result) == 25001
 
 
+def test_detail_result_marks_exact_fifty_thousand_row_cap_as_truncated() -> None:
+    full_batch = _fixture("gsc_pages.json")["rows"] * 25000
+    service = FakeGSCService([{"rows": full_batch}, {"rows": full_batch}])
+
+    result = GSCAdapter(service).query_result(_site(), _date_range(), ("page",))
+
+    assert len(result.rows) == 50000
+    assert result.truncated is True
+    assert result.row_cap == 50000
+    assert result.dimensions == ("page",)
+    assert [body["startRow"] for _, body in service.resource.calls] == [0, 25000]
+
+
 def _fixture(name: str) -> dict[str, object]:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 

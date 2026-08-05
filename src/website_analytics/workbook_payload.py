@@ -7,6 +7,8 @@ import math
 from collections.abc import Mapping, Sequence
 from typing import Any
 
+from website_analytics.url_safety import sanitize_url_query
+
 
 DETAIL_SHEET_ORDER = (
     "GA4 Daily",
@@ -195,8 +197,10 @@ def _freshness_text(value: object) -> str:
 
 
 def _json_value(value: object) -> str | int | float | bool | None:
-    if value is None or isinstance(value, (str, bool, int)):
+    if value is None or isinstance(value, (bool, int)):
         return value
+    if isinstance(value, str):
+        return sanitize_url_query(value)
     if isinstance(value, float):
         if not math.isfinite(value):
             raise ValueError("workbook payload does not allow non-finite numbers")

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Literal, Protocol, TypedDict
 
 from website_analytics.models import DateRange, SiteConfig
+from website_analytics.url_safety import sanitize_url_query
 
 
 GSCDimension = Literal["date", "page", "query", "country", "device"]
@@ -15,6 +17,16 @@ _ALLOWED_DIMENSIONS = frozenset({"date", "page", "query", "country", "device"})
 _METRICS = ("clicks", "impressions", "ctr", "position")
 _BATCH_SIZE = 25_000
 _MAX_ROWS = 50_000
+
+
+@dataclass(frozen=True)
+class GSCQueryResult:
+    """A bounded Search Console result with an explicit completeness signal."""
+
+    rows: tuple[GSCRow, ...]
+    dimensions: tuple[GSCDimension, ...]
+    truncated: bool
+    row_cap: int
 
 
 class _SearchAnalyticsBody(TypedDict):
@@ -61,10 +73,24 @@ class GSCAdapter:
         dimensions: Sequence[GSCDimension],
     ) -> list[GSCRow]:
         """Return final web Search Console rows for approved dimensions only."""
+        return list(self.query_result(site, date_range, dimensions).rows)
+
+    def query_result(
+        self,
+        site: SiteConfig,
+        date_range: DateRange,
+        dimensions: Sequence[GSCDimension],
+    ) -> GSCQueryResult:
+        """Return final web rows with 50,000-row-cap metadata.
+
+        A full final batch at the cap is marked truncated because the API has
+        not established that more matching rows do not exist.
+        """
         requested_dimensions = tuple(dimensions)
         _validate_dimensions(requested_dimensions)
 
         rows: list[GSCRow] = []
+        truncated = False
         for start_row in range(0, _MAX_ROWS, _BATCH_SIZE):
             response = self._service.searchanalytics().query(
                 siteUrl=site.gsc_property_url,
@@ -82,7 +108,14 @@ class GSCAdapter:
             rows.extend(_normalize_row(row, requested_dimensions) for row in batch)
             if len(batch) < _BATCH_SIZE:
                 break
-        return rows
+            if start_row + _BATCH_SIZE >= _MAX_ROWS:
+                truncated = True
+        return GSCQueryResult(
+            rows=tuple(rows),
+            dimensions=requested_dimensions,
+            truncated=truncated,
+            row_cap=_MAX_ROWS,
+        )
 
 
 def _validate_dimensions(dimensions: tuple[GSCDimension, ...]) -> None:
@@ -108,7 +141,10 @@ def _normalize_row(
         isinstance(value, str) for value in raw_keys
     ):
         raise ValueError("GSC response row field 'keys' must be a list of strings")
-    normalized: GSCRow = dict(zip(dimensions, raw_keys, strict=True))
+    normalized: GSCRow = {
+        dimension: sanitize_url_query(value)
+        for dimension, value in zip(dimensions, raw_keys, strict=True)
+    }
     normalized.update({metric: _as_float(row[metric]) for metric in _METRICS})
     return normalized
 

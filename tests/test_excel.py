@@ -7,6 +7,7 @@ import subprocess
 import zipfile
 from pathlib import Path
 from xml.etree import ElementTree
+from urllib.parse import parse_qsl, urlsplit
 
 from website_analytics.workbook_payload import DETAIL_SHEET_ORDER, build_workbook_payload
 
@@ -64,6 +65,26 @@ def test_payload_has_fixed_sheet_order_and_json_safe_typed_numbers() -> None:
     assert payload["sheets"][1]["rows"][3][1] == "Retrieved: 2026-08-10 01:00 UTC"
     assert payload["sheets"][-1]["rows"][3][1] == "Retrieved: 2026-08-10 01:00 UTC"
     assert json.loads(json.dumps(payload)) == payload
+
+
+def test_workbook_payload_redacts_sensitive_url_parameters_before_excel_export() -> None:
+    payload = build_workbook_payload(
+        {"site": "demo"},
+        {
+            "GA4 Pages": [
+                {
+                    "landingPagePlusQueryString": "/products?api_key=do-not-output&utm_source=partner",
+                    "sessions": 1.0,
+                }
+            ]
+        },
+        {"sources": {"ga4": {"status": "ok"}}},
+    )
+
+    value = payload["sheets"][2]["rows"][1][0]
+    parameters = dict(parse_qsl(urlsplit(value).query))
+    assert parameters["api_key"] == "[REDACTED]"
+    assert parameters["utm_source"] == "partner"
 
 
 def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(

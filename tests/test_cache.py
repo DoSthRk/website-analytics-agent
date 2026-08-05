@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from hashlib import sha256
+from urllib.parse import parse_qsl, urlsplit
 
 import pytest
 
@@ -188,3 +189,28 @@ def test_audit_manifest_rejects_a_missing_output_path(tmp_path) -> None:
         )
 
     assert not manifest_path.exists()
+
+
+def test_cache_and_audit_redact_sensitive_url_values_even_under_generic_keys(tmp_path) -> None:
+    raw_path = "/landing?token=do-not-persist&utm_source=newsletter"
+    cache_path = write_cached_json(
+        tmp_path,
+        "demo",
+        "ga4",
+        {"request_value": raw_path},
+        [{"value": raw_path}],
+    )
+    audit_path = write_audit_manifest(
+        tmp_path / "audit.json",
+        {"value": raw_path},
+        {"ga4": {"landingPagePlusQueryString": raw_path}},
+    )
+
+    cached_value = json.loads(cache_path.read_text(encoding="utf-8"))[0]["value"]
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    audit_request = audit["request"]["value"]
+    audit_status = audit["source_statuses"]["ga4"]["landingPagePlusQueryString"]
+    for value in (cached_value, audit_request, audit_status):
+        parameters = dict(parse_qsl(urlsplit(value).query))
+        assert parameters["token"] == "[REDACTED]"
+        assert parameters["utm_source"] == "newsletter"

@@ -8,9 +8,9 @@ from pathlib import Path
 from typing import Any
 
 from website_analytics import __version__
+from website_analytics.url_safety import REDACTION_MARKER, sanitize_url_query
 
 
-_REDACTION_MARKER = "[REDACTED]"
 _NORMALIZED_SECRET_KEY_PARTS = (
     "token",
     "secret",
@@ -65,7 +65,7 @@ def write_cached_json(
         source_path / f"{request_hash}.json", resolved_root
     )
     cache_path.write_text(
-        json.dumps(rows, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+        json.dumps(_redact(rows), ensure_ascii=False, indent=2, allow_nan=False) + "\n",
         encoding="utf-8",
     )
     return cache_path
@@ -128,11 +128,13 @@ def _hash_output(output_path: str | Path) -> str:
 def _redact(value: Any) -> Any:
     if isinstance(value, Mapping):
         return {
-            key: _REDACTION_MARKER if _is_secret_key(key) else _redact(item)
+            key: REDACTION_MARKER if _is_secret_key(key) else _redact(item)
             for key, item in value.items()
         }
     if isinstance(value, (list, tuple)):
         return [_redact(item) for item in value]
+    if isinstance(value, str):
+        return sanitize_url_query(value)
     return value
 
 
