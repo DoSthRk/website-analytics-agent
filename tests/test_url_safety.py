@@ -21,6 +21,13 @@ from website_analytics.url_safety import sanitize_url_query
         "secret",
         "code",
         "signature",
+        "authorization",
+        "Authorization",
+        "clientCredential",
+        "client-credential",
+        "private_key",
+        "private-key",
+        "X-Private-Key",
     ),
 )
 def test_sensitive_url_parameter_names_are_redacted_but_attribution_is_retained(

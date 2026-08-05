@@ -8,18 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from website_analytics import __version__
-from website_analytics.url_safety import REDACTION_MARKER, sanitize_url_query
-
-
-_NORMALIZED_SECRET_KEY_PARTS = (
-    "token",
-    "secret",
-    "credential",
-    "authorization",
-    "password",
-    "privatekey",
-    "apikey",
+from website_analytics.url_safety import (
+    REDACTION_MARKER,
+    is_sensitive_name,
+    sanitize_url_query,
 )
+
+
 _UNSAFE_COMPONENT_CHARACTERS = frozenset('<>:"/\\|?*')
 _WINDOWS_RESERVED_DOS_NAMES = frozenset(
     (
@@ -139,10 +134,7 @@ def _redact(value: Any) -> Any:
 
 
 def _is_secret_key(key: object) -> bool:
-    if not isinstance(key, str):
-        return False
-    normalized_key = "".join(character for character in key.casefold() if character.isalnum())
-    return any(part in normalized_key for part in _NORMALIZED_SECRET_KEY_PARTS)
+    return is_sensitive_name(key)
 
 
 def _validate_component(value: object, label: str) -> None:

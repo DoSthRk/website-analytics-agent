@@ -8,20 +8,18 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
 REDACTION_MARKER = "[REDACTED]"
-_SENSITIVE_PARAMETER_NAMES = frozenset(
+_SENSITIVE_NAME_PARTS = frozenset(
     {
         "token",
-        "accesstoken",
-        "refreshtoken",
-        "apikey",
-        "xgoogapikey",
-        "key",
-        "password",
         "secret",
-        "code",
-        "signature",
+        "credential",
+        "authorization",
+        "password",
+        "privatekey",
+        "apikey",
     }
 )
+_SENSITIVE_EXACT_NAMES = frozenset({"key", "code", "signature"})
 
 
 def sanitize_url_query(value: str) -> str:
@@ -35,11 +33,11 @@ def sanitize_url_query(value: str) -> str:
         return value
     parts = urlsplit(value)
     parameters = parse_qsl(parts.query, keep_blank_values=True)
-    if not any(_is_sensitive_parameter(name) for name, _ in parameters):
+    if not any(is_sensitive_name(name) for name, _ in parameters):
         return value
     safe_query = urlencode(
         [
-            (name, REDACTION_MARKER if _is_sensitive_parameter(name) else parameter_value)
+            (name, REDACTION_MARKER if is_sensitive_name(name) else parameter_value)
             for name, parameter_value in parameters
         ],
         doseq=True,
@@ -60,6 +58,16 @@ def sanitize_url_values(value: Any) -> Any:
     return value
 
 
-def _is_sensitive_parameter(name: str) -> bool:
-    normalized = "".join(character for character in name.casefold() if character.isalnum())
-    return normalized in _SENSITIVE_PARAMETER_NAMES
+def is_sensitive_name(value: object) -> bool:
+    """Apply one normalized policy to mapping keys and URL parameters."""
+    if not isinstance(value, str):
+        return False
+    normalized = normalize_sensitive_name(value)
+    return normalized in _SENSITIVE_EXACT_NAMES or any(
+        part in normalized for part in _SENSITIVE_NAME_PARTS
+    )
+
+
+def normalize_sensitive_name(value: str) -> str:
+    """Normalize case, camel case, hyphenated, and header-style names."""
+    return "".join(character for character in value.casefold() if character.isalnum())
