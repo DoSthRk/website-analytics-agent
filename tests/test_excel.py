@@ -338,6 +338,43 @@ def test_artifact_tool_builder_exports_a_valid_xlsx_and_renders_every_sheet(
     ]
 
 
+def test_artifact_tool_builder_previews_a_large_detail_sheet_without_rendering_all_rows(
+    tmp_path: Path,
+) -> None:
+    fixture_path = PROJECT_ROOT / "tests" / "fixtures" / "workbook_payload.json"
+    payload = json.loads(fixture_path.read_text(encoding="utf-8"))
+    query_sheet = next(sheet for sheet in payload["sheets"] if sheet["name"] == "GSC Queries")
+    query_sheet["rows"].extend(
+        [f"long-tail query {index}", index, index * 10, 0.1, 12.5]
+        for index in range(1, 3_001)
+    )
+    input_path = tmp_path / "large-payload.json"
+    output_path = tmp_path / "large-report.xlsx"
+    render_dir = tmp_path / "large-rendered"
+    input_path.write_text(json.dumps(payload), encoding="utf-8")
+
+    completed = subprocess.run(
+        [
+            os.fspath(_renderer_node_or_skip()),
+            "scripts/build_report_workbook.mjs",
+            "--input",
+            os.fspath(input_path),
+            "--output",
+            os.fspath(output_path),
+            "--render-dir",
+            os.fspath(render_dir),
+        ],
+        cwd=PROJECT_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert zipfile.is_zipfile(output_path)
+    assert (render_dir / "gsc-queries.png").is_file()
+
+
 def test_verifier_rejects_a_pk_prefixed_file_that_is_not_a_zip(tmp_path: Path) -> None:
     invalid_xlsx = tmp_path / "not-a-workbook.xlsx"
     invalid_xlsx.write_bytes(b"PK\x03\x04not a real ZIP archive")

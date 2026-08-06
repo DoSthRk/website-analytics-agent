@@ -9,6 +9,7 @@ const LABEL_FILL = "#D9EAF7";
 const LIGHT_BORDER = "#D9E2F3";
 const RENDERER_CLEANUP_EXIT_CODE = 3221226505;
 const MAX_WORKER_LOG_CHARACTERS = 8192;
+const MAX_PREVIEW_ROWS = 100;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const PERCENT_HEADERS = new Set(["ctr", "engagementrate"]);
 const COUNT_HEADERS = new Set([
@@ -69,8 +70,10 @@ async function buildWorkbook(workerOptions) {
       throw new Error(`Could not inspect sheet ${sheetData.name}`);
     }
 
+    const previewRange = `A1:${columnLetter(columnCount)}${Math.min(rows.length, MAX_PREVIEW_ROWS)}`;
     const preview = await workbook.render({
       sheetName: sheetData.name,
+      range: previewRange,
       autoCrop: "all",
       scale: 1,
       format: "png",
