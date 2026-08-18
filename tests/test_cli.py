@@ -228,6 +228,78 @@ def test_fixture_report_and_excel_export_are_end_to_end_offline(
     ]
 
 
+def test_fixture_export_automatically_adds_genemedi_product_mapping(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    config = tmp_path / "sites.yaml"
+    config.write_text(
+        """
+sites:
+  genemedi-net:
+    display_name: GeneMedi.net
+    domains:
+      - genemedi.net
+    timezone: America/Los_Angeles
+    ga4_property_id: "123456789"
+    gsc_property_url: sc-domain:genemedi.net
+    key_events:
+      - inquiry
+""".lstrip(),
+        encoding="utf-8",
+    )
+    output = tmp_path / "genemedi.xlsx"
+    monkeypatch.setenv("WEBSITE_ANALYTICS_NODE", _renderer_node_or_skip())
+    monkeypatch.setattr(
+        cli,
+        "_create_live_adapters",
+        lambda: (_ for _ in ()).throw(AssertionError("fixture mode used Google clients")),
+    )
+
+    code = cli.main(
+        [
+            "export-excel",
+            "--site",
+            "genemedi-net",
+            "--start",
+            "2026-08-03",
+            "--end",
+            "2026-08-09",
+            "--config",
+            str(config),
+            "--fixture-dir",
+            str(FIXTURES),
+            "--cache-dir",
+            str(tmp_path / "cache"),
+            "--audit-dir",
+            str(tmp_path / "audits"),
+            "--output",
+            str(output),
+        ]
+    )
+
+    captured = capsys.readouterr()
+    exported = json.loads(captured.out)
+    assert code == 0
+    assert exported["product_mapping"] == {
+        "status": "configured",
+        "version": "2",
+        "report_lines": ["GMP", "SOLIDEX", "AAV_PROCESSING"],
+    }
+    assert zipfile.is_zipfile(output)
+    assert sorted(path.name for path in output.with_suffix("").with_name("genemedi.renders").glob("*.png")) == [
+        "audit.png",
+        "executive-summary.png",
+        "ga4-daily.png",
+        "ga4-pages.png",
+        "gsc-daily.png",
+        "gsc-pages.png",
+        "gsc-queries.png",
+        "product-page-mapping.png",
+        "product-weekly-summary.png",
+        "readme.png",
+    ]
+
+
 def test_invalid_input_is_json_on_stderr_and_uses_exit_code_two(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

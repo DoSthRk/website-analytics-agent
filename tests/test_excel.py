@@ -172,6 +172,102 @@ def test_workbook_payload_shows_comparison_provenance_before_previous_values() -
     )
 
 
+def test_workbook_payload_adds_product_summary_and_mapping_when_configured() -> None:
+    product_report = {
+        "mappingVersion": "2",
+        "reportLines": [
+            {
+                "reportLineId": "GMP",
+                "reportLine": "GMP 系列",
+                "currentCanonicalPages": 1,
+                "ga4SessionsCurrent": 7.0,
+                "ga4SessionsPrevious": 2.0,
+                "ga4SessionsDelta": 5.0,
+                "gscClicksCurrent": 5.0,
+                "gscClicksPrevious": 1.0,
+                "gscClicksDelta": 4.0,
+                "gscImpressionsCurrent": 50.0,
+                "gscImpressionsPrevious": 10.0,
+                "gscImpressionsDelta": 40.0,
+                "gscCtrCurrent": 0.1,
+                "gscCtrPrevious": 0.1,
+                "gscCtrDelta": 0.0,
+            }
+        ],
+        "pageMappings": [
+            {
+                "canonicalPath": "/i/gmp-generic-column",
+                "productLineId": "GMP",
+                "reportLineId": "GMP",
+                "pageClass": "product_page",
+                "includeInProductReport": True,
+                "mappingRuleId": "gmp-prefix",
+                "mappingStatus": "approved",
+                "mappingReason": "Approved generic GMP rule.",
+                "ga4Sessions": 7.0,
+                "gscClicks": 5.0,
+                "gscImpressions": 50.0,
+                "gscCtr": 0.1,
+            }
+        ],
+    }
+    payload = build_workbook_payload(
+        {
+            "site": "genemedi-net",
+            "display_name": "GeneMedi.net",
+            "date_range": {"start": "2026-08-03", "end": "2026-08-09"},
+            "selection_timezone": "America/Los_Angeles",
+            "freshness": "2026-08-10T01:00:00Z",
+        },
+        {"GA4 Pages": [{"landingPagePlusQueryString": "/i/gmp-generic-column", "sessions": 7.0}]},
+        {"generated_at": "2026-08-10T01:00:00Z", "sources": {"ga4": {"rows": 1}}},
+        product_report=product_report,
+    )
+
+    assert [sheet["name"] for sheet in payload["sheets"]] == [
+        "README",
+        "Executive Summary",
+        "Product Weekly Summary",
+        "Product Page Mapping",
+        "GA4 Pages",
+        "Audit",
+    ]
+    summary_rows = payload["sheets"][2]["rows"]
+    assert ["Mapping version", "2"] in summary_rows
+    assert summary_rows[-1][0:3] == ["GMP", "GMP 系列", 1]
+    mapping_rows = payload["sheets"][3]["rows"]
+    assert mapping_rows[0][0:4] == ["canonicalPath", "productLineId", "reportLineId", "pageClass"]
+    assert mapping_rows[1][0:4] == ["/i/gmp-generic-column", "GMP", "GMP", "product_page"]
+
+
+def test_product_mapping_sheet_is_exportable_when_period_has_no_matched_pages() -> None:
+    product_report = {
+        "mappingVersion": "2",
+        "reportLines": [],
+        "pageMappings": [],
+    }
+    payload = build_workbook_payload(
+        {
+            "site": "genemedi-net",
+            "date_range": {"start": "2026-08-03", "end": "2026-08-09"},
+            "selection_timezone": "America/Los_Angeles",
+        },
+        {},
+        {"sources": {}},
+        product_report=product_report,
+    )
+
+    readme_rows = payload["sheets"][0]["rows"]
+    mapping_rows = payload["sheets"][3]["rows"]
+    assert ["Product mapping version", "2"] in readme_rows
+    assert mapping_rows == [
+        ["status"],
+        [
+            "No page-level GA4 or GSC records in this export period matched the approved product rules."
+        ],
+    ]
+
+
 def test_exported_workbook_keeps_a_self_describing_readme(
     tmp_path: Path,
 ) -> None:

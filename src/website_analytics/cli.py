@@ -25,6 +25,11 @@ from website_analytics.cache import write_audit_manifest, write_cached_json
 from website_analytics.config import ConfigError, load_sites, require_site
 from website_analytics.dates import DateRangeError, parse_date_range, previous_period
 from website_analytics.models import DateRange, SiteConfig
+from website_analytics.product_mapping import (
+    ProductMappingError,
+    build_product_report,
+    load_product_mapping,
+)
 from website_analytics.reporting import compare_totals
 from website_analytics.url_safety import sanitize_url_values
 from website_analytics.workbook_payload import build_workbook_payload
@@ -42,6 +47,7 @@ _GA4_INTERVAL_METRICS = (
 _GSC_TOTAL_METRICS = ("clicks", "impressions")
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _BUILDER_SCRIPT = _PROJECT_ROOT / "scripts" / "build_report_workbook.mjs"
+_PRODUCT_MAPPING_DIR = _PROJECT_ROOT / "config" / "product_mappings"
 
 
 class CLIInputError(ValueError):
@@ -228,6 +234,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                     previous=previous,
                 )
                 return _write_stdout(result, 3)
+            product_mapping = load_product_mapping(
+                _PRODUCT_MAPPING_DIR / f"{site.site_key}.yaml", site.site_key
+            )
+            product_report = (
+                build_product_report(
+                    product_mapping, current["details"], previous["details"]
+                )
+                if product_mapping is not None
+                else None
+            )
             payload = build_workbook_payload(
                 {
                     "site": site.site_key,
@@ -240,9 +256,21 @@ def main(argv: Sequence[str] | None = None) -> int:
                 },
                 current["details"],
                 current["audit"],
+                product_report=product_report,
             )
             builder_result = _run_workbook_builder(payload, args.output)
             result["export"] = builder_result
+            result["product_mapping"] = (
+                {
+                    "status": "configured",
+                    "version": product_mapping.version,
+                    "report_lines": [
+                        line.identifier for line in product_mapping.report_lines
+                    ],
+                }
+                if product_mapping is not None
+                else {"status": "not_configured"}
+            )
             _persist_dataset(
                 args,
                 site,
@@ -254,7 +282,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _write_stdout(result)
 
         raise CLIInputError("unsupported command")
-    except (CLIInputError, ConfigError, DateRangeError) as error:
+    except (CLIInputError, ConfigError, DateRangeError, ProductMappingError) as error:
         return _write_stderr(error, 2)
     except DataSourceError as error:
         return _write_stderr(error, 3)

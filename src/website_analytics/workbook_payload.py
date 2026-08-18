@@ -23,6 +23,7 @@ def build_workbook_payload(
     report: Mapping[str, Any],
     details: Mapping[str, Sequence[Mapping[str, Any]]],
     audit: Mapping[str, Any],
+    product_report: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return a deterministic, JSON-safe description of an analytics workbook."""
     _validate_detail_names(details)
@@ -43,6 +44,7 @@ def build_workbook_payload(
                 freshness,
                 source_names,
                 report.get("comparison"),
+                product_report,
             ),
         ),
         _sheet(
@@ -57,6 +59,29 @@ def build_workbook_payload(
             ),
         ),
     ]
+
+    if product_report is not None:
+        sheets.extend(
+            [
+                _sheet(
+                    "Product Weekly Summary",
+                    "product_summary",
+                    _product_summary_rows(
+                        site,
+                        date_range,
+                        selection_timezone,
+                        freshness,
+                        product_report,
+                    ),
+                ),
+                _sheet(
+                    "Product Page Mapping",
+                    "detail",
+                    _product_page_mapping_rows(product_report),
+                    detail=True,
+                ),
+            ]
+        )
 
     for detail_name in DETAIL_SHEET_ORDER:
         if detail_name in details:
@@ -144,6 +169,81 @@ def _summary_rows(
     return rows
 
 
+def _product_summary_rows(
+    site: str,
+    date_range: str,
+    selection_timezone: str,
+    freshness: str,
+    product_report: Mapping[str, Any],
+) -> list[list[Any]]:
+    report_lines = product_report.get("reportLines")
+    if not isinstance(report_lines, Sequence):
+        raise ValueError("product report must contain reportLines")
+    headers = [
+        "reportLineId",
+        "reportLine",
+        "currentCanonicalPages",
+        "ga4SessionsCurrent",
+        "ga4SessionsPrevious",
+        "ga4SessionsDelta",
+        "gscClicksCurrent",
+        "gscClicksPrevious",
+        "gscClicksDelta",
+        "gscImpressionsCurrent",
+        "gscImpressionsPrevious",
+        "gscImpressionsDelta",
+        "gscCtrCurrent",
+        "gscCtrPrevious",
+        "gscCtrDelta",
+    ]
+    rows: list[list[Any]] = [
+        ["Product Weekly Summary"],
+        ["Site", site],
+        ["Current date range", date_range],
+        ["Selection timezone", selection_timezone],
+        ["Freshness", freshness],
+        ["Mapping version", _text(product_report.get("mappingVersion"))],
+        [
+            "Scope",
+            "Only approved mapped product pages are included; GA4 and GSC metrics remain separate.",
+        ],
+        [],
+        headers,
+    ]
+    for report_line in report_lines:
+        if not isinstance(report_line, Mapping):
+            raise ValueError("product report lines must be mappings")
+        rows.append(
+            [
+                _json_value(report_line.get(header))
+                for header in headers
+            ]
+        )
+    return rows
+
+
+def _product_page_mappings(product_report: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
+    pages = product_report.get("pageMappings")
+    if not isinstance(pages, Sequence) or isinstance(pages, (str, bytes)):
+        raise ValueError("product report must contain pageMappings")
+    if not all(isinstance(page, Mapping) for page in pages):
+        raise ValueError("product page mappings must be mappings")
+    return pages
+
+
+def _product_page_mapping_rows(product_report: Mapping[str, Any]) -> list[list[Any]]:
+    """Return a renderable mapping sheet even when the period has no matched pages."""
+    pages = _product_page_mappings(product_report)
+    if pages:
+        return _detail_rows(pages)
+    return [
+        ["status"],
+        [
+            "No page-level GA4 or GSC records in this export period matched the approved product rules."
+        ],
+    ]
+
+
 def _detail_rows(records: Sequence[Mapping[str, Any]]) -> list[list[Any]]:
     headers: list[str] = []
     for record in records:
@@ -203,6 +303,7 @@ def _readme_rows(
     freshness: str,
     source_names: Sequence[str],
     comparison: object,
+    product_report: Mapping[str, Any] | None,
 ) -> list[list[Any]]:
     rows: list[list[Any]] = [
         ["Website Analytics Report"],
@@ -241,6 +342,18 @@ def _readme_rows(
             "GSC page and query rows can be bounded or capped; partial reports are not exhaustive.",
         ],
     ])
+    if product_report is not None:
+        rows.extend(
+            [
+                [],
+                ["Product mapping"],
+                [
+                    "Product weekly summary",
+                    "Uses approved mapping rules and only includes matched product pages; GA4 and GSC metrics remain separate.",
+                ],
+                ["Product mapping version", _text(product_report.get("mappingVersion"))],
+            ]
+        )
     return rows
 
 

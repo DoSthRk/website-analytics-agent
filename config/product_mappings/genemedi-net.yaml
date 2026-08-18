@@ -1,0 +1,70 @@
+version: "2"
+site: genemedi-net
+report_lines:
+  - id: GMP
+    name: GMP 系列
+  - id: SOLIDEX
+    name: SOLIDEX / ISOEx
+  - id: AAV_PROCESSING
+    name: AAV 纯化与滴度
+rules:
+  - id: solidex-isoex
+    priority: 10
+    match:
+      type: any_keyword
+      values: [solidex, isoex]
+    product_line_id: SOLIDEX
+    report_line_id: SOLIDEX
+    include_in_product_report: true
+    mapping_status: approved
+    reason: SOLIDEX / ISOEx 优先于通用 GMP- 规则。
+  - id: purprox-aav-purification
+    priority: 20
+    match:
+      type: any_keyword
+      values: [purprox]
+    product_line_id: AAV_PURIFICATION
+    report_line_id: AAV_PROCESSING
+    include_in_product_report: true
+    mapping_status: approved
+    reason: PurProX 统一汇总至 AAV 纯化与滴度。
+  - id: aav-titration
+    priority: 30
+    match:
+      type: all_keywords
+      values: [aav, titration]
+    product_line_id: AAV_TITRATION
+    report_line_id: AAV_PROCESSING
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 仅 AAV 与 titration 同时命中时归入 AAV 滴度。
+  - id: antibody-titration-excluded
+    priority: 40
+    match:
+      type: exact_path
+      values: [/i/protocols-application-antibody-titration]
+    product_line_id: UNCLASSIFIED
+    report_line_id:
+    include_in_product_report: false
+    mapping_status: approved
+    reason: 抗体滴度应用页，不属于 AAV。
+  - id: payload-review-excluded
+    priority: 50
+    match:
+      type: any_keyword
+      values: [payload]
+    product_line_id: PAYLOAD_REVIEW
+    report_line_id:
+    include_in_product_report: false
+    mapping_status: approved
+    reason: 当前策略是不建立正式产品线、不纳入周报。
+  - id: gmp-prefix
+    priority: 60
+    match:
+      type: path_prefix
+      values: [/i/gmp-]
+    product_line_id: GMP
+    report_line_id: GMP
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 仅在 SOLIDEX / ISOEx 未命中时适用的通用 GMP- 规则。

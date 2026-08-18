@@ -1,0 +1,26 @@
+{
+  "sheets": [
+    {
+      "name": "Product Weekly Summary",
+      "kind": "product_summary",
+      "detail": false,
+      "rows": [
+        ["Product Weekly Summary"],
+        ["Site", "GeneMedi.net"],
+        ["Mapping version", "2"],
+        [],
+        ["reportLineId", "reportLine", "currentCanonicalPages", "ga4SessionsCurrent", "ga4SessionsPrevious", "ga4SessionsDelta", "gscClicksCurrent", "gscClicksPrevious", "gscClicksDelta", "gscImpressionsCurrent", "gscImpressionsPrevious", "gscImpressionsDelta", "gscCtrCurrent", "gscCtrPrevious", "gscCtrDelta"],
+        ["GMP", "GMP 系列", 1, 7, 2, 5, 5, 1, 4, 50, 10, 40, 0.1, 0.1, 0]
+      ]
+    },
+    {
+      "name": "Product Page Mapping",
+      "kind": "detail",
+      "detail": true,
+      "rows": [
+        ["canonicalPath", "productLineId", "reportLineId", "pageClass", "includeInProductReport", "mappingRuleId", "mappingStatus", "mappingReason", "ga4Sessions", "gscClicks", "gscImpressions", "gscCtr"],
+        ["/i/gmp-generic-column", "GMP", "GMP", "product_page", true, "gmp-prefix", "approved", "Approved generic GMP rule.", 7, 5, 50, 0.1]
+      ]
+    }
+  ]
+}

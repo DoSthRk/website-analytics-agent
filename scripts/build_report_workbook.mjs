@@ -11,7 +11,14 @@ const RENDERER_CLEANUP_EXIT_CODE = 3221226505;
 const MAX_WORKER_LOG_CHARACTERS = 8192;
 const MAX_PREVIEW_ROWS = 100;
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-const PERCENT_HEADERS = new Set(["ctr", "engagementrate"]);
+const PERCENT_HEADERS = new Set([
+  "ctr",
+  "engagementrate",
+  "gscctr",
+  "gscctrcurrent",
+  "gscctrprevious",
+  "gscctrdelta",
+]);
 const COUNT_HEADERS = new Set([
   "sessions",
   "totalusers",
@@ -22,11 +29,26 @@ const COUNT_HEADERS = new Set([
   "clicks",
   "impressions",
   "rows",
+  "currentcanonicalpages",
+  "ga4sessions",
+  "ga4sessionscurrent",
+  "ga4sessionsprevious",
+  "ga4sessionsdelta",
+  "gscclicks",
+  "gscclickscurrent",
+  "gscclicksprevious",
+  "gscclicksdelta",
+  "gscimpressions",
+  "gscimpressionscurrent",
+  "gscimpressionsprevious",
+  "gscimpressionsdelta",
 ]);
 const DECIMAL_HEADERS = new Set(["position"]);
 const FIXED_SHEET_NAMES = new Set([
   "README",
   "Executive Summary",
+  "Product Weekly Summary",
+  "Product Page Mapping",
   "GA4 Daily",
   "GA4 Pages",
   "GSC Daily",
@@ -558,13 +580,17 @@ function formatSheet(sheet, sheetData, rows) {
     sheet.mergeCells(`A1:${columnLetter(columnCount)}1`);
   }
   const tableHeaderRow =
-    sheetData.kind === "summary" || sheetData.kind === "audit"
+    sheetData.kind === "summary" || sheetData.kind === "product_summary" || sheetData.kind === "audit"
       ? findTableHeaderRow(rows)
       : -1;
   styleLabels(sheet, rows, sheetData.kind, tableHeaderRow);
   if (sheetData.kind === "summary") {
     styleHeader(sheet.getRangeByIndexes(tableHeaderRow, 0, 1, columnCount));
     applySummaryNumberFormats(sheet, rows, tableHeaderRow);
+  }
+  if (sheetData.kind === "product_summary") {
+    styleHeader(sheet.getRangeByIndexes(tableHeaderRow, 0, 1, columnCount));
+    applyProductSummaryNumberFormats(sheet, rows, tableHeaderRow);
   }
   if (sheetData.kind === "audit") {
     styleHeader(sheet.getRangeByIndexes(tableHeaderRow, 0, 1, columnCount));
@@ -642,11 +668,27 @@ function applySummaryNumberFormats(sheet, rows, tableHeaderRow) {
   }
 }
 
+function applyProductSummaryNumberFormats(sheet, rows, tableHeaderRow) {
+  const headers = rows[tableHeaderRow];
+  const dataRows = Math.max(rows.length - tableHeaderRow - 1, 0);
+  for (let index = 0; index < headers.length; index += 1) {
+    const header = String(headers[index] ?? "").toLowerCase();
+    const dataRange = sheet.getRangeByIndexes(tableHeaderRow + 1, index, dataRows, 1);
+    if (PERCENT_HEADERS.has(header)) {
+      dataRange.format.numberFormat = "0.0%";
+    } else if (COUNT_HEADERS.has(header)) {
+      dataRange.format.numberFormat = "#,##0";
+    }
+  }
+}
+
 function findTableHeaderRow(rows) {
   const index = rows.findIndex(
-    (row) => row[0] === "Source" && (row[1] === "Metric" || row[1] === "Status"),
+    (row) =>
+      (row[0] === "Source" && (row[1] === "Metric" || row[1] === "Status")) ||
+      (row[0] === "reportLineId" && row[1] === "reportLine"),
   );
-  if (index < 0) throw new Error("Summary and audit sheets require a source table header");
+  if (index < 0) throw new Error("Summary and audit sheets require a supported table header");
   return index;
 }
 

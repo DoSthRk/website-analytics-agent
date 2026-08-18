@@ -94,6 +94,15 @@ $env:WEBSITE_ANALYTICS_NODE = '<Node executable path returned by the Codex depen
 - GA4 报表使用 GA4 property reporting timezone 作为报表日界线；上线前应在 GA4 属性中核对该时区是否与 `selection_timezone` 一致。[官方 GA4 Property timeZone 文档](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1alpha/properties#Property.FIELDS.time_zone)
 - Search Console 的 `startDate` / `endDate` 按 Pacific Time (PT, UTC-7/UTC-8) 解释，所以与 GA4 或本地选择约定的每日边界可能不同。[官方 Search Analytics query 文档](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)
 
+## 产品映射周报
+
+当某个站点存在 `config/product_mappings/<site-key>.yaml` 时，`export-excel` 会在原始 GA4/GSC 工作表之外自动加入：
+
+- `Product Weekly Summary`：按已审核的大类汇总本期、上一期和变化；GA4 Sessions 与 GSC Clicks / Impressions / CTR 保持独立，绝不合并为同一种“流量”。
+- `Product Page Mapping`：列出本期实际匹配到的页面、命中的规则和是否纳入周报；若本期没有匹配页面，会明确显示该状态而不会导致导出失败。
+
+映射规则是版本化的本地 YAML，不会访问网页、不会增加 Google API 请求，也不会修改 GA4、GSC 的源数据。`genemedi-net` 当前使用经审核的 GMP、SOLIDEX / ISOEx、AAV 纯化与滴度三个大类；Payload 和抗体滴度页面只在映射审计中保留，不计入产品周报。没有映射文件的已登记站点仍会正常导出原始报告。
+
 ### Excel test runtime contract
 
 Renderer integration tests discover Node.js from `WEBSITE_ANALYTICS_NODE` first, then `node on PATH`. They skip only when neither executable is available or the local `@oai/artifact-tool` runtime has not been linked. On a fresh clone, run **load workspace dependencies**, set `WEBSITE_ANALYTICS_NODE` when Node is not on PATH, then run `scripts/setup-artifact-tool-runtime.ps1` with the Node modules path returned by the dependency loader. The project never guesses a runtime path, installs packages, or relies on a global Artifact Tool installation.
