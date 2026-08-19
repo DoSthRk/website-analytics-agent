@@ -8,3 +8,9 @@ sites:
     gsc_property_url: sc-domain:example.com
     key_events:
       - generate_lead
+    # Optional: fixed read-only inquiry source. Its DSN is supplied only through
+    # the named local environment variable, never this YAML file.
+    # inquiry_source:
+    #   kind: legacy_contacts_mysql
+    #   credential_env: WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN
+    #   credential_target: WebsiteAnalytics/demo/inquiry-dsn

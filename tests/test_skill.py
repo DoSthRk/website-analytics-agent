@@ -86,6 +86,29 @@ def test_metrics_reference_keeps_ga4_and_gsc_semantics_distinct() -> None:
         assert term in metrics
 
 
+def test_skill_and_metrics_define_the_fixed_inquiry_database_boundary() -> None:
+    skill = _read(SKILL)
+    metrics = _read(METRICS)
+
+    for term in (
+        "legacy_contacts_mysql",
+        "configured `credential_env`",
+        "Windows Credential Manager `credential_target`",
+        "SPAM_QUARANTINE",
+        "nonQuarantinedSubmissions",
+        "raw SQL outside the adapter",
+    ):
+        assert term in skill
+    for term in (
+        "storedSubmissions",
+        "quarantinedSubmissions",
+        "nonQuarantinedSubmissions",
+        "No email address",
+        "50,001st row",
+    ):
+        assert term in metrics
+
+
 def test_readme_uses_a_portable_skill_validator_command() -> None:
     readme = _read(README)
 

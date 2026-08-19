@@ -65,6 +65,8 @@ def test_payload_has_fixed_sheet_order_and_json_safe_typed_numbers() -> None:
         "GSC Daily",
         "GSC Pages",
         "GSC Queries",
+        "Inquiry Daily",
+        "Inquiry Pages",
     )
     assert [sheet["name"] for sheet in payload["sheets"]] == [
         "README",
@@ -263,9 +265,48 @@ def test_product_mapping_sheet_is_exportable_when_period_has_no_matched_pages() 
     assert mapping_rows == [
         ["status"],
         [
-            "No page-level GA4 or GSC records in this export period matched the approved product rules."
+            "No page-level GA4, GSC, or inquiry records in this export period matched the approved product rules."
         ],
     ]
+
+
+def test_workbook_payload_adds_separate_product_inquiry_summary() -> None:
+    payload = build_workbook_payload(
+        {
+            "site": "genemedi-net",
+            "date_range": {"start": "2026-08-03", "end": "2026-08-09"},
+            "selection_timezone": "America/Los_Angeles",
+        },
+        {},
+        {"sources": {}},
+        product_report={
+            "mappingVersion": "2",
+            "reportLines": [],
+            "pageMappings": [],
+            "inquiryReportLines": [
+                {
+                    "reportLineId": "GMP",
+                    "reportLine": "GMP 绯诲垪",
+                    "currentInquiryPages": 1,
+                    "storedSubmissionsCurrent": 3.0,
+                    "storedSubmissionsPrevious": 1.0,
+                    "storedSubmissionsDelta": 2.0,
+                    "quarantinedSubmissionsCurrent": 1.0,
+                    "quarantinedSubmissionsPrevious": 0.0,
+                    "quarantinedSubmissionsDelta": 1.0,
+                    "nonQuarantinedSubmissionsCurrent": 2.0,
+                    "nonQuarantinedSubmissionsPrevious": 1.0,
+                    "nonQuarantinedSubmissionsDelta": 1.0,
+                }
+            ],
+        },
+    )
+
+    inquiry_sheet = next(
+        sheet for sheet in payload["sheets"] if sheet["name"] == "Product Inquiry Summary"
+    )
+    assert inquiry_sheet["kind"] == "product_inquiry_summary"
+    assert inquiry_sheet["rows"][-1][0:4] == ["GMP", "GMP 绯诲垪", 1, 3.0]
 
 
 def test_exported_workbook_keeps_a_self_describing_readme(

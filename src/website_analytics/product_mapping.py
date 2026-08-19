@@ -19,7 +19,19 @@ import yaml
 
 RuleMatchType = Literal["exact_path", "path_prefix", "any_keyword", "all_keywords"]
 _MATCH_TYPES = frozenset({"exact_path", "path_prefix", "any_keyword", "all_keywords"})
-_PAGE_METRICS = ("ga4Sessions", "gscClicks", "gscImpressions")
+_PAGE_METRICS = (
+    "ga4Sessions",
+    "gscClicks",
+    "gscImpressions",
+    "storedSubmissions",
+    "quarantinedSubmissions",
+    "nonQuarantinedSubmissions",
+)
+_INQUIRY_METRICS = (
+    "storedSubmissions",
+    "quarantinedSubmissions",
+    "nonQuarantinedSubmissions",
+)
 
 
 class ProductMappingError(ValueError):
@@ -85,7 +97,7 @@ def build_product_report(
     current_details: Mapping[str, Sequence[Mapping[str, Any]]],
     previous_details: Mapping[str, Sequence[Mapping[str, Any]]],
 ) -> dict[str, Any]:
-    """Build current/previous product aggregates without mixing GA4 and GSC."""
+    """Build source-separated current/previous product aggregates."""
     current_pages = _mapped_pages(mapping, current_details)
     previous_pages = _mapped_pages(mapping, previous_details)
     current_summary = _summary_by_line(mapping, current_pages)
@@ -118,6 +130,11 @@ def build_product_report(
         "mappingVersion": mapping.version,
         "reportLines": report_lines,
         "pageMappings": current_pages,
+        "inquiryReportLines": (
+            _inquiry_report_lines(mapping, current_pages, previous_pages)
+            if "Inquiry Pages" in current_details or "Inquiry Pages" in previous_details
+            else []
+        ),
     }
 
 
@@ -136,6 +153,11 @@ def _mapped_pages(
         if path:
             metrics_by_path[path]["gscClicks"] += _metric(record, "clicks")
             metrics_by_path[path]["gscImpressions"] += _metric(record, "impressions")
+    for record in details.get("Inquiry Pages", ()):
+        path = _page_path(record.get("sourceUrl"))
+        if path:
+            for metric in _INQUIRY_METRICS:
+                metrics_by_path[path][metric] += _metric(record, metric)
 
     mapped_pages: list[dict[str, str | float | bool]] = []
     for path, metrics in metrics_by_path.items():
@@ -158,6 +180,9 @@ def _mapped_pages(
                 "gscClicks": metrics["gscClicks"],
                 "gscImpressions": metrics["gscImpressions"],
                 "gscCtr": _ctr(metrics["gscClicks"], metrics["gscImpressions"]),
+                "storedSubmissions": metrics["storedSubmissions"],
+                "quarantinedSubmissions": metrics["quarantinedSubmissions"],
+                "nonQuarantinedSubmissions": metrics["nonQuarantinedSubmissions"],
             }
         )
     return sorted(
@@ -166,6 +191,7 @@ def _mapped_pages(
             not bool(row["includeInProductReport"]),
             -float(row["ga4Sessions"]),
             -float(row["gscClicks"]),
+            -float(row["storedSubmissions"]),
             str(row["canonicalPath"]),
         ),
     )
@@ -183,8 +209,61 @@ def _summary_by_line(
         if not page.get("includeInProductReport") or report_line_id not in summary:
             continue
         line_summary = summary[str(report_line_id)]
-        line_summary["canonicalPages"] += 1
+        if (
+            float(page["ga4Sessions"]) > 0
+            or float(page["gscClicks"]) > 0
+            or float(page["gscImpressions"]) > 0
+        ):
+            line_summary["canonicalPages"] += 1
         for metric in _PAGE_METRICS:
+            line_summary[metric] += float(page[metric])
+    return summary
+
+
+def _inquiry_report_lines(
+    mapping: ProductMapping,
+    current_pages: Sequence[Mapping[str, str | float | bool]],
+    previous_pages: Sequence[Mapping[str, str | float | bool]],
+) -> list[dict[str, str | int | float]]:
+    current = _inquiry_summary_by_line(mapping, current_pages)
+    previous = _inquiry_summary_by_line(mapping, previous_pages)
+    return [
+        {
+            "reportLineId": line.identifier,
+            "reportLine": line.name,
+            "currentInquiryPages": current[line.identifier]["pages"],
+            "storedSubmissionsCurrent": current[line.identifier]["storedSubmissions"],
+            "storedSubmissionsPrevious": previous[line.identifier]["storedSubmissions"],
+            "storedSubmissionsDelta": current[line.identifier]["storedSubmissions"]
+            - previous[line.identifier]["storedSubmissions"],
+            "quarantinedSubmissionsCurrent": current[line.identifier]["quarantinedSubmissions"],
+            "quarantinedSubmissionsPrevious": previous[line.identifier]["quarantinedSubmissions"],
+            "quarantinedSubmissionsDelta": current[line.identifier]["quarantinedSubmissions"]
+            - previous[line.identifier]["quarantinedSubmissions"],
+            "nonQuarantinedSubmissionsCurrent": current[line.identifier]["nonQuarantinedSubmissions"],
+            "nonQuarantinedSubmissionsPrevious": previous[line.identifier]["nonQuarantinedSubmissions"],
+            "nonQuarantinedSubmissionsDelta": current[line.identifier]["nonQuarantinedSubmissions"]
+            - previous[line.identifier]["nonQuarantinedSubmissions"],
+        }
+        for line in mapping.report_lines
+    ]
+
+
+def _inquiry_summary_by_line(
+    mapping: ProductMapping, pages: Sequence[Mapping[str, str | float | bool]]
+) -> dict[str, dict[str, int | float]]:
+    summary = {
+        line.identifier: {"pages": 0, **{metric: 0.0 for metric in _INQUIRY_METRICS}}
+        for line in mapping.report_lines
+    }
+    for page in pages:
+        report_line_id = page.get("reportLineId")
+        if not page.get("includeInProductReport") or report_line_id not in summary:
+            continue
+        line_summary = summary[str(report_line_id)]
+        if float(page["storedSubmissions"]) > 0:
+            line_summary["pages"] += 1
+        for metric in _INQUIRY_METRICS:
             line_summary[metric] += float(page[metric])
     return summary
 

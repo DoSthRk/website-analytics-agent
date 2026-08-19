@@ -21,6 +21,10 @@ from google.analytics.data_v1beta.types import RunReportResponse
 
 from website_analytics.adapters.ga4 import GA4Adapter
 from website_analytics.adapters.gsc import GSCAdapter, GSCQueryResult
+from website_analytics.adapters.inquiry import (
+    create_inquiry_adapter,
+    inquiry_source_data,
+)
 from website_analytics.cache import write_audit_manifest, write_cached_json
 from website_analytics.config import ConfigError, load_sites, require_site
 from website_analytics.dates import DateRangeError, parse_date_range, previous_period
@@ -112,6 +116,42 @@ class _FixtureGSCService:
 
     def searchanalytics(self) -> _FixtureGSCResource:
         return self._resource
+
+
+class _FixtureInquiryAdapter:
+    """Fixture-only source for database inquiry aggregates."""
+
+    def __init__(self, fixture_dir: Path) -> None:
+        self._fixture_dir = fixture_dir
+
+    def source_data(
+        self, date_range: DateRange
+    ) -> tuple[Mapping[str, list[dict[str, str | float]]], dict[str, float], Mapping[str, Any]]:
+        del date_range
+        daily = _read_inquiry_fixture(self._fixture_dir, "inquiry_daily.json")
+        pages = _read_inquiry_fixture(self._fixture_dir, "inquiry_pages.json")
+        totals = {
+            metric: sum(_numeric(row.get(metric)) for row in daily)
+            for metric in (
+                "storedSubmissions",
+                "quarantinedSubmissions",
+                "nonQuarantinedSubmissions",
+            )
+        }
+        return (
+            {"Inquiry Daily": daily, "Inquiry Pages": pages},
+            totals,
+            {
+                "date_boundary": "Fixture-only inquiry source; no production database was queried.",
+                "details": {
+                    "Inquiry Pages": {
+                        "rows": len(pages),
+                        "row_cap": 50_000,
+                        "truncated": False,
+                    }
+                },
+            },
+        )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -348,6 +388,17 @@ def _collect_dataset(
         "gsc",
         lambda: _gsc_source_data(gsc, site, date_range),
     )
+    if site.inquiry_source is not None:
+        collect(
+            "inquiry",
+            lambda: (
+                _FixtureInquiryAdapter(fixture_dir).source_data(date_range)
+                if fixture_dir is not None
+                else inquiry_source_data(
+                    create_inquiry_adapter(site.inquiry_source), date_range
+                )
+            ),
+        )
     complete = all(status["status"] == "ok" for status in statuses.values())
     return {
         "date_range": date_range,
@@ -399,6 +450,24 @@ def _read_fixture(fixture_dir: Path, name: str) -> dict[str, Any]:
     if not isinstance(document, dict):
         raise DataSourceError(f"fixture {name} must contain an object")
     return copy.deepcopy(document)
+
+
+def _read_inquiry_fixture(fixture_dir: Path, name: str) -> list[dict[str, str | float]]:
+    document = _read_fixture(fixture_dir, name)
+    rows = document.get("rows")
+    if not isinstance(rows, list) or not all(isinstance(row, Mapping) for row in rows):
+        raise DataSourceError(f"fixture {name} must contain a rows array")
+    normalized: list[dict[str, str | float]] = []
+    for row in rows:
+        values: dict[str, str | float] = {}
+        for key, value in row.items():
+            if not isinstance(key, str) or isinstance(value, bool) or not isinstance(
+                value, (str, int, float)
+            ):
+                raise DataSourceError(f"fixture {name} has an invalid row value")
+            values[key] = float(value) if isinstance(value, (int, float)) else value
+        normalized.append(values)
+    return normalized
 
 
 def _ga4_totals(interval_rows: Sequence[Mapping[str, str | float]]) -> dict[str, float]:
@@ -508,7 +577,7 @@ def _range_json(date_range: DateRange) -> dict[str, str]:
 
 
 def _date_range_interpretation(site: SiteConfig) -> dict[str, str]:
-    return {
+    interpretation = {
         "selection": (
             f"{site.timezone} is a local convention for relative date requests; "
             "explicit ISO dates are passed unchanged."
@@ -522,6 +591,12 @@ def _date_range_interpretation(site: SiteConfig) -> dict[str, str]:
             "daily boundaries can differ from selection_timezone."
         ),
     }
+    if site.inquiry_source is not None:
+        interpretation["inquiry"] = (
+            "Database inquiry days use the legacy website server calendar; "
+            "they can differ from selection_timezone, GA4, and GSC."
+        )
+    return interpretation
 
 
 def _persist_dataset(
@@ -563,6 +638,7 @@ def _write_cache(root: Path, site_key: str, dataset: Mapping[str, Any]) -> None:
     for source, detail_names in {
         "ga4": ("GA4 Daily", "GA4 Pages"),
         "gsc": ("GSC Daily", "GSC Pages", "GSC Queries"),
+        "inquiry": ("Inquiry Daily", "Inquiry Pages"),
     }.items():
         status = dataset["audit"]["sources"].get(source, {})
         if status.get("status") not in {"ok", "partial"}:

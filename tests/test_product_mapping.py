@@ -30,6 +30,26 @@ def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
             {"page": "https://www.genemedi.net/i/truex-aav-titration-elisa-kit", "clicks": 3.0, "impressions": 30.0},
             {"page": "https://www.genemedi.net/pdf/purprox-aaveasy-flyer.pdf", "clicks": 8.0, "impressions": 80.0},
         ],
+        "Inquiry Pages": [
+            {
+                "sourceUrl": "https://www.genemedi.net/i/gmp-generic-column",
+                "storedSubmissions": 3.0,
+                "quarantinedSubmissions": 1.0,
+                "nonQuarantinedSubmissions": 2.0,
+            },
+            {
+                "sourceUrl": "https://www.genemedi.net/i/purprox-aavfull-enrichment-kit",
+                "storedSubmissions": 2.0,
+                "quarantinedSubmissions": 0.0,
+                "nonQuarantinedSubmissions": 2.0,
+            },
+            {
+                "sourceUrl": "https://www.genemedi.net/i/anti-payload-antibody-for-adcs",
+                "storedSubmissions": 5.0,
+                "quarantinedSubmissions": 0.0,
+                "nonQuarantinedSubmissions": 5.0,
+            },
+        ],
     }
     previous = {
         "GA4 Pages": [
@@ -39,6 +59,14 @@ def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
         "GSC Pages": [
             {"page": "https://www.genemedi.net/i/gmp-generic-column", "clicks": 1.0, "impressions": 10.0},
             {"page": "https://www.genemedi.net/i/purprox-aavfull-enrichment-kit", "clicks": 1.0, "impressions": 10.0},
+        ],
+        "Inquiry Pages": [
+            {
+                "sourceUrl": "https://www.genemedi.net/i/gmp-generic-column",
+                "storedSubmissions": 1.0,
+                "quarantinedSubmissions": 0.0,
+                "nonQuarantinedSubmissions": 1.0,
+            }
         ],
     }
 
@@ -67,6 +95,24 @@ def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
     assert summary["AAV_PROCESSING"]["currentCanonicalPages"] == 2
     assert summary["AAV_PROCESSING"]["ga4SessionsCurrent"] == 3.0
     assert summary["AAV_PROCESSING"]["gscClicksCurrent"] == 5.0
+
+    inquiry_summary = {row["reportLineId"]: row for row in report["inquiryReportLines"]}
+    assert inquiry_summary["GMP"] == {
+        "reportLineId": "GMP",
+        "reportLine": "GMP \u7cfb\u5217",
+        "currentInquiryPages": 1,
+        "storedSubmissionsCurrent": 3.0,
+        "storedSubmissionsPrevious": 1.0,
+        "storedSubmissionsDelta": 2.0,
+        "quarantinedSubmissionsCurrent": 1.0,
+        "quarantinedSubmissionsPrevious": 0.0,
+        "quarantinedSubmissionsDelta": 1.0,
+        "nonQuarantinedSubmissionsCurrent": 2.0,
+        "nonQuarantinedSubmissionsPrevious": 1.0,
+        "nonQuarantinedSubmissionsDelta": 1.0,
+    }
+    assert inquiry_summary["AAV_PROCESSING"]["nonQuarantinedSubmissionsCurrent"] == 2.0
+    assert inquiry_summary["SOLIDEX"]["storedSubmissionsCurrent"] == 0.0
 
     pages = {row["canonicalPath"]: row for row in report["pageMappings"]}
     assert pages["/i/gmp-isoex-mag-mx1"]["reportLineId"] == "SOLIDEX"

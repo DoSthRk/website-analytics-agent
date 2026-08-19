@@ -16,6 +16,8 @@ DETAIL_SHEET_ORDER = (
     "GSC Daily",
     "GSC Pages",
     "GSC Queries",
+    "Inquiry Daily",
+    "Inquiry Pages",
 )
 
 
@@ -82,6 +84,20 @@ def build_workbook_payload(
                 ),
             ]
         )
+        if _has_inquiry_product_report(product_report):
+            sheets.append(
+                _sheet(
+                    "Product Inquiry Summary",
+                    "product_inquiry_summary",
+                    _product_inquiry_summary_rows(
+                        site,
+                        date_range,
+                        selection_timezone,
+                        freshness,
+                        product_report,
+                    ),
+                )
+            )
 
     for detail_name in DETAIL_SHEET_ORDER:
         if detail_name in details:
@@ -239,9 +255,65 @@ def _product_page_mapping_rows(product_report: Mapping[str, Any]) -> list[list[A
     return [
         ["status"],
         [
-            "No page-level GA4 or GSC records in this export period matched the approved product rules."
+            "No page-level GA4, GSC, or inquiry records in this export period matched the approved product rules."
         ],
     ]
+
+
+def _has_inquiry_product_report(product_report: Mapping[str, Any]) -> bool:
+    report_lines = product_report.get("inquiryReportLines")
+    if report_lines is None:
+        return False
+    if not isinstance(report_lines, Sequence) or isinstance(report_lines, (str, bytes)):
+        raise ValueError("product report inquiryReportLines must be a sequence")
+    if not all(isinstance(report_line, Mapping) for report_line in report_lines):
+        raise ValueError("product report inquiry report lines must be mappings")
+    return bool(report_lines)
+
+
+def _product_inquiry_summary_rows(
+    site: str,
+    date_range: str,
+    selection_timezone: str,
+    freshness: str,
+    product_report: Mapping[str, Any],
+) -> list[list[Any]]:
+    report_lines = product_report.get("inquiryReportLines")
+    if not isinstance(report_lines, Sequence) or isinstance(report_lines, (str, bytes)):
+        raise ValueError("product report inquiryReportLines must be a sequence")
+    headers = [
+        "reportLineId",
+        "reportLine",
+        "currentInquiryPages",
+        "storedSubmissionsCurrent",
+        "storedSubmissionsPrevious",
+        "storedSubmissionsDelta",
+        "quarantinedSubmissionsCurrent",
+        "quarantinedSubmissionsPrevious",
+        "quarantinedSubmissionsDelta",
+        "nonQuarantinedSubmissionsCurrent",
+        "nonQuarantinedSubmissionsPrevious",
+        "nonQuarantinedSubmissionsDelta",
+    ]
+    rows: list[list[Any]] = [
+        ["Product Inquiry Summary"],
+        ["Site", site],
+        ["Current date range", date_range],
+        ["Selection timezone", selection_timezone],
+        ["Freshness", freshness],
+        ["Mapping version", _text(product_report.get("mappingVersion"))],
+        [
+            "Scope",
+            "Database submissions only. Non-quarantined is a legacy form-rule status, not a manual lead-quality decision.",
+        ],
+        [],
+        headers,
+    ]
+    for report_line in report_lines:
+        if not isinstance(report_line, Mapping):
+            raise ValueError("product report inquiry report lines must be mappings")
+        rows.append([_json_value(report_line.get(header)) for header in headers])
+    return rows
 
 
 def _detail_rows(records: Sequence[Mapping[str, Any]]) -> list[list[Any]]:
@@ -327,6 +399,11 @@ def _readme_rows(
         ["GSC impressions", "Google Search result impressions."],
         ["GSC CTR", "Clicks divided by impressions."],
         ["GSC position", "Impression-weighted average search position."],
+        ["Database stored submissions", "Form submissions successfully written to the website database."],
+        [
+            "Database non-quarantined submissions",
+            "Stored submissions not marked SPAM_QUARANTINE by the legacy form rule.",
+        ],
         [],
         ["Limitations"],
         [
@@ -340,6 +417,10 @@ def _readme_rows(
         [
             "GSC detail scope",
             "GSC page and query rows can be bounded or capped; partial reports are not exhaustive.",
+        ],
+        [
+            "Inquiry source boundary",
+            "Database inquiry records are distinct from GA4 key events; legacy server date boundaries can differ from GA4 and GSC.",
         ],
     ])
     if product_report is not None:
@@ -429,10 +510,7 @@ def _date_semantics_rows(selection_timezone: str) -> list[list[Any]]:
 def _source_names(
     details: Mapping[str, Sequence[Mapping[str, Any]]], audit: Mapping[str, Any]
 ) -> list[str]:
-    sources = {
-        "GA4" if detail_name.startswith("GA4") else "GSC"
-        for detail_name in details
-    }
+    sources = {detail_name.split(" ", maxsplit=1)[0].upper() for detail_name in details}
     audit_sources = audit.get("sources", {})
     if isinstance(audit_sources, Mapping):
         sources.update(str(source).upper() for source in audit_sources)

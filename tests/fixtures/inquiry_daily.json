@@ -1,0 +1,16 @@
+{
+  "rows": [
+    {
+      "date": "2026-08-03",
+      "storedSubmissions": 4,
+      "quarantinedSubmissions": 1,
+      "nonQuarantinedSubmissions": 3
+    },
+    {
+      "date": "2026-08-04",
+      "storedSubmissions": 2,
+      "quarantinedSubmissions": 0,
+      "nonQuarantinedSubmissions": 2
+    }
+  ]
+}

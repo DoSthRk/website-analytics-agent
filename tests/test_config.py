@@ -34,6 +34,102 @@ sites:
     assert site.key_events == ("generate_lead",)
 
 
+def test_load_sites_accepts_fixed_inquiry_source_without_a_credential_value(tmp_path) -> None:
+    config_path = tmp_path / "sites.yaml"
+    config_path.write_text(
+        """
+sites:
+  demo:
+    display_name: Demo site
+    domains: [example.com]
+    timezone: Asia/Shanghai
+    ga4_property_id: 123
+    gsc_property_url: sc-domain:example.com
+    inquiry_source:
+      kind: legacy_contacts_mysql
+      credential_env: WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    site = require_site(load_sites(config_path), "demo")
+
+    assert site.inquiry_source is not None
+    assert site.inquiry_source.kind == "legacy_contacts_mysql"
+    assert site.inquiry_source.credential_env == "WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN"
+    assert site.inquiry_source.credential_target is None
+
+
+def test_load_sites_accepts_a_windows_credential_target_for_the_fixed_inquiry_source(tmp_path) -> None:
+    config_path = tmp_path / "sites.yaml"
+    config_path.write_text(
+        """
+sites:
+  demo:
+    display_name: Demo
+    domains: [example.com]
+    timezone: Asia/Shanghai
+    ga4_property_id: 123
+    gsc_property_url: sc-domain:example.com
+    inquiry_source:
+      kind: legacy_contacts_mysql
+      credential_env: WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN
+      credential_target: WebsiteAnalytics/demo/inquiry-dsn
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    site = require_site(load_sites(config_path), "demo")
+
+    assert site.inquiry_source is not None
+    assert site.inquiry_source.credential_target == "WebsiteAnalytics/demo/inquiry-dsn"
+
+
+def test_load_sites_rejects_unsafe_inquiry_credential_environment_name(tmp_path) -> None:
+    config_path = tmp_path / "sites.yaml"
+    config_path.write_text(
+        """
+sites:
+  demo:
+    display_name: Demo site
+    domains: [example.com]
+    timezone: Asia/Shanghai
+    ga4_property_id: 123
+    gsc_property_url: sc-domain:example.com
+    inquiry_source:
+      kind: legacy_contacts_mysql
+      credential_env: PATH
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="credential_env"):
+        load_sites(config_path)
+
+
+def test_load_sites_rejects_an_unsafe_inquiry_credential_target(tmp_path) -> None:
+    config_path = tmp_path / "sites.yaml"
+    config_path.write_text(
+        """
+sites:
+  demo:
+    display_name: Demo
+    domains: [example.com]
+    timezone: Asia/Shanghai
+    ga4_property_id: 123
+    gsc_property_url: sc-domain:example.com
+    inquiry_source:
+      kind: legacy_contacts_mysql
+      credential_env: WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN
+      credential_target: ../other
+""".lstrip(),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError, match="credential_target"):
+        load_sites(config_path)
+
+
 def test_require_site_rejects_unknown_site() -> None:
     with pytest.raises(ConfigError, match="site 'unknown' is not registered"):
         require_site({}, "unknown")

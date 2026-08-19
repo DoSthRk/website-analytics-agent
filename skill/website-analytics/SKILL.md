@@ -69,3 +69,27 @@ description: Use when analyzing GA4、GSC 网站流量、官网流量、自然�
 - `selection_timezone` 是本地 Agent 将相对日期转换为 ISO 日期的选择约定，不会作为 API 时区参数传入，也不能证明数据日界线。
 - GA4 Data API 的报表遵循 GA4 property reporting timezone；先在 GA4 属性中核对它是否与配置的 `selection_timezone` 一致。官方说明：[GA4 Property timeZone](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1alpha/properties#Property.FIELDS.time_zone)。
 - Search Console 的 `startDate` 与 `endDate` 按 Pacific Time (PT, UTC-7/UTC-8) 解释，因此每日边界可能与选择约定不同。官方说明：[Search Analytics query](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)。
+
+## Configured inquiry database source
+
+Some registered sites can have a fixed `inquiry_source` with
+`kind: legacy_contacts_mysql`. It is a read-only source for actual stored form
+records, not a replacement for GA4 key events or GSC. It is collected only by
+the same approved CLI commands above after `validate-config`; never connect to
+another database, accept a DSN, table name, or SQL from the request, or run
+raw SQL outside the adapter.
+
+- A DSN is read from the configured `credential_env`, or from the optional
+  local Windows Credential Manager `credential_target` when that environment
+  variable is absent. Never show, copy, persist, or ask the user to paste its
+  value into chat, YAML, command-line arguments, exports, cache, or Git.
+- Report `storedSubmissions`, `quarantinedSubmissions`, and
+  `nonQuarantinedSubmissions` as a distinct database source. A
+  `SPAM_QUARANTINE` status is a legacy form-rule outcome, not a manually
+  qualified lead or sales acceptance.
+- Only the fixed aggregate fields are allowed. Do not expose form names,
+  email addresses, phones, free text, or raw payloads. Legacy `PageURL` query
+  strings and fragments are removed before output.
+- State that database days use the legacy website server calendar, which may
+  differ from GA4, GSC, and `selection_timezone`. If inquiry page detail is
+  `partial`, do not call it complete or use it to claim all product pages.

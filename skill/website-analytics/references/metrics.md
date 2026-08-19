@@ -29,3 +29,23 @@
 - `selection_timezone` 只是将“上周”“本月”等相对日期转成 ISO 日期的本地选择约定；显式给出的 ISO 日期会原样传给数据源。
 - GA4 数据按 property reporting timezone 划分报表日界线。使用前应核对 GA4 属性的时区是否与 `selection_timezone` 一致；该属性时区是报表日界线，详见 [GA4 Property timeZone](https://developers.google.com/analytics/devguides/config/admin/v1/rest/v1alpha/properties#Property.FIELDS.time_zone)。
 - GSC 的 `startDate` 和 `endDate` 按 Pacific Time (PT, UTC-7/UTC-8) 解释，因此与 GA4 或 `selection_timezone` 的日界线可能不同，详见 [Search Analytics query](https://developers.google.com/webmaster-tools/v1/searchanalytics/query)。
+
+## Configured website inquiry database
+
+For a site with `inquiry_source.kind: legacy_contacts_mysql`, the CLI can read
+only fixed aggregates from the approved legacy `contacts` table. This source is
+for stored form records, and is separate from both GA4 key events and GSC.
+
+| Metric | Meaning and limit |
+| --- | --- |
+| `storedSubmissions` | Count of records stored by the legacy website in the date interval. |
+| `quarantinedSubmissions` | Count with `email_sent_to = SPAM_QUARANTINE`; this is a legacy form rule. |
+| `nonQuarantinedSubmissions` | Stored count not matched by that rule. It is not a manual lead-quality or sales-accepted metric. |
+
+Only `submission_date`, `email_sent_to`, and `PageURL` are used in aggregate
+queries. No email address, name, telephone number, inquiry text, or other form
+content is read or exported. The legacy server's `submission_date` calendar may
+not align with the GA4 property time zone, GSC Pacific Time, or the configured
+selection timezone. Page identities remove query strings and fragments; page
+details are capped at 50,000 rows and are `partial` only when a 50,001st row is
+found.

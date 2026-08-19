@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Hashable, Mapping
 from pathlib import Path
 from typing import Any
 
 import yaml
 
-from website_analytics.models import SiteConfig
+from website_analytics.models import InquirySourceConfig, SiteConfig
 
 
 _ROOT_FIELDS = frozenset({"sites"})
@@ -18,6 +19,7 @@ _SITE_FIELDS = frozenset(
         "ga4_property_id",
         "gsc_property_url",
         "key_events",
+        "inquiry_source",
     }
 )
 
@@ -98,6 +100,7 @@ def load_sites(path: str | Path) -> dict[str, SiteConfig]:
             ga4_property_id=_required_identifier(raw_site, site_key, "ga4_property_id"),
             gsc_property_url=_required_text(raw_site, site_key, "gsc_property_url"),
             key_events=_optional_list(raw_site, site_key, "key_events"),
+            inquiry_source=_optional_inquiry_source(raw_site, site_key),
         )
 
     return sites
@@ -149,6 +152,45 @@ def _optional_list(site: Mapping[str, Any], site_key: str, field: str) -> tuple[
     if not isinstance(value, list):
         raise ConfigError(f"site '{site_key}' field '{field}' must be a list")
     return _text_items(value, site_key, field)
+
+
+def _optional_inquiry_source(
+    site: Mapping[str, Any], site_key: str
+) -> InquirySourceConfig | None:
+    value = site.get("inquiry_source")
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ConfigError(f"site '{site_key}' field 'inquiry_source' must be a mapping")
+    allowed = {"kind", "credential_env", "credential_target"}
+    _reject_unexpected_fields(
+        value,
+        frozenset(allowed),
+        f"site '{site_key}' inquiry_source has unexpected field",
+    )
+    kind = _required_text(value, site_key, "kind")
+    if kind != "legacy_contacts_mysql":
+        raise ConfigError(f"site '{site_key}' inquiry_source kind is unsupported")
+    credential_env = _required_text(value, site_key, "credential_env")
+    if not credential_env.startswith("WEBSITE_ANALYTICS_") or not credential_env.replace(
+        "_", ""
+    ).isalnum() or credential_env != credential_env.upper():
+        raise ConfigError(
+            f"site '{site_key}' inquiry_source credential_env must be an uppercase WEBSITE_ANALYTICS_* name"
+        )
+    credential_target = value.get("credential_target")
+    if credential_target is not None:
+        if not isinstance(credential_target, str) or not re.fullmatch(
+            r"WebsiteAnalytics/[A-Za-z0-9._/-]{1,120}", credential_target
+        ):
+            raise ConfigError(
+                f"site '{site_key}' inquiry_source credential_target must be a WebsiteAnalytics/* name"
+            )
+    return InquirySourceConfig(
+        kind=kind,
+        credential_env=credential_env,
+        credential_target=credential_target,
+    )
 
 
 def _text_items(values: list[Any], site_key: str, field: str) -> tuple[str, ...]:

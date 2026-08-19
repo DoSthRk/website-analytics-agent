@@ -42,6 +42,19 @@ const COUNT_HEADERS = new Set([
   "gscimpressionscurrent",
   "gscimpressionsprevious",
   "gscimpressionsdelta",
+  "storedsubmissions",
+  "storedsubmissionscurrent",
+  "storedsubmissionsprevious",
+  "storedsubmissionsdelta",
+  "quarantinedsubmissions",
+  "quarantinedsubmissionscurrent",
+  "quarantinedsubmissionsprevious",
+  "quarantinedsubmissionsdelta",
+  "nonquarantinedsubmissions",
+  "nonquarantinedsubmissionscurrent",
+  "nonquarantinedsubmissionsprevious",
+  "nonquarantinedsubmissionsdelta",
+  "currentinquirypages",
 ]);
 const DECIMAL_HEADERS = new Set(["position"]);
 const FIXED_SHEET_NAMES = new Set([
@@ -49,11 +62,14 @@ const FIXED_SHEET_NAMES = new Set([
   "Executive Summary",
   "Product Weekly Summary",
   "Product Page Mapping",
+  "Product Inquiry Summary",
   "GA4 Daily",
   "GA4 Pages",
   "GSC Daily",
   "GSC Pages",
   "GSC Queries",
+  "Inquiry Daily",
+  "Inquiry Pages",
   "Audit",
 ]);
 
@@ -580,7 +596,7 @@ function formatSheet(sheet, sheetData, rows) {
     sheet.mergeCells(`A1:${columnLetter(columnCount)}1`);
   }
   const tableHeaderRow =
-    sheetData.kind === "summary" || sheetData.kind === "product_summary" || sheetData.kind === "audit"
+    sheetData.kind === "summary" || sheetData.kind === "product_summary" || sheetData.kind === "product_inquiry_summary" || sheetData.kind === "audit"
       ? findTableHeaderRow(rows)
       : -1;
   styleLabels(sheet, rows, sheetData.kind, tableHeaderRow);
@@ -588,7 +604,7 @@ function formatSheet(sheet, sheetData, rows) {
     styleHeader(sheet.getRangeByIndexes(tableHeaderRow, 0, 1, columnCount));
     applySummaryNumberFormats(sheet, rows, tableHeaderRow);
   }
-  if (sheetData.kind === "product_summary") {
+  if (sheetData.kind === "product_summary" || sheetData.kind === "product_inquiry_summary") {
     styleHeader(sheet.getRangeByIndexes(tableHeaderRow, 0, 1, columnCount));
     applyProductSummaryNumberFormats(sheet, rows, tableHeaderRow);
   }

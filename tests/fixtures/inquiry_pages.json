@@ -1,0 +1,16 @@
+{
+  "rows": [
+    {
+      "sourceUrl": "https://www.genemedi.net/i/gmp-generic-column",
+      "storedSubmissions": 3,
+      "quarantinedSubmissions": 1,
+      "nonQuarantinedSubmissions": 2
+    },
+    {
+      "sourceUrl": "https://www.genemedi.net/i/purprox-aavfull-enrichment-kit",
+      "storedSubmissions": 2,
+      "quarantinedSubmissions": 0,
+      "nonQuarantinedSubmissions": 2
+    }
+  ]
+}

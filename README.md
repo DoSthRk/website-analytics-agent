@@ -106,3 +106,60 @@ $env:WEBSITE_ANALYTICS_NODE = '<Node executable path returned by the Codex depen
 ### Excel test runtime contract
 
 Renderer integration tests discover Node.js from `WEBSITE_ANALYTICS_NODE` first, then `node on PATH`. They skip only when neither executable is available or the local `@oai/artifact-tool` runtime has not been linked. On a fresh clone, run **load workspace dependencies**, set `WEBSITE_ANALYTICS_NODE` when Node is not on PATH, then run `scripts/setup-artifact-tool-runtime.ps1` with the Node modules path returned by the dependency loader. The project never guesses a runtime path, installs packages, or relies on a global Artifact Tool installation.
+
+## Configured inquiry database source
+
+`genemedi-net` can optionally collect actual form records from the approved legacy
+`contacts` table. This is a third, separate source: it is not a GA4 key event
+and it is not a GSC metric. The CLI queries only fixed, aggregate statements;
+it never accepts SQL, a table name, or database credentials from the command
+line.
+
+Add this local-only block to the registered site in `config/sites.yaml`:
+
+```yaml
+inquiry_source:
+  kind: legacy_contacts_mysql
+  credential_env: WEBSITE_ANALYTICS_GENEMEDI_NET_INQUIRY_DSN
+  credential_target: WebsiteAnalytics/genemedi-net/inquiry-dsn
+```
+
+The adapter first checks the referenced local environment variable, then the
+optional Windows Credential Manager `credential_target`. The stored secret must
+be a local MySQL DSN such as
+`mysql+pymysql://<url-encoded-user>:<url-encoded-password>@<host>:<port>/<database>`.
+Never place its value in YAML, a command history, an export, or Git. The target
+name is metadata, not a secret, and must start with `WebsiteAnalytics/`. Use a
+dedicated database account with only the minimum `SELECT` permission needed for
+`contacts.submission_date`, `contacts.email_sent_to`, and `contacts.PageURL`;
+the existing website application account is suitable only for a temporary
+connectivity check, not ongoing analytics use.
+
+The database output contains only daily and page-level aggregates:
+
+- `storedSubmissions`: all records stored by the legacy form for the interval.
+- `quarantinedSubmissions`: records with `email_sent_to = 'SPAM_QUARANTINE'`.
+- `nonQuarantinedSubmissions`: stored records not matched by that legacy rule.
+
+`nonQuarantinedSubmissions` is not a manual qualification or sales acceptance
+metric. It must remain separate from GA4 key events and from GSC traffic. The
+database day boundary uses the legacy website server calendar, so it can differ
+from both GA4 and GSC. The report removes query strings and fragments from
+legacy `PageURL` values before caching or exporting them. Page details are
+capped at 50,000 rows; an extra row marks that detail as `partial` instead of
+claiming full coverage.
+
+### Google credential renewal
+
+Use a local OAuth client created in your Google Cloud project, or an approved
+service-account impersonation path. Do not rely on the default `gcloud` client
+for Analytics scope renewal, and do not commit the OAuth client JSON. With a
+local, restricted OAuth client JSON, the interactive renewal command is:
+
+```powershell
+gcloud auth application-default login --client-id-file '<local OAuth client JSON path>' --scopes 'https://www.googleapis.com/auth/cloud-platform,https://www.googleapis.com/auth/analytics.readonly,https://www.googleapis.com/auth/webmasters.readonly'
+```
+
+After the browser confirmation, run `validate-config` and a normal read-only
+`fetch` command. The signed-in Google identity must have read access to the
+registered GA4 property and GSC property.
