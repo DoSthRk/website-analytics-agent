@@ -1,0 +1,108 @@
+[
+  {
+    "dashboard_id": "blkLiB6bavgglOdp",
+    "block_id": "chtcnAhViGlSX7Ff0bJQZAB0CUe",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "当前周期", "operator": "is", "value": true}
+    ]}
+  },
+  {
+    "dashboard_id": "blkLiB6bavgglOdp",
+    "block_id": "chtcn4CvOHAQC4vjsJW28AsBsje",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "当前周期", "operator": "is", "value": true}
+    ]}
+  },
+  {
+    "dashboard_id": "blkLiB6bavgglOdp",
+    "block_id": "chtcnu5LyJk4eCZhGBGb1wn56lz",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "当前周期", "operator": "is", "value": true}
+    ]}
+  },
+  {
+    "dashboard_id": "blkLiB6bavgglOdp",
+    "block_id": "chtcnxyBioVqRHVyh7CQf5tWi6e",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "当前周期", "operator": "is", "value": true}
+    ]}
+  },
+  {
+    "dashboard_id": "blkLiB6bavgglOdp",
+    "block_id": "chtcnC5uQQaXTsGriXPP0Pxgs5c",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}
+    ]}
+  },
+  {
+    "dashboard_id": "blkLiB6bavgglOdp",
+    "block_id": "chtcnjbCZhM8NS7wStUVC7k4Zpg",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}
+    ]}
+  },
+  {
+    "dashboard_id": "blkLiB6bavgglOdp",
+    "block_id": "chtcnxfI6EapRqejzUIGI2TgH2b",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "看板窗口", "operator": "contains", "value": "近4周"},
+      {"field_name": "官网入库询盘", "operator": "isNotEmpty"}
+    ]}
+  },
+  {
+    "dashboard_id": "blkMWyCmzTFZBw4Z",
+    "block_id": "chtcnXfPNOxj30Trs6cmsrb9AMh",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}
+    ]}
+  },
+  {
+    "dashboard_id": "blkMWyCmzTFZBw4Z",
+    "block_id": "chtcnAP8jfq9RCkfXvNbxtXxbrc",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}
+    ]}
+  },
+  {
+    "dashboard_id": "blkMWyCmzTFZBw4Z",
+    "block_id": "chtcn7pG8S4Ei4jGym3s13Xe8nd",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "看板窗口", "operator": "contains", "value": "近4周"},
+      {"field_name": "官网入库询盘", "operator": "isNotEmpty"}
+    ]}
+  },
+  {
+    "dashboard_id": "blkMWyCmzTFZBw4Z",
+    "block_id": "chtcnzp0riPnhNZEOZJorvXhSWf",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "当前周期", "operator": "is", "value": true}
+    ]}
+  },
+  {
+    "dashboard_id": "blkMWyCmzTFZBw4Z",
+    "block_id": "chtcnoSmnmaaubH3t2Dl1uiEfOf",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "当前周期", "operator": "is", "value": true}
+    ]}
+  },
+  {
+    "dashboard_id": "blkMWyCmzTFZBw4Z",
+    "block_id": "chtcnRhaptCNaUAbRN0vcEkx6qg",
+    "filter": {"conjunction": "and", "conditions": [
+      {"field_name": "统计粒度", "operator": "is", "value": "周"},
+      {"field_name": "当前周期", "operator": "is", "value": true}
+    ]}
+  }
+]

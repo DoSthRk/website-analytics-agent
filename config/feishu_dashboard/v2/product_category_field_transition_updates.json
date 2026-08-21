@@ -1,0 +1,21 @@
+[
+  {
+    "table_id": "tblqFXdHJ4WO4H25",
+    "field_id": "fldZl16HtJ",
+    "definition": {
+      "type": "select",
+      "name": "产品大类",
+      "multiple": false,
+      "options": [
+        {"name": "GMP", "hue": "Green", "lightness": "Light"},
+        {"name": "SOLIDEX", "hue": "Purple", "lightness": "Light"},
+        {"name": "AAV Processing", "hue": "Orange", "lightness": "Light"},
+        {"name": "Payload", "hue": "Wathet", "lightness": "Light"},
+        {"name": "Unclassified", "hue": "Gray", "lightness": "Light"},
+        {"name": "GMP 系列", "hue": "Green", "lightness": "Light"},
+        {"name": "SOLIDEX / ISOEx", "hue": "Purple", "lightness": "Light"},
+        {"name": "AAV 纯化与滴度", "hue": "Orange", "lightness": "Light"}
+      ]
+    }
+  }
+]

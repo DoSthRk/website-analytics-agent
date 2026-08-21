@@ -1,0 +1,9 @@
+version: "1"
+site: genemedi-net
+overrides:
+  - page_id: 1066
+    page_class: product_page
+    reason: 空模板，但URL为 /i/GMP-AD-Pig-9，页面内容为诊断产品。
+  - page_id: 3111
+    page_class: information_page
+    reason: 模板名包含 Sidebar，但实际URL为 /about，属于公司信息页。

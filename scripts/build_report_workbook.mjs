@@ -61,6 +61,8 @@ const FIXED_SHEET_NAMES = new Set([
   "README",
   "Executive Summary",
   "Product Weekly Summary",
+  "Page Type Summary",
+  "Page Classification",
   "Product Page Mapping",
   "Product Inquiry Summary",
   "GA4 Daily",

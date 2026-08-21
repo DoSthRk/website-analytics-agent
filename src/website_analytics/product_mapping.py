@@ -12,9 +12,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
-from urllib.parse import urlsplit
 
 import yaml
+
+from website_analytics.page_classification import (
+    PageDimension,
+    PageDimensionEntry,
+    canonical_page_path,
+)
 
 
 RuleMatchType = Literal["exact_path", "path_prefix", "any_keyword", "all_keywords"]
@@ -32,6 +37,13 @@ _INQUIRY_METRICS = (
     "quarantinedSubmissions",
     "nonQuarantinedSubmissions",
 )
+_PAGE_TYPE_NAMES = {
+    "product_page": "产品页",
+    "information_page": "信息页",
+    "unknown_unmapped": "未映射页面",
+    "invalid_broken": "异常页面",
+    "pdf_asset": "PDF资源",
+}
 
 
 class ProductMappingError(ValueError):
@@ -96,10 +108,11 @@ def build_product_report(
     mapping: ProductMapping,
     current_details: Mapping[str, Sequence[Mapping[str, Any]]],
     previous_details: Mapping[str, Sequence[Mapping[str, Any]]],
+    page_dimension: PageDimension | None = None,
 ) -> dict[str, Any]:
     """Build source-separated current/previous product aggregates."""
-    current_pages = _mapped_pages(mapping, current_details)
-    previous_pages = _mapped_pages(mapping, previous_details)
+    current_pages = _mapped_pages(mapping, current_details, page_dimension)
+    previous_pages = _mapped_pages(mapping, previous_details, page_dimension)
     current_summary = _summary_by_line(mapping, current_pages)
     previous_summary = _summary_by_line(mapping, previous_pages)
 
@@ -128,8 +141,19 @@ def build_product_report(
         )
     return {
         "mappingVersion": mapping.version,
+        "pageClassificationVersion": (
+            page_dimension.version if page_dimension is not None else "unavailable"
+        ),
+        "pageDimensionSummary": (
+            dict(page_dimension.summary) if page_dimension is not None else {}
+        ),
         "reportLines": report_lines,
+        "pageTypeLines": _page_type_report_lines(current_pages, previous_pages),
+        "classificationCoverage": _classification_coverage(current_pages),
         "pageMappings": current_pages,
+        "productPageMappings": [
+            page for page in current_pages if bool(page.get("mappingRuleId"))
+        ],
         "inquiryReportLines": (
             _inquiry_report_lines(mapping, current_pages, previous_pages)
             if "Inquiry Pages" in current_details or "Inquiry Pages" in previous_details
@@ -139,8 +163,10 @@ def build_product_report(
 
 
 def _mapped_pages(
-    mapping: ProductMapping, details: Mapping[str, Sequence[Mapping[str, Any]]]
-) -> list[dict[str, str | float | bool]]:
+    mapping: ProductMapping,
+    details: Mapping[str, Sequence[Mapping[str, Any]]],
+    page_dimension: PageDimension | None,
+) -> list[dict[str, Any]]:
     metrics_by_path: dict[str, dict[str, float]] = defaultdict(
         lambda: {metric: 0.0 for metric in _PAGE_METRICS}
     )
@@ -159,23 +185,38 @@ def _mapped_pages(
             for metric in _INQUIRY_METRICS:
                 metrics_by_path[path][metric] += _metric(record, metric)
 
-    mapped_pages: list[dict[str, str | float | bool]] = []
+    mapped_pages: list[dict[str, Any]] = []
     for path, metrics in metrics_by_path.items():
+        page = (
+            page_dimension.classify(path)
+            if page_dimension is not None
+            else _unavailable_page_dimension(path)
+        )
         rule = _match_rule(mapping.rules, path)
-        if rule is None:
-            continue
-        page_class = _page_class(path)
-        include = rule.include_in_product_report and page_class == "product_page"
+        include = bool(
+            rule is not None
+            and rule.include_in_product_report
+            and page.page_class == "product_page"
+        )
         mapped_pages.append(
             {
                 "canonicalPath": path,
-                "productLineId": rule.product_line_id,
-                "reportLineId": rule.report_line_id or "",
-                "pageClass": page_class,
+                "pageId": page.page_id if page.page_id is not None else "",
+                "template": page.template,
+                "pageClass": page.page_class,
+                "classificationStatus": page.classification_status,
+                "classificationEvidence": page.classification_evidence,
+                "hasOrphanRoute": page.has_orphan_route,
+                "productLineId": rule.product_line_id if rule is not None else "",
+                "reportLineId": (rule.report_line_id or "") if rule is not None else "",
                 "includeInProductReport": include,
-                "mappingRuleId": rule.identifier,
-                "mappingStatus": rule.mapping_status,
-                "mappingReason": rule.reason,
+                "mappingRuleId": rule.identifier if rule is not None else "",
+                "mappingStatus": rule.mapping_status if rule is not None else "unmatched",
+                "mappingReason": (
+                    rule.reason
+                    if rule is not None
+                    else "No approved product-line rule matched this page."
+                ),
                 "ga4Sessions": metrics["ga4Sessions"],
                 "gscClicks": metrics["gscClicks"],
                 "gscImpressions": metrics["gscImpressions"],
@@ -194,6 +235,117 @@ def _mapped_pages(
             -float(row["storedSubmissions"]),
             str(row["canonicalPath"]),
         ),
+    )
+
+
+def _page_type_report_lines(
+    current_pages: Sequence[Mapping[str, Any]],
+    previous_pages: Sequence[Mapping[str, Any]],
+) -> list[dict[str, Any]]:
+    current = _summary_by_page_type(current_pages)
+    previous = _summary_by_page_type(previous_pages)
+    lines: list[dict[str, Any]] = []
+    for page_type, name in _PAGE_TYPE_NAMES.items():
+        now = current[page_type]
+        before = previous[page_type]
+        lines.append(
+            {
+                "pageTypeId": page_type,
+                "pageType": name,
+                "currentCanonicalPages": now["canonicalPages"],
+                "previousCanonicalPages": before["canonicalPages"],
+                "ga4SessionsCurrent": now["ga4Sessions"],
+                "ga4SessionsPrevious": before["ga4Sessions"],
+                "ga4SessionsDelta": now["ga4Sessions"] - before["ga4Sessions"],
+                "gscClicksCurrent": now["gscClicks"],
+                "gscClicksPrevious": before["gscClicks"],
+                "gscClicksDelta": now["gscClicks"] - before["gscClicks"],
+                "gscImpressionsCurrent": now["gscImpressions"],
+                "gscImpressionsPrevious": before["gscImpressions"],
+                "gscImpressionsDelta": now["gscImpressions"] - before["gscImpressions"],
+                "gscCtrCurrent": _ctr(now["gscClicks"], now["gscImpressions"]),
+                "gscCtrPrevious": _ctr(before["gscClicks"], before["gscImpressions"]),
+                "storedSubmissionsCurrent": now["storedSubmissions"],
+                "storedSubmissionsPrevious": before["storedSubmissions"],
+                "nonQuarantinedSubmissionsCurrent": now["nonQuarantinedSubmissions"],
+                "nonQuarantinedSubmissionsPrevious": before["nonQuarantinedSubmissions"],
+            }
+        )
+    return lines
+
+
+def _summary_by_page_type(
+    pages: Sequence[Mapping[str, Any]],
+) -> dict[str, dict[str, float | int]]:
+    summary = {
+        page_type: {
+            "canonicalPages": 0,
+            **{metric: 0.0 for metric in _PAGE_METRICS},
+        }
+        for page_type in _PAGE_TYPE_NAMES
+    }
+    for page in pages:
+        page_type = page.get("pageClass")
+        if page_type not in summary:
+            continue
+        values = summary[str(page_type)]
+        values["canonicalPages"] += 1
+        for metric in _PAGE_METRICS:
+            values[metric] += float(page[metric])
+    return summary
+
+
+def _classification_coverage(pages: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    classified = {"product_page", "information_page"}
+    observed_sessions = sum(float(page["ga4Sessions"]) for page in pages)
+    classified_sessions = sum(
+        float(page["ga4Sessions"])
+        for page in pages
+        if page.get("pageClass") in classified
+    )
+    observed_clicks = sum(float(page["gscClicks"]) for page in pages)
+    classified_clicks = sum(
+        float(page["gscClicks"])
+        for page in pages
+        if page.get("pageClass") in classified
+    )
+    observed_inquiries = sum(float(page["nonQuarantinedSubmissions"]) for page in pages)
+    classified_inquiries = sum(
+        float(page["nonQuarantinedSubmissions"])
+        for page in pages
+        if page.get("pageClass") in classified
+    )
+    return {
+        "observedCanonicalPages": len(pages),
+        "classifiedCanonicalPages": sum(
+            1 for page in pages if page.get("pageClass") in classified
+        ),
+        "unknownCanonicalPages": sum(
+            1 for page in pages if page.get("pageClass") == "unknown_unmapped"
+        ),
+        "invalidCanonicalPages": sum(
+            1 for page in pages if page.get("pageClass") == "invalid_broken"
+        ),
+        "ga4ObservedSessions": observed_sessions,
+        "ga4ClassifiedSessions": classified_sessions,
+        "ga4ClassifiedRate": _ratio(classified_sessions, observed_sessions),
+        "gscObservedClicks": observed_clicks,
+        "gscClassifiedClicks": classified_clicks,
+        "gscClassifiedRate": _ratio(classified_clicks, observed_clicks),
+        "inquiryObservedSubmissions": observed_inquiries,
+        "inquiryClassifiedSubmissions": classified_inquiries,
+        "inquiryClassifiedRate": _ratio(classified_inquiries, observed_inquiries),
+    }
+
+
+def _unavailable_page_dimension(path: str) -> PageDimensionEntry:
+    return PageDimensionEntry(
+        canonical_path=path,
+        page_id=None,
+        template="",
+        page_class="unknown_unmapped",
+        classification_status="dimension_unavailable",
+        classification_evidence="Approved page dimension was not supplied.",
     )
 
 
@@ -282,22 +434,7 @@ def _match_rule(rules: Sequence[ProductRule], path: str) -> ProductRule | None:
 
 
 def _page_path(value: object) -> str | None:
-    if not isinstance(value, str) or not value.strip():
-        return None
-    parts = urlsplit(value.strip())
-    path = parts.path
-    if not path.startswith("/"):
-        return None
-    normalized = path.casefold().rstrip("/")
-    return normalized or "/"
-
-
-def _page_class(path: str) -> str:
-    if path.startswith("/i/"):
-        return "product_page"
-    if path.startswith("/pdf/"):
-        return "pdf_asset"
-    return "content_page"
+    return canonical_page_path(value)
 
 
 def _metric(record: Mapping[str, Any], field: str) -> float:
@@ -312,6 +449,10 @@ def _metric(record: Mapping[str, Any], field: str) -> float:
 
 def _ctr(clicks: float, impressions: float) -> float | None:
     return clicks / impressions if impressions else None
+
+
+def _ratio(numerator: float, denominator: float) -> float | None:
+    return numerator / denominator if denominator else None
 
 
 def _delta_ctr(current: Mapping[str, int | float], previous: Mapping[str, int | float]) -> float | None:

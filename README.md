@@ -96,12 +96,14 @@ $env:WEBSITE_ANALYTICS_NODE = '<Node executable path returned by the Codex depen
 
 ## 产品映射周报
 
-当某个站点存在 `config/product_mappings/<site-key>.yaml` 时，`export-excel` 会在原始 GA4/GSC 工作表之外自动加入：
+当某个站点同时存在 `config/page_classifications/<site-key>.yaml` 和 `config/product_mappings/<site-key>.yaml` 时，`report` 会返回页面类型汇总，`export-excel` 会在原始 GA4/GSC 工作表之外自动加入：
 
 - `Product Weekly Summary`：按已审核的大类汇总本期、上一期和变化；GA4 Sessions 与 GSC Clicks / Impressions / CTR 保持独立，绝不合并为同一种“流量”。
+- `Page Type Summary`：分别汇总产品页、信息页、未映射页面、异常页面和 PDF 资源，并报告 GA4、GSC、询盘各自的分类覆盖率。
+- `Page Classification`：列出本期实际出现的页面、数据库页面 ID、模板、分类证据和异常状态。
 - `Product Page Mapping`：列出本期实际匹配到的页面、命中的规则和是否纳入周报；若本期没有匹配页面，会明确显示该状态而不会导致导出失败。
 
-映射规则是版本化的本地 YAML，不会访问网页、不会增加 Google API 请求，也不会修改 GA4、GSC 的源数据。`genemedi-net` 当前使用经审核的 GMP、SOLIDEX / ISOEx、AAV 纯化与滴度三个大类；Payload 和抗体滴度页面只在映射审计中保留，不计入产品周报。没有映射文件的已登记站点仍会正常导出原始报告。
+页面类型来自固定只读关联 `urltable.url → pages.pageid → pages.template`：模板不区分大小写包含 `sideba` 时为产品页，否则为信息页；已审核的少量例外保存在页面分类 YAML 中。无法关联的 URL 保持 `unknown_unmapped`，孤立路由保持 `invalid_broken`，不再用 `/i/` 前缀猜测类型。只有数据库确认的产品页才能继续进入 GMP、SOLIDEX / ISOEx、AAV 纯化与滴度三个产品大类；Payload 和抗体滴度规则仍不计入产品周报。
 
 ### Excel test runtime contract
 
@@ -163,3 +165,18 @@ gcloud auth application-default login --client-id-file '<local OAuth client JSON
 After the browser confirmation, run `validate-config` and a normal read-only
 `fetch` command. The signed-in Google identity must have read access to the
 registered GA4 property and GSC property.
+
+## 可扩展时间模型与飞书同步
+
+飞书看板不再把数据模型限制为固定周报。`website_analytics.periods`支持日、周、月、季度、年度、滚动窗口和自定义日期范围；每一个范围都必须使用对应的API区间汇总，并生成包含统计类型的稳定周期键。
+
+默认物化范围配置在`config/sync_profiles/genemedi-net.json`。以下命令只生成同步计划，不调用GA4、GSC、询盘数据库或飞书：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_analytics_sync_plan.py `
+  --profile config\sync_profiles\genemedi-net.json `
+  --anchor 2026-08-19 `
+  --output audits\sync-plan\genemedi-net-2026-08-19.json
+```
+
+同步计划分别记录GA4、GSC和询盘的数据截至日期，并将周期标记为`complete`、`preliminary`或`partial`。延迟或失败的来源必须保持为空并等待回补，不能写成0。完整设计见`docs/analytics-time-model.md`。

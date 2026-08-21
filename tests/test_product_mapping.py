@@ -2,11 +2,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from website_analytics.page_classification import (
+    build_page_dimension,
+    load_page_classification,
+)
 from website_analytics.product_mapping import build_product_report, load_product_mapping
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MAPPING_PATH = PROJECT_ROOT / "config" / "product_mappings" / "genemedi-net.yaml"
+CLASSIFICATION_PATH = (
+    PROJECT_ROOT / "config" / "page_classifications" / "genemedi-net.yaml"
+)
 
 
 def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
@@ -22,6 +29,7 @@ def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
             {"landingPagePlusQueryString": "/pdf/purprox-aaveasy-flyer.pdf", "sessions": 9.0},
             {"landingPagePlusQueryString": "/i/anti-payload-antibody-for-adcs", "sessions": 3.0},
             {"landingPagePlusQueryString": "/i/protocols-application-antibody-titration", "sessions": 6.0},
+            {"landingPagePlusQueryString": "/i/gmp-information-guide", "sessions": 100.0},
         ],
         "GSC Pages": [
             {"page": "https://www.genemedi.net/i/gmp-isoex-mag-mx1", "clicks": 1.0, "impressions": 10.0},
@@ -29,6 +37,7 @@ def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
             {"page": "https://www.genemedi.net/i/purprox-aavfull-enrichment-kit", "clicks": 2.0, "impressions": 20.0},
             {"page": "https://www.genemedi.net/i/truex-aav-titration-elisa-kit", "clicks": 3.0, "impressions": 30.0},
             {"page": "https://www.genemedi.net/pdf/purprox-aaveasy-flyer.pdf", "clicks": 8.0, "impressions": 80.0},
+            {"page": "https://www.genemedi.net/i/gmp-information-guide", "clicks": 20.0, "impressions": 200.0},
         ],
         "Inquiry Pages": [
             {
@@ -70,7 +79,20 @@ def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
         ],
     }
 
-    report = build_product_report(mapping, current, previous)
+    classification = load_page_classification(CLASSIFICATION_PATH, "genemedi-net")
+    dimension = build_page_dimension(
+        classification,
+        [
+            _dimension_row("i/gmp-isoex-mag-mx1", 10, "indexwithSideBar"),
+            _dimension_row("i/gmp-generic-column", 11, "indexwithSideBa_product"),
+            _dimension_row("i/purprox-aavfull-enrichment-kit", 12, "GCT_Purpro_SideBar"),
+            _dimension_row("i/truex-aav-titration-elisa-kit", 13, "indexwithSideBar-aav"),
+            _dimension_row("i/anti-payload-antibody-for-adcs", 14, "indexwithSideBar_payload"),
+            _dimension_row("i/protocols-application-antibody-titration", 15, "index-general"),
+            _dimension_row("i/gmp-information-guide", 16, "index-general"),
+        ],
+    )
+    report = build_product_report(mapping, current, previous, dimension)
     summary = {row["reportLineId"]: row for row in report["reportLines"]}
 
     assert summary["GMP"] == {
@@ -119,7 +141,22 @@ def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
     assert pages["/pdf/purprox-aaveasy-flyer.pdf"]["includeInProductReport"] is False
     assert pages["/i/anti-payload-antibody-for-adcs"]["includeInProductReport"] is False
     assert pages["/i/protocols-application-antibody-titration"]["productLineId"] == "UNCLASSIFIED"
+    assert pages["/i/gmp-information-guide"]["pageClass"] == "information_page"
+    assert pages["/i/gmp-information-guide"]["includeInProductReport"] is False
+    page_types = {row["pageTypeId"]: row for row in report["pageTypeLines"]}
+    assert page_types["information_page"]["ga4SessionsCurrent"] == 106.0
+    assert page_types["product_page"]["ga4SessionsCurrent"] == 17.0
+    assert report["classificationCoverage"]["ga4ClassifiedRate"] == 123.0 / 132.0
 
 
 def test_absent_mapping_is_not_an_error_for_other_registered_sites(tmp_path: Path) -> None:
     assert load_product_mapping(tmp_path / "missing.yaml", "demo") is None
+
+
+def _dimension_row(url: str, page_id: int, template: str) -> dict[str, object]:
+    return {
+        "route_url": url,
+        "route_page_id": page_id,
+        "content_page_id": page_id,
+        "template": template,
+    }

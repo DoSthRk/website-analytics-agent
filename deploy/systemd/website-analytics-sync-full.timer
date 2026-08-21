@@ -1,0 +1,11 @@
+[Unit]
+Description=Backfill retained website analytics periods daily
+
+[Timer]
+OnCalendar=*-*-* 11:15:00 Asia/Shanghai
+RandomizedDelaySec=5m
+Persistent=true
+Unit=website-analytics-sync@full.service
+
+[Install]
+WantedBy=timers.target

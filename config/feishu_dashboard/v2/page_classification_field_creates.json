@@ -1,0 +1,16 @@
+[
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"text","name":"页面分类版本"}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"产品页页面数","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"信息页页面数","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"未分类页面数","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"产品页访问次数","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"信息页访问次数","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"未分类页面访问次数","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"产品页Google搜索点击","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"信息页Google搜索点击","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"未分类页面Google搜索点击","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"产品页官网入库询盘","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"信息页官网入库询盘","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"未分类页面官网入库询盘","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"页面访问分类覆盖率","style":{"type":"plain","precision":4,"percentage":true,"thousands_separator":false}}}
+]

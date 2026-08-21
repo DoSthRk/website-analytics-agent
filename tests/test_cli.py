@@ -285,6 +285,9 @@ sites:
         "version": "2",
         "report_lines": ["GMP", "SOLIDEX", "AAV_PROCESSING"],
     }
+    assert exported["page_classification"]["status"] == "configured"
+    assert exported["page_classification"]["version"] == "1"
+    assert exported["page_classification"]["dimension"]["productPages"] == 2
     assert zipfile.is_zipfile(output)
     assert sorted(path.name for path in output.with_suffix("").with_name("genemedi.renders").glob("*.png")) == [
         "audit.png",
@@ -294,10 +297,65 @@ sites:
         "gsc-daily.png",
         "gsc-pages.png",
         "gsc-queries.png",
+        "page-classification.png",
+        "page-type-summary.png",
         "product-page-mapping.png",
         "product-weekly-summary.png",
         "readme.png",
     ]
+
+
+def test_live_adapter_factory_returns_both_approved_clients(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import google.auth
+    from google.analytics.data_v1beta import BetaAnalyticsDataClient
+    from googleapiclient import discovery
+
+    credentials = object()
+    ga4_client = object()
+    gsc_service = object()
+    observed: dict[str, object] = {}
+
+    def fake_default(*, scopes: tuple[str, ...]) -> tuple[object, None]:
+        observed["scopes"] = scopes
+        return credentials, None
+
+    def fake_ga4_client(*, credentials: object) -> object:
+        observed["ga4_credentials"] = credentials
+        return ga4_client
+
+    def fake_build(
+        service_name: str,
+        version: str,
+        *,
+        credentials: object,
+        cache_discovery: bool,
+    ) -> object:
+        observed["gsc_build"] = (
+            service_name,
+            version,
+            credentials,
+            cache_discovery,
+        )
+        return gsc_service
+
+    monkeypatch.setattr(google.auth, "default", fake_default)
+    monkeypatch.setattr(BetaAnalyticsDataClient, "__new__", lambda cls, **kwargs: fake_ga4_client(**kwargs))
+    monkeypatch.setattr(discovery, "build", fake_build)
+
+    ga4, gsc = cli._create_live_adapters()
+
+    assert ga4._client is ga4_client
+    assert gsc._service is gsc_service
+    assert observed == {
+        "scopes": (
+            "https://www.googleapis.com/auth/analytics.readonly",
+            "https://www.googleapis.com/auth/webmasters.readonly",
+        ),
+        "ga4_credentials": credentials,
+        "gsc_build": ("searchconsole", "v1", credentials, False),
+    }
 
 
 def test_fixture_export_adds_source_separated_database_inquiry_summaries(
@@ -382,6 +440,8 @@ sites:
         "gsc-queries.png",
         "inquiry-daily.png",
         "inquiry-pages.png",
+        "page-classification.png",
+        "page-type-summary.png",
         "product-inquiry-summary.png",
         "product-page-mapping.png",
         "product-weekly-summary.png",

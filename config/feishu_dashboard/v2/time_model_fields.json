@@ -1,0 +1,77 @@
+[
+  {
+    "table_id": "tbl3rwDU73Gno2HJ",
+    "definition": {
+      "type": "select",
+      "name": "统计粒度",
+      "multiple": false,
+      "options": [
+        {"name": "日", "hue": "Blue", "lightness": "Light"},
+        {"name": "周", "hue": "Green", "lightness": "Light"},
+        {"name": "月", "hue": "Purple", "lightness": "Light"},
+        {"name": "季度", "hue": "Carmine", "lightness": "Light"},
+        {"name": "年度", "hue": "Red", "lightness": "Light"},
+        {"name": "滚动窗口", "hue": "Orange", "lightness": "Light"},
+        {"name": "自定义", "hue": "Gray", "lightness": "Light"}
+      ]
+    }
+  },
+  {"table_id": "tbl3rwDU73Gno2HJ", "definition": {"type": "number", "name": "滚动天数", "style": {"type": "plain", "precision": 0, "percentage": false, "thousands_separator": false}}},
+  {"table_id": "tbl3rwDU73Gno2HJ", "definition": {"type": "datetime", "name": "GA4数据截至", "style": {"format": "yyyy-MM-dd"}}},
+  {"table_id": "tbl3rwDU73Gno2HJ", "definition": {"type": "datetime", "name": "GSC数据截至", "style": {"format": "yyyy-MM-dd"}}},
+  {"table_id": "tbl3rwDU73Gno2HJ", "definition": {"type": "datetime", "name": "询盘数据截至", "style": {"format": "yyyy-MM-dd"}}},
+  {"table_id": "tbl3rwDU73Gno2HJ", "definition": {"type": "checkbox", "name": "是否最终值"}},
+  {
+    "table_id": "tbl3rwDU73Gno2HJ",
+    "definition": {
+      "type": "select",
+      "name": "看板窗口",
+      "multiple": true,
+      "options": [
+        {"name": "当前周期", "hue": "Red", "lightness": "Light"},
+        {"name": "近4周", "hue": "Green", "lightness": "Light"},
+        {"name": "近12周", "hue": "Blue", "lightness": "Light"},
+        {"name": "近12个月", "hue": "Purple", "lightness": "Light"}
+      ]
+    }
+  },
+  {"table_id": "tbl3rwDU73Gno2HJ", "definition": {"type": "text", "name": "同步批次"}},
+
+  {
+    "table_id": "tblqFXdHJ4WO4H25",
+    "definition": {
+      "type": "select",
+      "name": "统计粒度",
+      "multiple": false,
+      "options": [
+        {"name": "日", "hue": "Blue", "lightness": "Light"},
+        {"name": "周", "hue": "Green", "lightness": "Light"},
+        {"name": "月", "hue": "Purple", "lightness": "Light"},
+        {"name": "季度", "hue": "Carmine", "lightness": "Light"},
+        {"name": "年度", "hue": "Red", "lightness": "Light"},
+        {"name": "滚动窗口", "hue": "Orange", "lightness": "Light"},
+        {"name": "自定义", "hue": "Gray", "lightness": "Light"}
+      ]
+    }
+  },
+  {"table_id": "tblqFXdHJ4WO4H25", "definition": {"type": "number", "name": "滚动天数", "style": {"type": "plain", "precision": 0, "percentage": false, "thousands_separator": false}}},
+  {"table_id": "tblqFXdHJ4WO4H25", "definition": {"type": "datetime", "name": "GA4数据截至", "style": {"format": "yyyy-MM-dd"}}},
+  {"table_id": "tblqFXdHJ4WO4H25", "definition": {"type": "datetime", "name": "GSC数据截至", "style": {"format": "yyyy-MM-dd"}}},
+  {"table_id": "tblqFXdHJ4WO4H25", "definition": {"type": "datetime", "name": "询盘数据截至", "style": {"format": "yyyy-MM-dd"}}},
+  {"table_id": "tblqFXdHJ4WO4H25", "definition": {"type": "checkbox", "name": "是否最终值"}},
+  {
+    "table_id": "tblqFXdHJ4WO4H25",
+    "definition": {
+      "type": "select",
+      "name": "看板窗口",
+      "multiple": true,
+      "options": [
+        {"name": "当前周期", "hue": "Red", "lightness": "Light"},
+        {"name": "近4周", "hue": "Green", "lightness": "Light"},
+        {"name": "近12周", "hue": "Blue", "lightness": "Light"},
+        {"name": "近12个月", "hue": "Purple", "lightness": "Light"}
+      ]
+    }
+  },
+  {"table_id": "tblqFXdHJ4WO4H25", "definition": {"type": "text", "name": "同步批次"}}
+]

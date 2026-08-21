@@ -8,6 +8,7 @@ config/sites.yaml
 cache/
 audits/
 exports/
+/outputs/
 *.token.json
 *.credentials.json
 /token.json

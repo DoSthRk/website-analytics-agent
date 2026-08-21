@@ -1,0 +1,27 @@
+{
+  "site": "genemedi-net",
+  "selection_timezone": "America/Los_Angeles",
+  "calendar_periods": {
+    "day": 14,
+    "week": 12,
+    "month": 12,
+    "quarter": 8,
+    "year": 3
+  },
+  "rolling_windows_days": [7, 28, 90],
+  "source_finality_lag_days": {
+    "ga4": 2,
+    "gsc": 3,
+    "inquiry": 1
+  },
+  "schedule": {
+    "intraday_interval_minutes": 120,
+    "gsc_daily_time": "11:00",
+    "weekly_finalize_weekday": "Wednesday",
+    "weekly_finalize_time": "12:00"
+  },
+  "base_tables": {
+    "overview": "全站周数据",
+    "product": "产品周数据"
+  }
+}

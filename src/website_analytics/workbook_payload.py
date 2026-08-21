@@ -77,6 +77,23 @@ def build_workbook_payload(
                     ),
                 ),
                 _sheet(
+                    "Page Type Summary",
+                    "page_type_summary",
+                    _page_type_summary_rows(
+                        site,
+                        date_range,
+                        selection_timezone,
+                        freshness,
+                        product_report,
+                    ),
+                ),
+                _sheet(
+                    "Page Classification",
+                    "detail",
+                    _page_classification_rows(product_report),
+                    detail=True,
+                ),
+                _sheet(
                     "Product Page Mapping",
                     "detail",
                     _product_page_mapping_rows(product_report),
@@ -239,12 +256,75 @@ def _product_summary_rows(
 
 
 def _product_page_mappings(product_report: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
-    pages = product_report.get("pageMappings")
+    pages = product_report.get("productPageMappings")
     if not isinstance(pages, Sequence) or isinstance(pages, (str, bytes)):
         raise ValueError("product report must contain pageMappings")
     if not all(isinstance(page, Mapping) for page in pages):
         raise ValueError("product page mappings must be mappings")
     return pages
+
+
+def _page_classification_rows(product_report: Mapping[str, Any]) -> list[list[Any]]:
+    pages = product_report.get("pageMappings")
+    if not isinstance(pages, Sequence) or isinstance(pages, (str, bytes)):
+        raise ValueError("product report must contain pageMappings")
+    if not all(isinstance(page, Mapping) for page in pages):
+        raise ValueError("page classifications must be mappings")
+    return _detail_rows(pages) if pages else [["status"], ["No observed page rows in this period."]]
+
+
+def _page_type_summary_rows(
+    site: str,
+    date_range: str,
+    selection_timezone: str,
+    freshness: str,
+    product_report: Mapping[str, Any],
+) -> list[list[Any]]:
+    report_lines = product_report.get("pageTypeLines")
+    if not isinstance(report_lines, Sequence) or isinstance(report_lines, (str, bytes)):
+        raise ValueError("product report must contain pageTypeLines")
+    headers = [
+        "pageTypeId",
+        "pageType",
+        "currentCanonicalPages",
+        "previousCanonicalPages",
+        "ga4SessionsCurrent",
+        "ga4SessionsPrevious",
+        "ga4SessionsDelta",
+        "gscClicksCurrent",
+        "gscClicksPrevious",
+        "gscClicksDelta",
+        "gscImpressionsCurrent",
+        "gscImpressionsPrevious",
+        "gscImpressionsDelta",
+        "gscCtrCurrent",
+        "gscCtrPrevious",
+        "storedSubmissionsCurrent",
+        "storedSubmissionsPrevious",
+        "nonQuarantinedSubmissionsCurrent",
+        "nonQuarantinedSubmissionsPrevious",
+    ]
+    coverage = product_report.get("classificationCoverage")
+    if not isinstance(coverage, Mapping):
+        raise ValueError("product report must contain classificationCoverage")
+    rows: list[list[Any]] = [
+        ["Page Type Summary"],
+        ["Site", site],
+        ["Current date range", date_range],
+        ["Selection timezone", selection_timezone],
+        ["Freshness", freshness],
+        ["Classification version", _text(product_report.get("pageClassificationVersion"))],
+        ["GA4 classified-session rate", _json_value(coverage.get("ga4ClassifiedRate"))],
+        ["GSC classified-click rate", _json_value(coverage.get("gscClassifiedRate"))],
+        ["Inquiry classified-submission rate", _json_value(coverage.get("inquiryClassifiedRate"))],
+        [],
+        headers,
+    ]
+    for report_line in report_lines:
+        if not isinstance(report_line, Mapping):
+            raise ValueError("page type report lines must be mappings")
+        rows.append([_json_value(report_line.get(header)) for header in headers])
+    return rows
 
 
 def _product_page_mapping_rows(product_report: Mapping[str, Any]) -> list[list[Any]]:

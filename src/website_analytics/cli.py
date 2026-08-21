@@ -25,10 +25,16 @@ from website_analytics.adapters.inquiry import (
     create_inquiry_adapter,
     inquiry_source_data,
 )
+from website_analytics.adapters.page_dimension import create_page_dimension_adapter
 from website_analytics.cache import write_audit_manifest, write_cached_json
 from website_analytics.config import ConfigError, load_sites, require_site
 from website_analytics.dates import DateRangeError, parse_date_range, previous_period
 from website_analytics.models import DateRange, SiteConfig
+from website_analytics.page_classification import (
+    PageDimension,
+    build_page_dimension,
+    load_page_classification,
+)
 from website_analytics.product_mapping import (
     ProductMappingError,
     build_product_report,
@@ -52,6 +58,7 @@ _GSC_TOTAL_METRICS = ("clicks", "impressions")
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _BUILDER_SCRIPT = _PROJECT_ROOT / "scripts" / "build_report_workbook.mjs"
 _PRODUCT_MAPPING_DIR = _PROJECT_ROOT / "config" / "product_mappings"
+_PAGE_CLASSIFICATION_DIR = _PROJECT_ROOT / "config" / "page_classifications"
 
 
 class CLIInputError(ValueError):
@@ -259,6 +266,30 @@ def main(argv: Sequence[str] | None = None) -> int:
         result["complete"] = bool(current["complete"] and comparison_complete)
         result["status"] = "ok" if result["complete"] else "partial"
 
+        product_mapping = load_product_mapping(
+            _PRODUCT_MAPPING_DIR / f"{site.site_key}.yaml", site.site_key
+        )
+        product_report = None
+        if product_mapping is not None and result["complete"]:
+            page_dimension = _load_page_dimension(site, args.fixture_dir)
+            product_report = build_product_report(
+                product_mapping,
+                current["details"],
+                previous["details"],
+                page_dimension,
+            )
+            result["page_classification"] = {
+                "status": "configured",
+                "version": page_dimension.version,
+                "dimension": dict(page_dimension.summary),
+                "coverage": product_report["classificationCoverage"],
+                "page_types": product_report["pageTypeLines"],
+            }
+        elif product_mapping is not None:
+            result["page_classification"] = {
+                "status": "not_generated_for_partial_report"
+            }
+
         if args.command == "report":
             _persist_dataset(args, site, current, command=args.command, previous=previous)
             return _write_stdout(result, 0 if result["complete"] else 3)
@@ -274,16 +305,6 @@ def main(argv: Sequence[str] | None = None) -> int:
                     previous=previous,
                 )
                 return _write_stdout(result, 3)
-            product_mapping = load_product_mapping(
-                _PRODUCT_MAPPING_DIR / f"{site.site_key}.yaml", site.site_key
-            )
-            product_report = (
-                build_product_report(
-                    product_mapping, current["details"], previous["details"]
-                )
-                if product_mapping is not None
-                else None
-            )
             payload = build_workbook_payload(
                 {
                     "site": site.site_key,
@@ -441,6 +462,28 @@ def _create_live_adapters() -> tuple[GA4Adapter, GSCAdapter]:
     )
 
 
+def _load_page_dimension(
+    site: SiteConfig, fixture_dir: Path | None
+) -> PageDimension:
+    classification = load_page_classification(
+        _PAGE_CLASSIFICATION_DIR / f"{site.site_key}.yaml", site.site_key
+    )
+    try:
+        if fixture_dir is not None:
+            rows = _read_page_dimension_fixture(fixture_dir)
+        else:
+            if site.inquiry_source is None:
+                raise DataSourceError(
+                    "approved page dimension requires a registered read-only database source"
+                )
+            rows = create_page_dimension_adapter(site.inquiry_source).query()
+        return build_page_dimension(classification, rows)
+    except DataSourceError:
+        raise
+    except Exception as error:
+        raise DataSourceError("approved page dimension is unavailable") from error
+
+
 def _read_fixture(fixture_dir: Path, name: str) -> dict[str, Any]:
     fixture = fixture_dir / name
     try:
@@ -468,6 +511,20 @@ def _read_inquiry_fixture(fixture_dir: Path, name: str) -> list[dict[str, str | 
             values[key] = float(value) if isinstance(value, (int, float)) else value
         normalized.append(values)
     return normalized
+
+
+def _read_page_dimension_fixture(fixture_dir: Path) -> list[dict[str, object]]:
+    document = _read_fixture(fixture_dir, "page_dimension.json")
+    raw_rows = document.get("rows")
+    if not isinstance(raw_rows, list) or not all(isinstance(row, Mapping) for row in raw_rows):
+        raise DataSourceError("page_dimension.json must contain a rows array")
+    rows: list[dict[str, object]] = []
+    allowed = {"route_url", "route_page_id", "content_page_id", "template"}
+    for raw in raw_rows:
+        if set(raw) != allowed:
+            raise DataSourceError("page_dimension.json row has unexpected fields")
+        rows.append(dict(raw))
+    return rows
 
 
 def _ga4_totals(interval_rows: Sequence[Mapping[str, str | float]]) -> dict[str, float]:

@@ -1,0 +1,32 @@
+[
+  {
+    "table_id": "tbl3rwDU73Gno2HJ",
+    "field_id": "fldgZGEpd4",
+    "definition": {
+      "type": "select",
+      "name": "数据状态",
+      "multiple": false,
+      "options": [
+        {"name": "complete", "hue": "Green", "lightness": "Light"},
+        {"name": "preliminary", "hue": "Blue", "lightness": "Light"},
+        {"name": "partial", "hue": "Orange", "lightness": "Light"},
+        {"name": "error", "hue": "Red", "lightness": "Light"}
+      ]
+    }
+  },
+  {
+    "table_id": "tblqFXdHJ4WO4H25",
+    "field_id": "fld8IfVoqi",
+    "definition": {
+      "type": "select",
+      "name": "数据完整性",
+      "multiple": false,
+      "options": [
+        {"name": "完整", "hue": "Green", "lightness": "Light"},
+        {"name": "初步数据", "hue": "Blue", "lightness": "Light"},
+        {"name": "仅流量（询盘缺失）", "hue": "Orange", "lightness": "Light"},
+        {"name": "部分来源异常", "hue": "Red", "lightness": "Light"}
+      ]
+    }
+  }
+]

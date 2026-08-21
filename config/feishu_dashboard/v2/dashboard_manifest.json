@@ -1,0 +1,173 @@
+{
+  "dashboards": [
+    {
+      "name": "官网运营驾驶舱",
+      "blocks": [
+        {
+          "name": "看板阅读说明",
+          "type": "text",
+          "managed_via": "feishu_ui",
+          "data_config": {
+            "text": "# 官网运营驾驶舱\n默认显示：**本周（初步数据）**；趋势图固定为**近4周**。\n\n四张指标卡分别来自 GA4 访问、GSC 自然搜索、GA4 关键事件和官网数据库询盘。它们只做并列观察，不直接视为严格转化漏斗。\n\n底层表新增产品页、信息页和未分类页面的访问、搜索点击、询盘及分类覆盖率；无法关联数据库维表的URL不会被猜测为产品页。\n\n日、月、滚动7天和滚动28天数据，可在底层表按“统计粒度”筛选查看。"
+          }
+        },
+        {
+          "name": "运营判断顺序",
+          "type": "text",
+          "managed_via": "feishu_ui",
+          "data_config": {
+            "text": "## 建议按这个顺序看\n1. 官网访问与自然搜索是否同向变化；\n2. GA4 表单事件是否随流量变化；\n3. 官网入库询盘是否同步变化；\n4. 如果访问较高但询盘较低，再检查产品页行动按钮、表单链路和流量匹配度。\n\n当前周会持续补齐，正式复盘优先使用完整周。"
+          }
+        },
+        {
+          "name": "本周官网访问",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站周数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "当前周期", "operator": "is", "value": true}]}
+          }
+        },
+        {
+          "name": "本周Google自然搜索点击",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站周数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "当前周期", "operator": "is", "value": true}]}
+          }
+        },
+        {
+          "name": "本周表单提交事件（GA4）",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站周数据",
+            "series": [{"field_name": "表单提交事件（GA4）", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "当前周期", "operator": "is", "value": true}]}
+          }
+        },
+        {
+          "name": "本周官网入库询盘",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站周数据",
+            "series": [{"field_name": "官网入库询盘", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "当前周期", "operator": "is", "value": true}]}
+          }
+        },
+        {
+          "name": "近4周官网访问趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "全站周数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "group_by": [{"field_name": "周期开始", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}]}
+          }
+        },
+        {
+          "name": "近4周Google搜索点击趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "全站周数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "group_by": [{"field_name": "周期开始", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}]}
+          }
+        },
+        {
+          "name": "近4周官网入库询盘趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "全站周数据",
+            "series": [{"field_name": "官网入库询盘", "rollup": "SUM"}],
+            "group_by": [{"field_name": "周期开始", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}, {"field_name": "官网入库询盘", "operator": "isNotEmpty"}]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "产品趋势与行动",
+      "blocks": [
+        {
+          "name": "产品行动指南",
+          "type": "text",
+          "managed_via": "feishu_ui",
+          "data_config": {
+            "text": "# 产品 × 时间\n折线图固定显示近4周，柱状图固定显示本周。\n\n数据只汇总官网数据库模板确认的产品页，再按已审核的三大类展示：**GMP 系列、SOLIDEX / ISOEx、AAV 纯化与滴度**。信息页、未分类页、异常页和PDF不会进入产品大类；Payload 暂不纳入大类周报。\n\n## 怎么判断下一步\n- 访问较高、搜索点击较低：检查内容覆盖、标题和搜索意图；\n- 有搜索点击、暂无询盘：检查产品页行动按钮与表单路径；\n- 已出现询盘：继续观察连续周期，并结合销售反馈判断质量。\n\nGA4 事件与数据库询盘是两个独立口径，不应直接相减。"
+          }
+        },
+        {
+          "name": "各产品近4周官网访问",
+          "type": "line",
+          "data_config": {
+            "table_name": "产品周数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "group_by": [
+              {"field_name": "周期开始", "mode": "integrated", "sort": {"type": "group", "order": "asc"}},
+              {"field_name": "产品大类", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}
+            ],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}]}
+          }
+        },
+        {
+          "name": "各产品近4周Google搜索点击",
+          "type": "line",
+          "data_config": {
+            "table_name": "产品周数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "group_by": [
+              {"field_name": "周期开始", "mode": "integrated", "sort": {"type": "group", "order": "asc"}},
+              {"field_name": "产品大类", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}
+            ],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}]}
+          }
+        },
+        {
+          "name": "各产品官网入库询盘趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "产品周数据",
+            "series": [{"field_name": "官网入库询盘", "rollup": "SUM"}],
+            "group_by": [
+              {"field_name": "周期开始", "mode": "integrated", "sort": {"type": "group", "order": "asc"}},
+              {"field_name": "产品大类", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}
+            ],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "看板窗口", "operator": "contains", "value": "近4周"}, {"field_name": "官网入库询盘", "operator": "isNotEmpty"}]}
+          }
+        },
+        {
+          "name": "本周各产品官网访问",
+          "type": "bar",
+          "data_config": {
+            "table_name": "产品周数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "group_by": [{"field_name": "产品大类", "mode": "integrated", "sort": {"type": "value", "order": "desc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "当前周期", "operator": "is", "value": true}]}
+          }
+        },
+        {
+          "name": "本周各产品Google搜索点击",
+          "type": "bar",
+          "data_config": {
+            "table_name": "产品周数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "group_by": [{"field_name": "产品大类", "mode": "integrated", "sort": {"type": "value", "order": "desc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "当前周期", "operator": "is", "value": true}]}
+          }
+        },
+        {
+          "name": "本周各产品官网入库询盘",
+          "type": "bar",
+          "data_config": {
+            "table_name": "产品周数据",
+            "series": [{"field_name": "官网入库询盘", "rollup": "SUM"}],
+            "group_by": [{"field_name": "产品大类", "mode": "integrated", "sort": {"type": "value", "order": "desc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "统计粒度", "operator": "is", "value": "周"}, {"field_name": "当前周期", "operator": "is", "value": true}]}
+          }
+        }
+      ]
+    }
+  ]
+}

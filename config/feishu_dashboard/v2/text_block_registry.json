@@ -1,0 +1,21 @@
+{
+  "managed_via": "feishu_ui",
+  "reason": "lark-cli 1.0.65 double-encodes dashboard text strings; update native rich text in Feishu and use the CLI only for block names/readback",
+  "blocks": [
+    {
+      "dashboard_id": "blkLiB6bavgglOdp",
+      "block_id": "chtcnJEo0Ou2BzCPFPNcBrvy4Se",
+      "name": "看板阅读说明"
+    },
+    {
+      "dashboard_id": "blkLiB6bavgglOdp",
+      "block_id": "chtcnT3N0FTWv8q6nKgHjmQvWbY",
+      "name": "运营判断顺序"
+    },
+    {
+      "dashboard_id": "blkMWyCmzTFZBw4Z",
+      "block_id": "chtcnE7XrH4K9JPLQusSSh8vNuf",
+      "name": "产品行动指南"
+    }
+  ]
+}

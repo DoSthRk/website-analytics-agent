@@ -1,0 +1,22 @@
+{
+  "rows": [
+    {
+      "route_url": "i/gmp-generic-column",
+      "route_page_id": 1001,
+      "content_page_id": 1001,
+      "template": "indexwithSideBa_product"
+    },
+    {
+      "route_url": "i/purprox-aavfull-enrichment-kit",
+      "route_page_id": 1002,
+      "content_page_id": 1002,
+      "template": "GCT_Purpro_SideBar"
+    },
+    {
+      "route_url": "products",
+      "route_page_id": 1003,
+      "content_page_id": 1003,
+      "template": "index-general"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+[
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"访问较上周","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"搜索点击较上周","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"表单事件较上周","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"number","name":"入库询盘较上周","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tbl3rwDU73Gno2HJ","definition":{"type":"text","name":"运营摘要"}},
+
+  {"table_id":"tblqFXdHJ4WO4H25","definition":{"type":"text","name":"周期标签"}},
+  {"table_id":"tblqFXdHJ4WO4H25","definition":{"type":"select","name":"数据完整性","multiple":false,"options":[{"name":"完整","hue":"Green","lightness":"Light"},{"name":"仅流量（询盘缺失）","hue":"Orange","lightness":"Light"}]}},
+  {"table_id":"tblqFXdHJ4WO4H25","definition":{"type":"number","name":"访问较上周","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tblqFXdHJ4WO4H25","definition":{"type":"number","name":"搜索点击较上周","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tblqFXdHJ4WO4H25","definition":{"type":"number","name":"搜索曝光较上周","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tblqFXdHJ4WO4H25","definition":{"type":"number","name":"入库询盘较上周","style":{"type":"plain","precision":0,"percentage":false,"thousands_separator":true}}},
+  {"table_id":"tblqFXdHJ4WO4H25","definition":{"type":"text","name":"运营提示"}}
+]

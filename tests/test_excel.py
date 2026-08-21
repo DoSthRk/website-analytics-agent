@@ -175,8 +175,23 @@ def test_workbook_payload_shows_comparison_provenance_before_previous_values() -
 
 
 def test_workbook_payload_adds_product_summary_and_mapping_when_configured() -> None:
+    page_mapping = {
+        "canonicalPath": "/i/gmp-generic-column",
+        "productLineId": "GMP",
+        "reportLineId": "GMP",
+        "pageClass": "product_page",
+        "includeInProductReport": True,
+        "mappingRuleId": "gmp-prefix",
+        "mappingStatus": "approved",
+        "mappingReason": "Approved generic GMP rule.",
+        "ga4Sessions": 7.0,
+        "gscClicks": 5.0,
+        "gscImpressions": 50.0,
+        "gscCtr": 0.1,
+    }
     product_report = {
         "mappingVersion": "2",
+        **_page_classification_report([page_mapping]),
         "reportLines": [
             {
                 "reportLineId": "GMP",
@@ -194,22 +209,6 @@ def test_workbook_payload_adds_product_summary_and_mapping_when_configured() -> 
                 "gscCtrCurrent": 0.1,
                 "gscCtrPrevious": 0.1,
                 "gscCtrDelta": 0.0,
-            }
-        ],
-        "pageMappings": [
-            {
-                "canonicalPath": "/i/gmp-generic-column",
-                "productLineId": "GMP",
-                "reportLineId": "GMP",
-                "pageClass": "product_page",
-                "includeInProductReport": True,
-                "mappingRuleId": "gmp-prefix",
-                "mappingStatus": "approved",
-                "mappingReason": "Approved generic GMP rule.",
-                "ga4Sessions": 7.0,
-                "gscClicks": 5.0,
-                "gscImpressions": 50.0,
-                "gscCtr": 0.1,
             }
         ],
     }
@@ -230,6 +229,8 @@ def test_workbook_payload_adds_product_summary_and_mapping_when_configured() -> 
         "README",
         "Executive Summary",
         "Product Weekly Summary",
+        "Page Type Summary",
+        "Page Classification",
         "Product Page Mapping",
         "GA4 Pages",
         "Audit",
@@ -237,7 +238,7 @@ def test_workbook_payload_adds_product_summary_and_mapping_when_configured() -> 
     summary_rows = payload["sheets"][2]["rows"]
     assert ["Mapping version", "2"] in summary_rows
     assert summary_rows[-1][0:3] == ["GMP", "GMP 系列", 1]
-    mapping_rows = payload["sheets"][3]["rows"]
+    mapping_rows = payload["sheets"][5]["rows"]
     assert mapping_rows[0][0:4] == ["canonicalPath", "productLineId", "reportLineId", "pageClass"]
     assert mapping_rows[1][0:4] == ["/i/gmp-generic-column", "GMP", "GMP", "product_page"]
 
@@ -245,8 +246,8 @@ def test_workbook_payload_adds_product_summary_and_mapping_when_configured() -> 
 def test_product_mapping_sheet_is_exportable_when_period_has_no_matched_pages() -> None:
     product_report = {
         "mappingVersion": "2",
+        **_page_classification_report([]),
         "reportLines": [],
-        "pageMappings": [],
     }
     payload = build_workbook_payload(
         {
@@ -260,7 +261,7 @@ def test_product_mapping_sheet_is_exportable_when_period_has_no_matched_pages() 
     )
 
     readme_rows = payload["sheets"][0]["rows"]
-    mapping_rows = payload["sheets"][3]["rows"]
+    mapping_rows = payload["sheets"][5]["rows"]
     assert ["Product mapping version", "2"] in readme_rows
     assert mapping_rows == [
         ["status"],
@@ -281,8 +282,8 @@ def test_workbook_payload_adds_separate_product_inquiry_summary() -> None:
         {"sources": {}},
         product_report={
             "mappingVersion": "2",
+            **_page_classification_report([]),
             "reportLines": [],
-            "pageMappings": [],
             "inquiryReportLines": [
                 {
                     "reportLineId": "GMP",
@@ -307,6 +308,20 @@ def test_workbook_payload_adds_separate_product_inquiry_summary() -> None:
     )
     assert inquiry_sheet["kind"] == "product_inquiry_summary"
     assert inquiry_sheet["rows"][-1][0:4] == ["GMP", "GMP 绯诲垪", 1, 3.0]
+
+
+def _page_classification_report(page_mappings: list[dict]) -> dict:
+    return {
+        "pageClassificationVersion": "1",
+        "pageTypeLines": [],
+        "classificationCoverage": {
+            "ga4ClassifiedRate": 1.0,
+            "gscClassifiedRate": 1.0,
+            "inquiryClassifiedRate": 1.0,
+        },
+        "pageMappings": page_mappings,
+        "productPageMappings": page_mappings,
+    }
 
 
 def test_exported_workbook_keeps_a_self_describing_readme(
