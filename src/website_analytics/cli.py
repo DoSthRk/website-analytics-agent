@@ -519,7 +519,13 @@ def _read_page_dimension_fixture(fixture_dir: Path) -> list[dict[str, object]]:
     if not isinstance(raw_rows, list) or not all(isinstance(row, Mapping) for row in raw_rows):
         raise DataSourceError("page_dimension.json must contain a rows array")
     rows: list[dict[str, object]] = []
-    allowed = {"route_url", "route_page_id", "content_page_id", "template"}
+    allowed = {
+        "route_url",
+        "route_page_id",
+        "route_source",
+        "content_page_id",
+        "template",
+    }
     for raw in raw_rows:
         if set(raw) != allowed:
             raise DataSourceError("page_dimension.json row has unexpected fields")

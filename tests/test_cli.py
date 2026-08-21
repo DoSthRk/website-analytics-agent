@@ -286,7 +286,7 @@ sites:
         "report_lines": ["GMP", "SOLIDEX", "AAV_PROCESSING"],
     }
     assert exported["page_classification"]["status"] == "configured"
-    assert exported["page_classification"]["version"] == "2"
+    assert exported["page_classification"]["version"] == "3"
     assert exported["page_classification"]["dimension"]["productPages"] == 2
     assert zipfile.is_zipfile(output)
     assert sorted(path.name for path in output.with_suffix("").with_name("genemedi.renders").glob("*.png")) == [

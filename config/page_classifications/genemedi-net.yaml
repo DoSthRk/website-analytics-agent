@@ -1,5 +1,85 @@
-version: "2"
+version: "3"
 site: genemedi-net
+route_sources:
+  - dbname: aav
+    page_class: product_page
+    template: AAV.htm
+    reason: 官网运行时读取 AAV 产品记录并使用 AAV 产品模板渲染。
+  - dbname: biomarker
+    page_class: product_page
+    template: biomarker.htm
+    reason: 官网运行时将 biomarker 路由交给生物标志物产品渲染器。
+  - dbname: diagnostics_biomarker
+    page_class: product_page
+    template: diagnostics_biomarker.htm
+    reason: 官网运行时使用诊断生物标志物产品模板渲染。
+  - dbname: diagnostics_analyte
+    page_class: product_page
+    template: diagnostics_analyte.htm
+    reason: 官网运行时使用诊断分析物产品模板渲染。
+  - dbname: Lentivirus
+    page_class: product_page
+    template: Lentivirus.htm
+    reason: 官网运行时将该路由交给慢病毒产品渲染器。
+  - dbname: AAV_expression
+    page_class: product_page
+    template: AAV_expression.htm
+    reason: 官网运行时使用 AAV 表达产品模板渲染。
+  - dbname: SOLIDEX
+    page_class: product_page
+    template: SOLIDEX.htm
+    reason: 官网运行时从 Drupal JSON API 读取 SOLIDEX 产品并使用产品模板渲染。
+  - dbname: product_generic
+    page_class: product_page
+    template: product_generic.htm
+    reason: 官网运行时从 Drupal JSON API 读取通用产品并使用产品模板渲染。
+  - dbname: molecular_diagnostic
+    page_class: product_page
+    template: molecular_diagnostic.htm
+    reason: 官网运行时使用分子诊断产品模板渲染。
+  - dbname: target_antibody
+    page_class: product_page
+    template: antibody.htm
+    reason: 官网运行时使用靶点抗体产品模板渲染。
+  - dbname: target_antigen
+    page_class: product_page
+    template: antigen.htm
+    reason: 官网运行时使用靶点抗原产品模板渲染。
+  - dbname: drupal_page
+    page_class: information_page
+    template: drupal-basic-page
+    reason: 官网运行时将 Drupal Basic Page 作为普通信息页面渲染。
+path_rules:
+  - id: premade-plasmid-product
+    match: {type: path_prefix, value: /g/}
+    page_class: product_page
+    template: product.htm
+    reason: 官网固定将 /g/<pid>.html 查询到 plasmids_new 并使用 product.htm 产品模板渲染。
+  - id: legacy-article-information
+    match: {type: path_prefix, value: /a/}
+    page_class: information_page
+    template: article.htm
+    reason: 官网固定将 /a/<slug>.html 交给文章渲染器。
+  - id: site-search-technical
+    match: {type: exact_path, value: /search}
+    page_class: technical_page
+    template: search.htm
+    reason: 站内搜索结果是技术功能页，不计入产品页或信息内容页。
+  - id: form-handler-technical
+    match: {type: exact_path, value: /plus/do}
+    page_class: technical_page
+    template: form-handler
+    reason: 表单处理接口不是可阅读的产品页或信息页。
+  - id: form-handler-v2-technical
+    match: {type: exact_path, value: /plus/do2}
+    page_class: technical_page
+    template: form-handler
+    reason: 表单处理接口不是可阅读的产品页或信息页。
+  - id: ga4-missing-landing-page
+    match: {type: exact_path, value: "/(not set)"}
+    page_class: technical_page
+    template: ga4-not-set
+    reason: GA4 未获得落地页路径，不代表网站内容页面。
 route_aliases:
   - id: legacy-antibody-to-i
     source_prefix: /antibody/

@@ -36,7 +36,7 @@ genemedi-net|custom|2026-08-10|2026-08-16
 
 产品记录在周期键后追加稳定的产品大类ID。同步程序必须按该键执行upsert，不能在每次运行时重复新增记录。
 
-页面类型是独立维度。GA4、GSC和询盘的页面URL先统一为规范路径，再通过只读 `urltable.url → pages.pageid → pages.template` 维表分类。已审核的旧路由别名只负责把历史URL恢复到数据库中的唯一现存路由，产品页/信息页的最终判断仍只来自目标页面的 `pages.template`；未找到目标模板时不得按URL名称猜测。只有 `product_page` 可进入产品大类；`information_page`、`unknown_unmapped`、`invalid_broken` 和 `pdf_asset` 保持独立状态。每次同步记录页面分类版本和按来源计算的分类覆盖率。
+页面类型是独立维度。GA4 总量、每日和页面请求先按注册域名精确过滤 `hostName`；GA4、GSC和询盘的页面URL再统一为规范路径。`dbname=pages` 的路由严格依据 `pages.template` 是否包含 `sideba` 分类；官网运行时已经确认的动态 `urltable.dbname` 使用版本化渲染器规则；`/g/`、文章和技术端点使用固定路径规则。未审核来源和冲突路由不得按URL名称猜测。只有 `product_page` 可进入产品大类；`information_page`、`technical_page`、`unknown_unmapped`、`invalid_broken` 和 `pdf_asset` 保持独立状态。每次同步记录页面分类版本和按来源计算的分类覆盖率。
 
 ## 数据新鲜度
 

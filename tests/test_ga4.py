@@ -148,6 +148,7 @@ def test_daily_sends_expected_ga4_request_and_normalizes_iso_date() -> None:
     assert request.property == "properties/123456789"
     assert [dimension.name for dimension in request.dimensions] == ["date"]
     assert [metric.name for metric in request.metrics] == list(METRICS)
+    assert _filtered_hosts(request) == ["example.com"]
     assert request.limit == 250000
     assert request.offset == 0
     assert result == [
@@ -183,6 +184,7 @@ def test_pages_sends_landing_page_dimension_and_normalizes_values() -> None:
     assert [dimension.name for dimension in request.dimensions] == [
         "landingPagePlusQueryString"
     ]
+    assert _filtered_hosts(request) == ["example.com"]
     assert result == [
         {
             "landingPagePlusQueryString": "/products?source=ad",
@@ -329,6 +331,11 @@ def _page_row(page: str, sessions: str) -> FakeRow:
             FakeValue("1"),
         ),
     )
+
+
+def _filtered_hosts(request: object) -> list[str]:
+    expressions = request.dimension_filter.or_group.expressions
+    return [expression.filter.string_filter.value for expression in expressions]
 
 
 def _site() -> SiteConfig:

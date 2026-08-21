@@ -17,12 +17,12 @@ from website_analytics.windows_credentials import (
 _DIMENSION_QUERY = """
 SELECT u.url AS route_url,
        u.pageid AS route_page_id,
+       u.dbname AS route_source,
        p.pageid AS content_page_id,
        p.template AS template
 FROM urltable AS u
-LEFT JOIN pages AS p ON p.pageid = u.pageid
-WHERE u.dbname = 'pages'
-ORDER BY u.url, u.pageid
+LEFT JOIN pages AS p ON u.dbname = 'pages' AND p.pageid = u.pageid
+ORDER BY u.url, u.dbname, u.pageid
 """
 
 
@@ -91,7 +91,8 @@ def _dimension_row(record: Mapping[str, object]) -> dict[str, object]:
         raise PageDimensionSourceError("legacy page dimension route URL is invalid")
     return {
         "route_url": route_url,
-        "route_page_id": _identifier(record.get("route_page_id"), allow_none=False),
+        "route_page_id": _identifier(record.get("route_page_id"), allow_none=True),
+        "route_source": _route_source(record.get("route_source")),
         "content_page_id": _identifier(record.get("content_page_id"), allow_none=True),
         "template": _template(record.get("template")),
     }
@@ -111,6 +112,12 @@ def _template(value: object) -> str:
     if not isinstance(value, str):
         raise PageDimensionSourceError("legacy page dimension template is invalid")
     return value
+
+
+def _route_source(value: object) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise PageDimensionSourceError("legacy page dimension route source is invalid")
+    return value.strip()
 
 
 def _connection_options(dsn: str) -> dict[str, object]:

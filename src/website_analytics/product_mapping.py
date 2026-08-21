@@ -40,6 +40,7 @@ _INQUIRY_METRICS = (
 _PAGE_TYPE_NAMES = {
     "product_page": "产品页",
     "information_page": "信息页",
+    "technical_page": "技术页面",
     "unknown_unmapped": "未映射页面",
     "invalid_broken": "异常页面",
     "pdf_asset": "PDF资源",

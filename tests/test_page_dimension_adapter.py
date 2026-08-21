@@ -45,6 +45,7 @@ def test_adapter_reads_only_route_ids_and_templates() -> None:
             {
                 "route_url": "i/product",
                 "route_page_id": 10,
+                "route_source": "pages",
                 "content_page_id": 10,
                 "template": "indexwithSideBar",
             }
@@ -60,6 +61,8 @@ def test_adapter_reads_only_route_ids_and_templates() -> None:
     assert connection.closed is True
     query = cursor.executed[0][0]
     assert "urltable" in query and "pages" in query
+    assert "route_source" in query and "u.dbname" in query
+    assert "where u.dbname = 'pages'" not in query.casefold()
     assert "p.content" not in query.casefold()
     assert "select *" not in query.casefold()
     assert "title" not in query.casefold()

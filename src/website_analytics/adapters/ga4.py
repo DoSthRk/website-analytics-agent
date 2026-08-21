@@ -9,6 +9,9 @@ from typing import Callable, Protocol
 from google.analytics.data_v1beta.types import (
     DateRange as GA4DateRange,
     Dimension,
+    Filter,
+    FilterExpression,
+    FilterExpressionList,
     Metric,
     Row,
     RunReportRequest,
@@ -84,6 +87,7 @@ class GA4Adapter:
                 property=f"properties/{site.ga4_property_id}",
                 dimensions=[Dimension(name=name) for name in dimensions],
                 metrics=[Metric(name=name) for name in _METRICS],
+                dimension_filter=_hostname_filter(site.domains),
                 date_ranges=[
                     GA4DateRange(
                         start_date=date_range.start.isoformat(),
@@ -141,3 +145,23 @@ def _normalize_dimension_value(dimension: str, value: str) -> str:
     if dimension == "date" and len(value) == 8 and value.isdigit():
         return f"{value[:4]}-{value[4:6]}-{value[6:]}"
     return sanitize_url_query(value)
+
+
+def _hostname_filter(domains: Sequence[str]) -> FilterExpression:
+    """Restrict every GA4 report to the registered website hostnames."""
+    expressions = [
+        FilterExpression(
+            filter=Filter(
+                field_name="hostName",
+                string_filter=Filter.StringFilter(
+                    match_type=Filter.StringFilter.MatchType.EXACT,
+                    value=domain.casefold().rstrip("."),
+                    case_sensitive=False,
+                ),
+            )
+        )
+        for domain in domains
+    ]
+    return FilterExpression(
+        or_group=FilterExpressionList(expressions=expressions)
+    )

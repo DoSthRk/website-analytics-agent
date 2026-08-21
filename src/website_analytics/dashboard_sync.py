@@ -113,7 +113,12 @@ def build_dashboard_records(
     information_type = _required_page_type(page_types, "information_page")
     unclassified_types = [
         _required_page_type(page_types, page_type)
-        for page_type in ("unknown_unmapped", "invalid_broken", "pdf_asset")
+        for page_type in (
+            "technical_page",
+            "unknown_unmapped",
+            "invalid_broken",
+            "pdf_asset",
+        )
     ]
     overview = {
         "周期": period.label,

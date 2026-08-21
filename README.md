@@ -99,11 +99,11 @@ $env:WEBSITE_ANALYTICS_NODE = '<Node executable path returned by the Codex depen
 当某个站点同时存在 `config/page_classifications/<site-key>.yaml` 和 `config/product_mappings/<site-key>.yaml` 时，`report` 会返回页面类型汇总，`export-excel` 会在原始 GA4/GSC 工作表之外自动加入：
 
 - `Product Weekly Summary`：按已审核的大类汇总本期、上一期和变化；GA4 Sessions 与 GSC Clicks / Impressions / CTR 保持独立，绝不合并为同一种“流量”。
-- `Page Type Summary`：分别汇总产品页、信息页、未映射页面、异常页面和 PDF 资源，并报告 GA4、GSC、询盘各自的分类覆盖率。
+- `Page Type Summary`：分别汇总产品页、信息页、技术页面、未映射页面、异常页面和 PDF 资源，并报告 GA4、GSC、询盘各自的分类覆盖率。
 - `Page Classification`：列出本期实际出现的页面、数据库页面 ID、模板、分类证据和异常状态。
 - `Product Page Mapping`：列出本期实际匹配到的页面、命中的规则和是否纳入周报；若本期没有匹配页面，会明确显示该状态而不会导致导出失败。
 
-页面类型来自固定只读关联 `urltable.url → pages.pageid → pages.template`：模板不区分大小写包含 `sideba` 时为产品页，否则为信息页；已审核的少量例外保存在页面分类 YAML 中。经审核的旧路由别名可以先把观测 URL 纠正到数据库中的唯一现存路由，但最终分类仍只读取该目标页面的 `pages.template`；目标不存在、不是唯一模板规则结果或出现别名冲突时，仍保持 `unknown_unmapped`。孤立路由保持 `invalid_broken`，不使用 `/i/` 前缀或产品名称猜测类型。只有数据库确认的产品页才能继续进入 GMP、SOLIDEX / ISOEx、AAV 纯化与滴度三个产品大类；Payload 和抗体滴度规则仍不计入产品周报。
+所有 GA4 请求都使用注册站点的 `domains` 对 `hostName` 做精确过滤，因此共享 GA4 属性中的其他站点不会进入总量、每日或页面明细。页面类型使用固定只读字段 `urltable.url/pageid/dbname` 与 `pages.pageid/template`：`dbname=pages` 时继续严格依据模板是否包含 `sideba`；已审核的动态 `dbname` 按官网运行时渲染器分类；`/g/`、文章及搜索/表单技术路径使用版本化的固定路径规则。未审核的数据源、冲突路由和孤立记录保持 `invalid_broken`，未找到任何证据的路径保持 `unknown_unmapped`。只有确认为 `product_page` 的页面才能进入 GMP、SOLIDEX / ISOEx、AAV 纯化与滴度三个产品大类；Payload 和抗体滴度规则仍不计入产品周报。
 
 ### Excel test runtime contract
 
