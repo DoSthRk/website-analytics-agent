@@ -49,7 +49,55 @@ def test_template_dimension_distinguishes_product_and_information_under_i() -> N
         "orphanRoutes": 2,
         "duplicatePaths": 1,
         "overridesApplied": 2,
+        "routeAliasRules": 3,
     }
+
+
+def test_approved_route_alias_still_requires_an_exact_template_backed_target() -> None:
+    config = load_page_classification(CONFIG, "genemedi-net")
+    dimension = build_page_dimension(
+        config,
+        [
+            _row("i/gm-tg-hg-se1284-ab", 1, 1, "indexwithSideBa_product"),
+            _row("i/itd-tg-hg-gm-t02328", 2, 2, "index-target"),
+            _row("i/diagnostic-animal-health-avian", 3, 3, "index-diagnostic-AD"),
+        ],
+    )
+
+    antibody = dimension.classify("/antibody/gm-tg-hg-se1284-ab")
+    assert antibody.page_class == "product_page"
+    assert antibody.page_id == 1
+    assert antibody.canonical_path == "/antibody/gm-tg-hg-se1284-ab"
+    assert antibody.classification_status == "template_rule_via_route_alias"
+    assert "/i/gm-tg-hg-se1284-ab" in antibody.classification_evidence
+
+    target = dimension.classify("/itd-tg-hg-gm-t02328")
+    assert target.page_class == "information_page"
+    assert target.page_id == 2
+
+    duplicated = dimension.classify("/i/i/diagnostic-animal-health-avian")
+    assert duplicated.page_class == "information_page"
+    assert duplicated.page_id == 3
+
+    assert dimension.classify("/antibody/not-in-database").page_class == "unknown_unmapped"
+    assert dimension.classify("/oligo/not-in-database").page_class == "unknown_unmapped"
+
+
+def test_page_classification_rejects_overlapping_route_aliases(tmp_path: Path) -> None:
+    path = tmp_path / "classification.yaml"
+    path.write_text(
+        """
+version: "2"
+site: genemedi-net
+route_aliases:
+  - {id: broad, source_prefix: /i/, target_prefix: /legacy/, reason: broad}
+  - {id: nested, source_prefix: /i/i/, target_prefix: /i/, reason: nested}
+overrides: []
+""".lstrip(),
+        encoding="utf-8",
+    )
+    with pytest.raises(PageClassificationError, match="must not overlap"):
+        load_page_classification(path, "genemedi-net")
 
 
 def test_canonical_path_decodes_legacy_space_and_removes_query_fragment() -> None:

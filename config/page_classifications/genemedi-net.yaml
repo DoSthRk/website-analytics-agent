@@ -1,5 +1,18 @@
-version: "1"
+version: "2"
 site: genemedi-net
+route_aliases:
+  - id: legacy-antibody-to-i
+    source_prefix: /antibody/
+    target_prefix: /i/
+    reason: 旧版 /antibody/<slug> 与当前数据库 /i/<slug> 使用相同且唯一的页面标识。
+  - id: duplicate-i-prefix
+    source_prefix: /i/i/
+    target_prefix: /i/
+    reason: 重复的 /i 前缀纠正后可唯一关联当前数据库路由。
+  - id: legacy-target-to-i
+    source_prefix: /itd-tg-hg-
+    target_prefix: /i/itd-tg-hg-
+    reason: 旧版顶级靶点路径与当前 /i/ 路径使用相同且唯一的页面标识。
 overrides:
   - page_id: 1066
     page_class: product_page

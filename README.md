@@ -103,7 +103,7 @@ $env:WEBSITE_ANALYTICS_NODE = '<Node executable path returned by the Codex depen
 - `Page Classification`：列出本期实际出现的页面、数据库页面 ID、模板、分类证据和异常状态。
 - `Product Page Mapping`：列出本期实际匹配到的页面、命中的规则和是否纳入周报；若本期没有匹配页面，会明确显示该状态而不会导致导出失败。
 
-页面类型来自固定只读关联 `urltable.url → pages.pageid → pages.template`：模板不区分大小写包含 `sideba` 时为产品页，否则为信息页；已审核的少量例外保存在页面分类 YAML 中。无法关联的 URL 保持 `unknown_unmapped`，孤立路由保持 `invalid_broken`，不再用 `/i/` 前缀猜测类型。只有数据库确认的产品页才能继续进入 GMP、SOLIDEX / ISOEx、AAV 纯化与滴度三个产品大类；Payload 和抗体滴度规则仍不计入产品周报。
+页面类型来自固定只读关联 `urltable.url → pages.pageid → pages.template`：模板不区分大小写包含 `sideba` 时为产品页，否则为信息页；已审核的少量例外保存在页面分类 YAML 中。经审核的旧路由别名可以先把观测 URL 纠正到数据库中的唯一现存路由，但最终分类仍只读取该目标页面的 `pages.template`；目标不存在、不是唯一模板规则结果或出现别名冲突时，仍保持 `unknown_unmapped`。孤立路由保持 `invalid_broken`，不使用 `/i/` 前缀或产品名称猜测类型。只有数据库确认的产品页才能继续进入 GMP、SOLIDEX / ISOEx、AAV 纯化与滴度三个产品大类；Payload 和抗体滴度规则仍不计入产品周报。
 
 ### Excel test runtime contract
 

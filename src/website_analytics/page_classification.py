@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import unquote, urlsplit
@@ -34,10 +34,19 @@ class PageOverride:
 
 
 @dataclass(frozen=True)
+class PageRouteAlias:
+    identifier: str
+    source_prefix: str
+    target_prefix: str
+    reason: str
+
+
+@dataclass(frozen=True)
 class PageClassificationConfig:
     site_key: str
     version: str
     overrides: Mapping[int, PageOverride]
+    route_aliases: tuple[PageRouteAlias, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -57,6 +66,7 @@ class PageDimension:
     version: str
     entries: Mapping[str, PageDimensionEntry]
     summary: Mapping[str, int]
+    route_aliases: tuple[PageRouteAlias, ...] = ()
 
     def classify(self, value: object) -> PageDimensionEntry:
         path = canonical_page_path(value)
@@ -72,7 +82,29 @@ class PageDimension:
                 classification_evidence="URL path uses the approved /pdf/ asset prefix.",
             )
         entry = self.entries.get(path)
-        return entry if entry is not None else _unknown_entry(path)
+        if entry is not None:
+            return entry
+        alias_matches: list[tuple[PageRouteAlias, str, PageDimensionEntry]] = []
+        for alias in self.route_aliases:
+            target_path = _aliased_path(path, alias)
+            if target_path is None:
+                continue
+            target = self.entries.get(target_path)
+            if target is None or target.classification_status != "template_rule":
+                continue
+            alias_matches.append((alias, target_path, target))
+        if len(alias_matches) != 1:
+            return _unknown_entry(path)
+        alias, target_path, target = alias_matches[0]
+        return replace(
+            target,
+            canonical_path=path,
+            classification_status="template_rule_via_route_alias",
+            classification_evidence=(
+                f"Approved route alias '{alias.identifier}' resolves to {target_path}. "
+                f"{target.classification_evidence} Alias evidence: {alias.reason}"
+            ),
+        )
 
 
 def load_page_classification(path: str | Path, site_key: str) -> PageClassificationConfig:
@@ -83,7 +115,7 @@ def load_page_classification(path: str | Path, site_key: str) -> PageClassificat
         raise PageClassificationError("could not load page classification") from error
     if not isinstance(document, Mapping):
         raise PageClassificationError("page classification must be a mapping")
-    _reject_unknown(document, {"version", "site", "overrides"}, "root")
+    _reject_unknown(document, {"version", "site", "overrides", "route_aliases"}, "root")
     configured_site = _required_text(document, "site", "root")
     if configured_site != site_key:
         raise PageClassificationError("page classification site does not match selected site")
@@ -110,10 +142,39 @@ def load_page_classification(path: str | Path, site_key: str) -> PageClassificat
             page_class=page_class,  # type: ignore[arg-type]
             reason=_required_text(raw, "reason", context),
         )
+    raw_aliases = document.get("route_aliases", [])
+    if not isinstance(raw_aliases, list):
+        raise PageClassificationError("page classification route_aliases must be a list")
+    route_aliases: list[PageRouteAlias] = []
+    alias_ids: set[str] = set()
+    source_prefixes: list[str] = []
+    for index, raw in enumerate(raw_aliases):
+        context = f"route_aliases[{index}]"
+        if not isinstance(raw, Mapping):
+            raise PageClassificationError(f"{context} must be a mapping")
+        _reject_unknown(raw, {"id", "source_prefix", "target_prefix", "reason"}, context)
+        identifier = _required_text(raw, "id", context)
+        if identifier in alias_ids:
+            raise PageClassificationError("page classification route alias IDs must be unique")
+        source_prefix = _route_prefix(raw, "source_prefix", context)
+        target_prefix = _route_prefix(raw, "target_prefix", context)
+        if any(_prefixes_overlap(source_prefix, existing) for existing in source_prefixes):
+            raise PageClassificationError("page classification route alias prefixes must not overlap")
+        alias_ids.add(identifier)
+        source_prefixes.append(source_prefix)
+        route_aliases.append(
+            PageRouteAlias(
+                identifier=identifier,
+                source_prefix=source_prefix,
+                target_prefix=target_prefix,
+                reason=_required_text(raw, "reason", context),
+            )
+        )
     return PageClassificationConfig(
         site_key=site_key,
         version=version,
         overrides=overrides,
+        route_aliases=tuple(route_aliases),
     )
 
 
@@ -207,7 +268,9 @@ def build_page_dimension(
             "orphanRoutes": orphan_routes,
             "duplicatePaths": duplicate_paths,
             "overridesApplied": overrides_applied,
+            "routeAliasRules": len(config.route_aliases),
         },
+        route_aliases=config.route_aliases,
     )
 
 
@@ -233,6 +296,29 @@ def _unknown_entry(path: str) -> PageDimensionEntry:
         classification_status="unmapped",
         classification_evidence="URL is absent from the approved urltable/pages dimension.",
     )
+
+
+def _route_prefix(value: Mapping[str, object], field: str, context: str) -> str:
+    raw = _required_text(value, field, context)
+    if not raw.startswith("/") or raw.startswith("//") or "?" in raw or "#" in raw:
+        raise PageClassificationError(f"{context} field '{field}' must be an absolute URL path prefix")
+    normalized = unquote(raw).casefold()
+    if normalized == "/":
+        raise PageClassificationError(f"{context} field '{field}' cannot be the site root")
+    return normalized
+
+
+def _prefixes_overlap(left: str, right: str) -> bool:
+    return left.startswith(right) or right.startswith(left)
+
+
+def _aliased_path(path: str, alias: PageRouteAlias) -> str | None:
+    if not path.startswith(alias.source_prefix):
+        return None
+    suffix = path[len(alias.source_prefix) :]
+    if not suffix:
+        return None
+    return f"{alias.target_prefix}{suffix}"
 
 
 def _page_id(value: object, field: str) -> int:
