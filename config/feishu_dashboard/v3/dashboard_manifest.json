@@ -1,0 +1,55 @@
+{
+  "version": "3",
+  "status": "draft",
+  "write_enabled": false,
+  "default_period_kind": "周",
+  "default_window": "近4周",
+  "dashboards": [
+    {
+      "name": "负责人驾驶舱 V3",
+      "audience": "产品负责人和运营负责人",
+      "table": "全站周期数据",
+      "filters": ["统计粒度", "周期开始", "站点"],
+      "blocks": [
+        {"name": "阅读说明", "type": "text", "purpose": "先看结果，再看来源，最后定位页面和产品。GA4、GSC、询盘不拼成漏斗。"},
+        {"name": "官网访问次数", "type": "statistics", "metric": "官网访问次数", "filter": {"当前周期": true}},
+        {"name": "Google自然搜索点击", "type": "statistics", "metric": "Google自然搜索点击", "filter": {"当前周期": true}},
+        {"name": "表单提交事件（GA4）", "type": "statistics", "metric": "表单提交事件（GA4）", "filter": {"当前周期": true}},
+        {"name": "官网入库询盘", "type": "statistics", "metric": "官网入库询盘", "filter": {"当前周期": true}},
+        {"name": "官网访问趋势", "type": "line", "metric": "官网访问次数", "group_by": ["周期开始"], "filter": {"看板窗口": "近4周"}},
+        {"name": "自然搜索点击趋势", "type": "line", "metric": "Google自然搜索点击", "group_by": ["周期开始"], "filter": {"看板窗口": "近4周"}},
+        {"name": "官网入库询盘趋势", "type": "line", "metric": "官网入库询盘", "group_by": ["周期开始"], "filter": {"看板窗口": "近4周"}},
+        {"name": "产品页与信息页访问构成", "type": "bar", "metrics": ["产品页访问次数", "信息页访问次数", "其他页面访问次数"], "filter": {"当前周期": true}}
+      ]
+    },
+    {
+      "name": "产品表现 V3",
+      "audience": "产品运营",
+      "table": "产品周期数据",
+      "filters": ["统计粒度", "周期开始", "一级分类", "二级分类", "三级分类"],
+      "blocks": [
+        {"name": "产品阅读说明", "type": "text", "purpose": "先按一级分类看规模，再下钻二级和三级；访问、搜索与询盘分别判断。"},
+        {"name": "本期产品访问排行", "type": "bar", "metric": "官网访问次数", "group_by": ["产品分类"], "filter": {"当前周期": true}, "limit": 12},
+        {"name": "本期产品搜索点击排行", "type": "bar", "metric": "Google自然搜索点击", "group_by": ["产品分类"], "filter": {"当前周期": true}, "limit": 12},
+        {"name": "本期产品询盘排行", "type": "bar", "metric": "官网入库询盘", "group_by": ["产品分类"], "filter": {"当前周期": true}, "limit": 12},
+        {"name": "一级分类访问趋势", "type": "line", "metric": "官网访问次数", "group_by": ["周期开始", "一级分类"], "filter": {"看板窗口": "近4周"}},
+        {"name": "一级分类搜索趋势", "type": "line", "metric": "Google自然搜索点击", "group_by": ["周期开始", "一级分类"], "filter": {"看板窗口": "近4周"}},
+        {"name": "产品行动清单", "type": "table", "fields": ["产品分类", "官网访问次数", "Google自然搜索点击", "官网入库询盘", "访问较上期", "搜索点击较上期", "运营提示"], "sort": [{"field": "官网访问次数", "order": "desc"}]}
+      ]
+    },
+    {
+      "name": "内容与 SEO V3",
+      "audience": "内容运营和 SEO 协作人员",
+      "table": "信息页周期数据",
+      "filters": ["统计粒度", "周期开始", "信息主题", "内容类型"],
+      "blocks": [
+        {"name": "内容阅读说明", "type": "text", "purpose": "信息主题回答内容在讲什么，内容类型回答页面承担什么任务。"},
+        {"name": "本期信息主题访问", "type": "bar", "metric": "官网访问次数", "group_by": ["信息主题"], "filter": {"当前周期": true}},
+        {"name": "本期内容类型搜索点击", "type": "bar", "metric": "Google自然搜索点击", "group_by": ["内容类型"], "filter": {"当前周期": true}},
+        {"name": "信息主题访问趋势", "type": "line", "metric": "官网访问次数", "group_by": ["周期开始", "信息主题"], "filter": {"看板窗口": "近4周"}},
+        {"name": "内容类型搜索趋势", "type": "line", "metric": "Google自然搜索点击", "group_by": ["周期开始", "内容类型"], "filter": {"看板窗口": "近4周"}},
+        {"name": "内容机会清单", "type": "table", "fields": ["信息主题", "内容类型", "官网访问次数", "Google搜索曝光", "Google自然搜索点击", "搜索点击率", "官网入库询盘", "运营提示"], "sort": [{"field": "Google搜索曝光", "order": "desc"}]}
+      ]
+    }
+  ]
+}
