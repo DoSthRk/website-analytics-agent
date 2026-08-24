@@ -30,6 +30,7 @@ from website_analytics.cache import write_audit_manifest, write_cached_json
 from website_analytics.config import ConfigError, load_sites, require_site
 from website_analytics.dates import DateRangeError, parse_date_range, previous_period
 from website_analytics.models import DateRange, SiteConfig
+from website_analytics.information_mapping import load_information_mapping
 from website_analytics.page_classification import (
     PageDimension,
     build_page_dimension,
@@ -58,6 +59,7 @@ _GSC_TOTAL_METRICS = ("clicks", "impressions")
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _BUILDER_SCRIPT = _PROJECT_ROOT / "scripts" / "build_report_workbook.mjs"
 _PRODUCT_MAPPING_DIR = _PROJECT_ROOT / "config" / "product_mappings"
+_INFORMATION_MAPPING_DIR = _PROJECT_ROOT / "config" / "information_mappings"
 _PAGE_CLASSIFICATION_DIR = _PROJECT_ROOT / "config" / "page_classifications"
 
 
@@ -269,6 +271,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         product_mapping = load_product_mapping(
             _PRODUCT_MAPPING_DIR / f"{site.site_key}.yaml", site.site_key
         )
+        information_mapping = load_information_mapping(
+            _INFORMATION_MAPPING_DIR / f"{site.site_key}.yaml", site.site_key
+        )
         product_report = None
         if product_mapping is not None and result["complete"]:
             page_dimension = _load_page_dimension(site, args.fixture_dir)
@@ -277,6 +282,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 current["details"],
                 previous["details"],
                 page_dimension,
+                information_mapping,
             )
             result["page_classification"] = {
                 "status": "configured",
@@ -285,10 +291,26 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "coverage": product_report["classificationCoverage"],
                 "page_types": product_report["pageTypeLines"],
             }
+            if information_mapping is not None:
+                result["information_classification"] = {
+                    "status": "configured",
+                    "version": information_mapping.version,
+                    "coverage": product_report[
+                        "informationClassificationCoverage"
+                    ],
+                    "themes": product_report["informationThemeLines"],
+                    "content_types": product_report[
+                        "informationContentTypeLines"
+                    ],
+                }
         elif product_mapping is not None:
             result["page_classification"] = {
                 "status": "not_generated_for_partial_report"
             }
+            if information_mapping is not None:
+                result["information_classification"] = {
+                    "status": "not_generated_for_partial_report"
+                }
 
         if args.command == "report":
             _persist_dataset(args, site, current, command=args.command, previous=previous)
@@ -330,6 +352,20 @@ def main(argv: Sequence[str] | None = None) -> int:
                     ],
                 }
                 if product_mapping is not None
+                else {"status": "not_configured"}
+            )
+            result["information_mapping"] = (
+                {
+                    "status": "configured",
+                    "version": information_mapping.version,
+                    "themes": [
+                        value.identifier for value in information_mapping.themes
+                    ],
+                    "content_types": [
+                        value.identifier for value in information_mapping.content_types
+                    ],
+                }
+                if information_mapping is not None
                 else {"status": "not_configured"}
             )
             _persist_dataset(

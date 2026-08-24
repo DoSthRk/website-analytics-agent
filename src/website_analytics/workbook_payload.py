@@ -101,6 +101,47 @@ def build_workbook_payload(
                 ),
             ]
         )
+        if product_report.get("informationMappingVersion"):
+            sheets.extend(
+                [
+                    _sheet(
+                        "Information Theme Summary",
+                        "information_summary",
+                        _information_summary_rows(
+                            "Information Theme Summary",
+                            "informationThemeLines",
+                            "themeId",
+                            "theme",
+                            site,
+                            date_range,
+                            selection_timezone,
+                            freshness,
+                            product_report,
+                        ),
+                    ),
+                    _sheet(
+                        "Information Content Summary",
+                        "information_summary",
+                        _information_summary_rows(
+                            "Information Content Summary",
+                            "informationContentTypeLines",
+                            "contentTypeId",
+                            "contentType",
+                            site,
+                            date_range,
+                            selection_timezone,
+                            freshness,
+                            product_report,
+                        ),
+                    ),
+                    _sheet(
+                        "Information Page Mapping",
+                        "detail",
+                        _information_page_mapping_rows(product_report),
+                        detail=True,
+                    ),
+                ]
+            )
         if _has_inquiry_product_report(product_report):
             sheets.append(
                 _sheet(
@@ -215,6 +256,13 @@ def _product_summary_rows(
     headers = [
         "reportLineId",
         "reportLine",
+    ]
+    if any(
+        isinstance(line, Mapping) and line.get("categoryL1")
+        for line in report_lines
+    ):
+        headers.extend(["categoryL1", "categoryL2", "categoryL3"])
+    headers.extend([
         "currentCanonicalPages",
         "ga4SessionsCurrent",
         "ga4SessionsPrevious",
@@ -228,7 +276,7 @@ def _product_summary_rows(
         "gscCtrCurrent",
         "gscCtrPrevious",
         "gscCtrDelta",
-    ]
+    ])
     rows: list[list[Any]] = [
         ["Product Weekly Summary"],
         ["Site", site],
@@ -253,6 +301,72 @@ def _product_summary_rows(
             ]
         )
     return rows
+
+
+def _information_summary_rows(
+    title: str,
+    collection_name: str,
+    identifier_field: str,
+    name_field: str,
+    site: str,
+    date_range: str,
+    selection_timezone: str,
+    freshness: str,
+    product_report: Mapping[str, Any],
+) -> list[list[Any]]:
+    report_lines = product_report.get(collection_name, [])
+    if not isinstance(report_lines, Sequence) or isinstance(report_lines, (str, bytes)):
+        raise ValueError(f"product report must contain {collection_name}")
+    headers = [
+        identifier_field,
+        name_field,
+        "currentCanonicalPages",
+        "previousCanonicalPages",
+        "ga4SessionsCurrent",
+        "ga4SessionsPrevious",
+        "ga4SessionsDelta",
+        "gscClicksCurrent",
+        "gscClicksPrevious",
+        "gscClicksDelta",
+        "gscImpressionsCurrent",
+        "gscImpressionsPrevious",
+        "gscImpressionsDelta",
+        "storedSubmissionsCurrent",
+        "storedSubmissionsPrevious",
+        "nonQuarantinedSubmissionsCurrent",
+        "nonQuarantinedSubmissionsPrevious",
+    ]
+    rows: list[list[Any]] = [
+        [title],
+        ["Site", site],
+        ["Current date range", date_range],
+        ["Selection timezone", selection_timezone],
+        ["Freshness", freshness],
+        [
+            "Information mapping version",
+            _text(product_report.get("informationMappingVersion")),
+        ],
+        [],
+        headers,
+    ]
+    for report_line in report_lines:
+        if not isinstance(report_line, Mapping):
+            raise ValueError("information report lines must be mappings")
+        rows.append([_json_value(report_line.get(header)) for header in headers])
+    return rows
+
+
+def _information_page_mapping_rows(
+    product_report: Mapping[str, Any],
+) -> list[list[Any]]:
+    pages = product_report.get("informationPageMappings", [])
+    if not isinstance(pages, Sequence) or isinstance(pages, (str, bytes)):
+        raise ValueError("product report must contain informationPageMappings")
+    if not all(isinstance(page, Mapping) for page in pages):
+        raise ValueError("information page mappings must be mappings")
+    if pages:
+        return _detail_rows(pages)
+    return [["status"], ["No observed information-page rows in this period."]]
 
 
 def _product_page_mappings(product_report: Mapping[str, Any]) -> Sequence[Mapping[str, Any]]:
@@ -515,6 +629,13 @@ def _readme_rows(
                 ["Product mapping version", _text(product_report.get("mappingVersion"))],
             ]
         )
+        if product_report.get("informationMappingVersion"):
+            rows.append(
+                [
+                    "Information mapping version",
+                    _text(product_report.get("informationMappingVersion")),
+                ]
+            )
     return rows
 
 

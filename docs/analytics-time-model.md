@@ -5,7 +5,7 @@
 统计模型从“固定周报”升级为“精确区间快照”。每一条记录仍然遵循两个核心维度：
 
 - 时间：日、周、月、季度、年度、滚动窗口或自定义日期范围。
-- 产品：全站、GMP、SOLIDEX、AAV Processing，以及未来审核通过的新大类。
+- 产品：以审核后的三级产品层级为稳定维度，包括 TARMART、Gene Therapy、Diagnostics、Biologics、Immunology & Cell Therapy 及补充分组。
 
 同一日期范围可以存在不同统计粒度，例如“2026-08-10 至 2026-08-16（周）”和“滚动7天”。它们使用不同周期键，避免覆盖。
 
@@ -36,7 +36,9 @@ genemedi-net|custom|2026-08-10|2026-08-16
 
 产品记录在周期键后追加稳定的产品大类ID。同步程序必须按该键执行upsert，不能在每次运行时重复新增记录。
 
-页面类型是独立维度。GA4 总量、每日和页面请求先按注册域名精确过滤 `hostName`；GA4、GSC和询盘的页面URL再统一为规范路径。`dbname=pages` 的路由严格依据 `pages.template` 是否包含 `sideba` 分类；官网运行时已经确认的动态 `urltable.dbname` 使用版本化渲染器规则；`/g/`、文章和技术端点使用固定路径规则。未审核来源和冲突路由不得按URL名称猜测。只有 `product_page` 可进入产品大类；`information_page`、`technical_page`、`unknown_unmapped`、`invalid_broken` 和 `pdf_asset` 保持独立状态。每次同步记录页面分类版本和按来源计算的分类覆盖率。
+页面类型是独立维度。GA4 总量、每日和页面请求先按注册域名精确过滤 `hostName`；GA4、GSC和询盘的页面URL再统一为规范路径。`dbname=pages` 的路由严格依据 `pages.template` 是否包含 `sideba` 分类；官网运行时已经确认的动态 `urltable.dbname` 使用版本化渲染器规则；`/g/`、文章和技术端点使用固定路径规则。未审核来源和冲突路由不得按URL名称猜测。只有 `product_page` 可进入产品三级分类；`information_page` 使用“业务主题 + 内容类型”两个辅助维度；`technical_page`、`unknown_unmapped`、`invalid_broken` 和 `pdf_asset` 保持独立状态。每次同步记录页面分类版本、产品映射版本、信息页映射版本和按来源计算的分类覆盖率。
+
+核心运营分析仍然是“产品 × 时间”。一级、二级、三级产品分类用于按不同颗粒度横向比较；信息页的主题和内容类型用于解释流量来源，不与产品分类混为同一字段。
 
 ## 数据新鲜度
 

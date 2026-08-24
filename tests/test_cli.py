@@ -282,12 +282,25 @@ sites:
     assert code == 0
     assert exported["product_mapping"] == {
         "status": "configured",
-        "version": "2",
-        "report_lines": ["GMP", "SOLIDEX", "AAV_PROCESSING"],
+        "version": "3",
+        "report_lines": [
+            "TARGET_ANTIBODY", "TARGET", "TARGET_ANTIGEN", "ORF",
+            "AAV_VECTOR_SYSTEM", "AAV_EXPRESSION_VECTOR", "LV_EXPRESSION_VECTOR",
+            "ADV_EXPRESSION_VECTOR", "VT_NON_INFECTIOUS", "VT_INFECTIOUS",
+            "IVD_NON_INFECTIOUS", "IVD_INFECTIOUS", "SMT", "DIAGNOSTICS_OTHER",
+            "INN", "FCR", "CYTOKINE", "SOLIDEX", "AAV_PURIFICATION",
+            "AAV_TITRATION", "PAYLOAD", "OTHER_PRODUCT",
+        ],
     }
+    assert exported["information_mapping"]["status"] == "configured"
+    assert exported["information_mapping"]["version"] == "1"
+    assert "GENE_THERAPY" in exported["information_mapping"]["themes"]
+    assert "SCIENCE_HUB" in exported["information_mapping"]["content_types"]
     assert exported["page_classification"]["status"] == "configured"
     assert exported["page_classification"]["version"] == "3"
     assert exported["page_classification"]["dimension"]["productPages"] == 2
+    assert exported["information_classification"]["status"] == "configured"
+    assert exported["information_classification"]["version"] == "1"
     assert zipfile.is_zipfile(output)
     assert sorted(path.name for path in output.with_suffix("").with_name("genemedi.renders").glob("*.png")) == [
         "audit.png",
@@ -297,6 +310,9 @@ sites:
         "gsc-daily.png",
         "gsc-pages.png",
         "gsc-queries.png",
+        "information-content-summary.png",
+        "information-page-mapping.png",
+        "information-theme-summary.png",
         "page-classification.png",
         "page-type-summary.png",
         "product-page-mapping.png",
@@ -438,6 +454,9 @@ sites:
         "gsc-daily.png",
         "gsc-pages.png",
         "gsc-queries.png",
+        "information-content-summary.png",
+        "information-page-mapping.png",
+        "information-theme-summary.png",
         "inquiry-daily.png",
         "inquiry-pages.png",
         "page-classification.png",

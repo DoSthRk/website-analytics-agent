@@ -1,0 +1,129 @@
+version: "1"
+site: genemedi-net
+themes:
+  - {id: TARMART_TARGET, name: TARMART / Target}
+  - {id: GENE_THERAPY, name: 基因治疗}
+  - {id: DIAGNOSTICS_IVD, name: 诊断 / IVD}
+  - {id: DIAGNOSTICS_VETERINARY, name: 诊断 / 兽医}
+  - {id: DIAGNOSTICS_SMT, name: 诊断 / SMT}
+  - {id: BIOLOGICS, name: 生物制品}
+  - {id: GENERAL, name: 综合信息}
+content_types:
+  - {id: TARGET_REFERENCE, name: Target 资料页}
+  - {id: SCIENCE_HUB, name: 科研知识}
+  - {id: ONLINE_TOOL, name: 在线工具}
+  - {id: PROTOCOL_APPLICATION, name: 实验方案与应用}
+  - {id: CASE_STUDY, name: 案例研究}
+  - {id: FAQ, name: 常见问题}
+  - {id: NEWS_PUBLICATION, name: 新闻与出版物}
+  - {id: COMPANY_SUPPORT, name: 公司与服务支持}
+  - {id: GENERAL_INFORMATION, name: 一般信息}
+fallback_theme_id: GENERAL
+fallback_content_type_id: GENERAL_INFORMATION
+theme_rules:
+  - id: template-target
+    priority: 10
+    match: {field: template, type: exact, values: [index-target]}
+    target_id: TARMART_TARGET
+    reason: CMS 模板明确标识 Target 主题。
+  - id: template-gene-therapy
+    priority: 20
+    match: {field: template, type: exact, values: [index-gene_therapy]}
+    target_id: GENE_THERAPY
+    reason: CMS 模板明确标识 Gene Therapy 主题。
+  - id: template-diagnostics-ivd
+    priority: 30
+    match: {field: template, type: exact, values: [index-diagnostic-IVD]}
+    target_id: DIAGNOSTICS_IVD
+    reason: CMS 模板明确标识 IVD 主题。
+  - id: template-diagnostics-veterinary
+    priority: 40
+    match: {field: template, type: exact, values: [index-diagnostic-AD]}
+    target_id: DIAGNOSTICS_VETERINARY
+    reason: CMS 模板明确标识兽医诊断主题。
+  - id: template-diagnostics-smt
+    priority: 50
+    match: {field: template, type: exact, values: [index-diagnostic-SMT]}
+    target_id: DIAGNOSTICS_SMT
+    reason: CMS 模板明确标识 SMT 主题。
+  - id: template-biologics
+    priority: 60
+    match: {field: template, type: exact, values: [index-Biologic]}
+    target_id: BIOLOGICS
+    reason: CMS 模板明确标识 Biologics 主题。
+  - id: slug-target
+    priority: 100
+    match: {field: path, type: path_prefix, values: [/i/itd-]}
+    target_id: TARMART_TARGET
+    reason: ITD slug 是 Target 资料页的稳定路径规则。
+  - id: slug-gene-therapy
+    priority: 110
+    match: {field: path, type: path_prefix, values: [/i/aav-, /i/adenovirus-, /i/lentivirus-, /i/crispr-, /i/virus-, /gene-therapy]}
+    target_id: GENE_THERAPY
+    reason: 基因治疗相关 slug 补充模板未覆盖的主题。
+  - id: slug-diagnostics-veterinary
+    priority: 120
+    match: {field: path, type: path_prefix, values: [/i/veterinary-, /i/vet-, /i/vt-]}
+    target_id: DIAGNOSTICS_VETERINARY
+    reason: 兽医诊断路径优先于通用诊断路径。
+  - id: slug-diagnostics-smt
+    priority: 130
+    match: {field: path, type: path_prefix, values: [/i/smt-, /i/small-molecule-]}
+    target_id: DIAGNOSTICS_SMT
+    reason: SMT 相关 slug 补充模板未覆盖的主题。
+  - id: slug-diagnostics-ivd
+    priority: 140
+    match: {field: path, type: path_prefix, values: [/i/diagnostic-, /i/diagnostics-, /i/sars-, /i/covid-, /i/covid19-]}
+    target_id: DIAGNOSTICS_IVD
+    reason: 通用诊断与传染病 slug 归入诊断 / IVD。
+  - id: slug-biologics
+    priority: 150
+    match: {field: path, type: path_prefix, values: [/i/biologic-, /i/biologics-, /i/biosimilar-]}
+    target_id: BIOLOGICS
+    reason: 生物制品相关 slug 补充模板未覆盖的主题。
+content_type_rules:
+  - id: target-reference
+    priority: 10
+    match: {field: path, type: path_prefix, values: [/i/itd-]}
+    target_id: TARGET_REFERENCE
+    reason: ITD 路径是 Target 资料页。
+  - id: science-hub
+    priority: 20
+    match: {field: path, type: path_prefix, values: [/i/sci-hub-, /i/science-hub-]}
+    target_id: SCIENCE_HUB
+    reason: Science Hub 路径属于科研知识内容。
+  - id: template-online-tool
+    priority: 30
+    match: {field: template, type: exact, values: [index-tool]}
+    target_id: ONLINE_TOOL
+    reason: CMS 工具模板是在线工具的权威证据。
+  - id: slug-online-tool
+    priority: 40
+    match: {field: path, type: path_prefix, values: [/i/tool-]}
+    target_id: ONLINE_TOOL
+    reason: Tool slug 补充模板未覆盖的在线工具。
+  - id: protocol-application
+    priority: 50
+    match: {field: path, type: path_prefix, values: [/i/protocol-, /i/protocols-]}
+    target_id: PROTOCOL_APPLICATION
+    reason: Protocol 路径属于实验方案与应用。
+  - id: case-study
+    priority: 60
+    match: {field: path, type: path_prefix, values: [/i/data-case-study-, /data-case-study]}
+    target_id: CASE_STUDY
+    reason: Case Study 路径属于案例研究。
+  - id: faq
+    priority: 70
+    match: {field: path, type: path_prefix, values: [/i/faq-, /i/faqs-]}
+    target_id: FAQ
+    reason: FAQ 路径属于常见问题。
+  - id: news-publication
+    priority: 80
+    match: {field: path, type: path_prefix, values: [/i/news-, /i/publication-]}
+    target_id: NEWS_PUBLICATION
+    reason: News 与 Publication 路径归入新闻与出版物。
+  - id: company-support
+    priority: 90
+    match: {field: path, type: exact, values: [/about, /contact, /download, /products, /services, /support]}
+    target_id: COMPANY_SUPPORT
+    reason: 公司与支持入口使用固定路径。

@@ -64,6 +64,9 @@ const FIXED_SHEET_NAMES = new Set([
   "Page Type Summary",
   "Page Classification",
   "Product Page Mapping",
+  "Information Theme Summary",
+  "Information Content Summary",
+  "Information Page Mapping",
   "Product Inquiry Summary",
   "GA4 Daily",
   "GA4 Pages",
@@ -598,7 +601,7 @@ function formatSheet(sheet, sheetData, rows) {
     sheet.mergeCells(`A1:${columnLetter(columnCount)}1`);
   }
   const tableHeaderRow =
-    sheetData.kind === "summary" || sheetData.kind === "product_summary" || sheetData.kind === "product_inquiry_summary" || sheetData.kind === "audit"
+    sheetData.kind === "summary" || sheetData.kind === "product_summary" || sheetData.kind === "product_inquiry_summary" || sheetData.kind === "information_summary" || sheetData.kind === "audit"
       ? findTableHeaderRow(rows)
       : -1;
   styleLabels(sheet, rows, sheetData.kind, tableHeaderRow);
@@ -606,7 +609,7 @@ function formatSheet(sheet, sheetData, rows) {
     styleHeader(sheet.getRangeByIndexes(tableHeaderRow, 0, 1, columnCount));
     applySummaryNumberFormats(sheet, rows, tableHeaderRow);
   }
-  if (sheetData.kind === "product_summary" || sheetData.kind === "product_inquiry_summary") {
+  if (sheetData.kind === "product_summary" || sheetData.kind === "product_inquiry_summary" || sheetData.kind === "information_summary") {
     styleHeader(sheet.getRangeByIndexes(tableHeaderRow, 0, 1, columnCount));
     applyProductSummaryNumberFormats(sheet, rows, tableHeaderRow);
   }
@@ -704,7 +707,9 @@ function findTableHeaderRow(rows) {
   const index = rows.findIndex(
     (row) =>
       (row[0] === "Source" && (row[1] === "Metric" || row[1] === "Status")) ||
-      (row[0] === "reportLineId" && row[1] === "reportLine"),
+      (row[0] === "reportLineId" && row[1] === "reportLine") ||
+      (row[0] === "themeId" && row[1] === "theme") ||
+      (row[0] === "contentTypeId" && row[1] === "contentType"),
   );
   if (index < 0) throw new Error("Summary and audit sheets require a supported table header");
   return index;

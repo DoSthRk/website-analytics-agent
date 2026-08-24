@@ -6,7 +6,11 @@ from website_analytics.page_classification import (
     build_page_dimension,
     load_page_classification,
 )
-from website_analytics.product_mapping import build_product_report, load_product_mapping
+from website_analytics.product_mapping import (
+    build_product_report,
+    load_product_mapping,
+    match_product_rule,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -95,52 +99,31 @@ def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
     report = build_product_report(mapping, current, previous, dimension)
     summary = {row["reportLineId"]: row for row in report["reportLines"]}
 
-    assert summary["GMP"] == {
-        "reportLineId": "GMP",
-        "reportLine": "GMP 系列",
-        "currentCanonicalPages": 1,
-        "ga4SessionsCurrent": 7.0,
-        "ga4SessionsPrevious": 2.0,
-        "ga4SessionsDelta": 5.0,
-        "gscClicksCurrent": 5.0,
-        "gscClicksPrevious": 1.0,
-        "gscClicksDelta": 4.0,
-        "gscImpressionsCurrent": 50.0,
-        "gscImpressionsPrevious": 10.0,
-        "gscImpressionsDelta": 40.0,
-        "gscCtrCurrent": 0.1,
-        "gscCtrPrevious": 0.1,
-        "gscCtrDelta": 0.0,
-    }
+    diagnostics = summary["DIAGNOSTICS_OTHER"]
+    assert diagnostics["categoryL1"] == "DIAGNOSTICS"
+    assert diagnostics["currentCanonicalPages"] == 1
+    assert diagnostics["ga4SessionsCurrent"] == 7.0
+    assert diagnostics["ga4SessionsPrevious"] == 2.0
+    assert diagnostics["gscClicksCurrent"] == 5.0
+    assert diagnostics["gscCtrCurrent"] == 0.1
     assert summary["SOLIDEX"]["currentCanonicalPages"] == 1
     assert summary["SOLIDEX"]["ga4SessionsCurrent"] == 4.0
-    assert summary["AAV_PROCESSING"]["currentCanonicalPages"] == 2
-    assert summary["AAV_PROCESSING"]["ga4SessionsCurrent"] == 3.0
-    assert summary["AAV_PROCESSING"]["gscClicksCurrent"] == 5.0
+    assert summary["AAV_PURIFICATION"]["ga4SessionsCurrent"] == 1.0
+    assert summary["AAV_TITRATION"]["ga4SessionsCurrent"] == 2.0
+    assert summary["PAYLOAD"]["ga4SessionsCurrent"] == 3.0
 
     inquiry_summary = {row["reportLineId"]: row for row in report["inquiryReportLines"]}
-    assert inquiry_summary["GMP"] == {
-        "reportLineId": "GMP",
-        "reportLine": "GMP \u7cfb\u5217",
-        "currentInquiryPages": 1,
-        "storedSubmissionsCurrent": 3.0,
-        "storedSubmissionsPrevious": 1.0,
-        "storedSubmissionsDelta": 2.0,
-        "quarantinedSubmissionsCurrent": 1.0,
-        "quarantinedSubmissionsPrevious": 0.0,
-        "quarantinedSubmissionsDelta": 1.0,
-        "nonQuarantinedSubmissionsCurrent": 2.0,
-        "nonQuarantinedSubmissionsPrevious": 1.0,
-        "nonQuarantinedSubmissionsDelta": 1.0,
-    }
-    assert inquiry_summary["AAV_PROCESSING"]["nonQuarantinedSubmissionsCurrent"] == 2.0
+    assert inquiry_summary["DIAGNOSTICS_OTHER"]["nonQuarantinedSubmissionsCurrent"] == 2.0
+    assert inquiry_summary["AAV_PURIFICATION"]["nonQuarantinedSubmissionsCurrent"] == 2.0
+    assert inquiry_summary["PAYLOAD"]["nonQuarantinedSubmissionsCurrent"] == 5.0
     assert inquiry_summary["SOLIDEX"]["storedSubmissionsCurrent"] == 0.0
 
     pages = {row["canonicalPath"]: row for row in report["pageMappings"]}
     assert pages["/i/gmp-isoex-mag-mx1"]["reportLineId"] == "SOLIDEX"
     assert pages["/pdf/purprox-aaveasy-flyer.pdf"]["includeInProductReport"] is False
-    assert pages["/i/anti-payload-antibody-for-adcs"]["includeInProductReport"] is False
-    assert pages["/i/protocols-application-antibody-titration"]["productLineId"] == "UNCLASSIFIED"
+    assert pages["/i/anti-payload-antibody-for-adcs"]["reportLineId"] == "PAYLOAD"
+    assert pages["/i/anti-payload-antibody-for-adcs"]["includeInProductReport"] is True
+    assert pages["/i/protocols-application-antibody-titration"]["productLineId"] == ""
     assert pages["/i/gmp-information-guide"]["pageClass"] == "information_page"
     assert pages["/i/gmp-information-guide"]["includeInProductReport"] is False
     page_types = {row["pageTypeId"]: row for row in report["pageTypeLines"]}
@@ -151,6 +134,32 @@ def test_approved_mapping_aggregates_only_reportable_product_pages() -> None:
 
 def test_absent_mapping_is_not_an_error_for_other_registered_sites(tmp_path: Path) -> None:
     assert load_product_mapping(tmp_path / "missing.yaml", "demo") is None
+
+
+def test_approved_template_supplements_preserve_payload_and_purprox() -> None:
+    mapping = load_product_mapping(MAPPING_PATH, "genemedi-net")
+    assert mapping is not None
+    payload = match_product_rule(
+        mapping,
+        "/i/adc-kit-without-product-token",
+        "product_page",
+        "indexwithSideBar_payload",
+    )
+    purification = match_product_rule(
+        mapping,
+        "/i/aav-process-kit",
+        "product_page",
+        "GCT_Purpro_SideBar",
+    )
+    solidex = match_product_rule(
+        mapping,
+        "/i/cell-separation-kit",
+        "product_page",
+        "SOLIDEX.htm",
+    )
+    assert payload is not None and payload.report_line_id == "PAYLOAD"
+    assert purification is not None and purification.report_line_id == "AAV_PURIFICATION"
+    assert solidex is not None and solidex.report_line_id == "SOLIDEX"
 
 
 def _dimension_row(url: str, page_id: int, template: str) -> dict[str, object]:

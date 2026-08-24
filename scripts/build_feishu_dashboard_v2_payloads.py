@@ -20,11 +20,6 @@ from website_analytics.product_mapping import build_product_report, load_product
 from website_analytics.page_classification import build_page_dimension, load_page_classification
 
 
-PRODUCT_NAMES = {
-    "GMP": "GMP",
-    "SOLIDEX": "SOLIDEX",
-    "AAV_PROCESSING": "AAV Processing",
-}
 CHINA_STANDARD_TIME = timezone(timedelta(hours=8), name="Asia/Shanghai")
 DATE_BOUNDARY_NOTE = (
     "GA4按属性时区统计；GSC按Pacific Time统计；询盘按网站服务器日历统计。"
@@ -283,6 +278,7 @@ def _product_rows(
     week: CachedWeek,
     report: Mapping[str, Any],
     previous_report: Mapping[str, Any] | None,
+    product_names: Mapping[str, str],
     *,
     current: bool,
 ) -> list[list[Any]]:
@@ -305,7 +301,7 @@ def _product_rows(
         if isinstance(row, Mapping)
     }
     rows: list[list[Any]] = []
-    for identifier, product in PRODUCT_NAMES.items():
+    for identifier, product in product_names.items():
         line = current_lines[identifier]
         previous_line = previous_lines.get(identifier, {})
         inquiry = inquiry_lines.get(identifier, {})
@@ -371,6 +367,9 @@ def main() -> int:
     mapping = load_product_mapping(args.mapping, "genemedi-net")
     if mapping is None:
         raise ValueError("product mapping is required")
+    product_names = {
+        line.identifier: line.name for line in mapping.report_lines
+    }
     classification = load_page_classification(args.page_classification, "genemedi-net")
     raw_dimension = _read_json(args.page_dimension)
     dimension_rows = raw_dimension.get("rows")
@@ -409,6 +408,7 @@ def main() -> int:
             week,
             reports[index],
             reports[index - 1] if index else None,
+            product_names,
             current=index == current_index,
         )
     ]
@@ -424,13 +424,13 @@ def main() -> int:
     )
     _write(
         args.output_dir / "product-history-create.json",
-        {"fields": _product_fields(), "rows": product_rows[:-len(PRODUCT_NAMES)]},
+        {"fields": _product_fields(), "rows": product_rows[:-len(product_names)]},
     )
     _write(
         args.output_dir / "product-current-patches.json",
         {
             row[3]: dict(zip(_product_fields(), row, strict=True))
-            for row in product_rows[-len(PRODUCT_NAMES):]
+            for row in product_rows[-len(product_names):]
         },
     )
     _write(
@@ -442,7 +442,7 @@ def main() -> int:
             "inquiry_complete_weeks": sum(week.inquiry is not None for week in weeks),
             "overview_summary": overview_rows[-1][-1],
             "product_hints": {
-                row[3]: row[-1] for row in product_rows[-len(PRODUCT_NAMES):]
+                row[3]: row[-1] for row in product_rows[-len(product_names):]
             },
         },
     )

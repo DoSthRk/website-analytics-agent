@@ -20,6 +20,7 @@ from website_analytics.feishu_records import (
     load_feishu_target,
     sync_record_sets,
 )
+from website_analytics.information_mapping import load_information_mapping
 from website_analytics.periods import AnalyticsPeriod, period_key, previous_analytics_period
 from website_analytics.page_classification import (
     build_page_dimension,
@@ -44,6 +45,11 @@ def _arguments() -> argparse.Namespace:
         "--page-classification",
         type=Path,
         default=Path("config/page_classifications/genemedi-net.yaml"),
+    )
+    parser.add_argument(
+        "--information-mapping",
+        type=Path,
+        default=Path("config/information_mappings/genemedi-net.yaml"),
     )
     parser.add_argument("--cache-dir", type=Path, required=True)
     parser.add_argument("--audit-dir", type=Path, required=True)
@@ -162,6 +168,11 @@ def main() -> int:
     mapping = load_product_mapping(args.mapping, profile.site)
     if mapping is None:
         raise ValueError("approved product mapping is required")
+    information_mapping = load_information_mapping(
+        args.information_mapping, profile.site
+    )
+    if information_mapping is None:
+        raise ValueError("approved information mapping is required")
     if site.inquiry_source is None:
         raise ValueError("approved page dimension requires the registered read-only database source")
     classification = load_page_classification(args.page_classification, profile.site)
@@ -223,6 +234,7 @@ def main() -> int:
             mapping=mapping,
             page_dimension=page_dimension,
             sync_batch=batch,
+            information_mapping=information_mapping,
         )
         overview.append(records["overview"])
         products.extend(records["products"])
@@ -251,6 +263,8 @@ def main() -> int:
         "overview_records": len(overview),
         "product_records": len(products),
         "page_dimension": dict(page_dimension.summary),
+        "product_mapping_version": mapping.version,
+        "information_mapping_version": information_mapping.version,
         "feishu": write_result,
         "output_dir": str(run_dir),
     }

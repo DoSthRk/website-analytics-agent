@@ -1,70 +1,227 @@
-version: "2"
+version: "3"
 site: genemedi-net
 report_lines:
-  - id: GMP
-    name: GMP 系列
-  - id: SOLIDEX
-    name: SOLIDEX / ISOEx
-  - id: AAV_PROCESSING
-    name: AAV 纯化与滴度
+  - {id: TARGET_ANTIBODY, name: TARGET AB, category_l1: TARMART, category_l2: TARGET ANTIBODY}
+  - {id: TARGET, name: TARGET, category_l1: TARMART, category_l2: TARGET}
+  - {id: TARGET_ANTIGEN, name: TARGET AG, category_l1: TARMART, category_l2: TARGET ANTIGEN}
+  - {id: ORF, name: ORF, category_l1: TARMART, category_l2: ORF}
+  - {id: AAV_VECTOR_SYSTEM, name: AAV Vector, category_l1: GENE THERAPY, category_l2: AAV VECTOR SYSTEM}
+  - {id: AAV_EXPRESSION_VECTOR, name: AAV Expression, category_l1: GENE THERAPY, category_l2: AAV EXPRESSION VECTOR}
+  - {id: LV_EXPRESSION_VECTOR, name: LV, category_l1: GENE THERAPY, category_l2: LV EXPRESSION VECTOR}
+  - {id: ADV_EXPRESSION_VECTOR, name: ADV, category_l1: GENE THERAPY, category_l2: ADV EXPRESSION VECTOR}
+  - {id: VT_NON_INFECTIOUS, name: VT NON INFECTIOUS, category_l1: DIAGNOSTICS, category_l2: VT, category_l3: VT NON INFECTIOUS}
+  - {id: VT_INFECTIOUS, name: VT INFECTIOUS, category_l1: DIAGNOSTICS, category_l2: VT, category_l3: VT INFECTIOUS}
+  - {id: IVD_NON_INFECTIOUS, name: IVD NON INFECTIOUS, category_l1: DIAGNOSTICS, category_l2: IVD, category_l3: IVD NON INFECTIOUS}
+  - {id: IVD_INFECTIOUS, name: IVD INFECTIOUS, category_l1: DIAGNOSTICS, category_l2: IVD, category_l3: IVD INFECTIOUS}
+  - {id: SMT, name: SMT & SMT-IVD, category_l1: DIAGNOSTICS, category_l2: SMT}
+  - {id: DIAGNOSTICS_OTHER, name: 其他诊断产品, category_l1: DIAGNOSTICS}
+  - {id: INN, name: INN, category_l1: BIOLOGICS, category_l2: INN}
+  - {id: FCR, name: FcR, category_l1: BIOLOGICS, category_l2: FcR}
+  - {id: CYTOKINE, name: Cytokine, category_l1: BIOLOGICS, category_l2: Cytokine}
+  - {id: SOLIDEX, name: SOLIDEX, category_l1: Immunology & Cell Therapy, category_l2: SOLIDEX}
+  - {id: AAV_PURIFICATION, name: AAV 纯化, category_l1: GENE THERAPY, category_l2: AAV PROCESSING, category_l3: AAV PURIFICATION}
+  - {id: AAV_TITRATION, name: AAV 滴度, category_l1: GENE THERAPY, category_l2: AAV PROCESSING, category_l3: AAV TITRATION}
+  - {id: PAYLOAD, name: Payload, category_l1: BIOLOGICS, category_l2: PAYLOAD}
+  - {id: OTHER_PRODUCT, name: 其他产品, category_l1: OTHER, category_l2: OTHER PRODUCT}
 rules:
-  - id: solidex-isoex
+  - id: solidex
     priority: 10
-    match:
-      type: any_keyword
-      values: [solidex, isoex]
+    match: {type: any_keyword, values: [-iso-, -dep-, solidex, isoex]}
     product_line_id: SOLIDEX
     report_line_id: SOLIDEX
     include_in_product_report: true
     mapping_status: approved
-    reason: SOLIDEX / ISOEx 优先于通用 GMP- 规则。
-  - id: purprox-aav-purification
+    reason: SOLIDEX 的专用 slug 规则优先于 TARGET AB 与通用 GMP 规则。
+  - id: solidex-template
+    priority: 11
+    match: {type: template_exact, values: [SOLIDEX.htm]}
+    product_line_id: SOLIDEX
+    report_line_id: SOLIDEX
+    include_in_product_report: true
+    mapping_status: approved
+    reason: SOLIDEX 专用 CMS 模板补充 slug 未携带产品词的页面。
+  - id: inn
     priority: 20
-    match:
-      type: any_keyword
-      values: [purprox]
-    product_line_id: AAV_PURIFICATION
-    report_line_id: AAV_PROCESSING
+    match: {type: path_prefix, values: [/i/biologics-biosimilar-gmp-]}
+    product_line_id: INN
+    report_line_id: INN
     include_in_product_report: true
     mapping_status: approved
-    reason: PurProX 统一汇总至 AAV 纯化与滴度。
-  - id: aav-titration
+    reason: 生物类似药 GMP 路径归入 INN。
+  - id: fcr
     priority: 30
-    match:
-      type: all_keywords
-      values: [aav, titration]
-    product_line_id: AAV_TITRATION
-    report_line_id: AAV_PROCESSING
+    match: {type: any_keyword, values: [-fcreceptors-gmp-, -igxfc-gmp-, -igx-gmp-]}
+    product_line_id: FCR
+    report_line_id: FCR
     include_in_product_report: true
     mapping_status: approved
-    reason: 仅 AAV 与 titration 同时命中时归入 AAV 滴度。
-  - id: antibody-titration-excluded
+    reason: Fc receptor 与 IgX Fc 路径归入 FcR。
+  - id: cytokine
     priority: 40
-    match:
-      type: exact_path
-      values: [/i/protocols-application-antibody-titration]
-    product_line_id: UNCLASSIFIED
-    report_line_id:
-    include_in_product_report: false
-    mapping_status: approved
-    reason: 抗体滴度应用页，不属于 AAV。
-  - id: payload-review-excluded
-    priority: 50
-    match:
-      type: any_keyword
-      values: [payload]
-    product_line_id: PAYLOAD_REVIEW
-    report_line_id:
-    include_in_product_report: false
-    mapping_status: approved
-    reason: 当前策略是不建立正式产品线、不纳入周报。
-  - id: gmp-prefix
-    priority: 60
-    match:
-      type: path_prefix
-      values: [/i/gmp-]
-    product_line_id: GMP
-    report_line_id: GMP
+    match: {type: path_prefix, values: [/i/cks-tg-]}
+    product_line_id: CYTOKINE
+    report_line_id: CYTOKINE
     include_in_product_report: true
     mapping_status: approved
-    reason: 仅在 SOLIDEX / ISOEx 未命中时适用的通用 GMP- 规则。
+    reason: CKS-Tg 路径归入 Cytokine。
+  - id: aav-purification
+    priority: 50
+    match: {type: any_keyword, values: [purprox]}
+    product_line_id: AAV_PURIFICATION
+    report_line_id: AAV_PURIFICATION
+    include_in_product_report: true
+    mapping_status: approved
+    reason: PurProX 产品归入 AAV 纯化。
+  - id: aav-purification-template
+    priority: 51
+    match: {type: template_any_keyword, values: [purpro]}
+    product_line_id: AAV_PURIFICATION
+    report_line_id: AAV_PURIFICATION
+    include_in_product_report: true
+    mapping_status: approved
+    reason: PurProX 专用 CMS 模板补充 slug 未携带 PurProX 的产品页。
+  - id: aav-titration
+    priority: 60
+    match: {type: all_keywords, values: [aav, titration]}
+    product_line_id: AAV_TITRATION
+    report_line_id: AAV_TITRATION
+    include_in_product_report: true
+    mapping_status: approved
+    reason: AAV 与 titration 同时命中时归入 AAV 滴度。
+  - id: payload
+    priority: 70
+    match: {type: any_keyword, values: [payload]}
+    product_line_id: PAYLOAD
+    report_line_id: PAYLOAD
+    include_in_product_report: true
+    mapping_status: approved
+    reason: Payload 产品作为独立补充产品分类保留。
+  - id: payload-template
+    priority: 71
+    match: {type: template_any_keyword, values: [payload]}
+    product_line_id: PAYLOAD
+    report_line_id: PAYLOAD
+    include_in_product_report: true
+    mapping_status: approved
+    reason: Payload 专用 CMS 模板补充 slug 未携带 Payload 的产品页。
+  - id: aav-vector-system
+    priority: 80
+    match: {type: any_keyword, values: [-rep-cap-plasmid, -packaging-system]}
+    product_line_id: AAV_VECTOR_SYSTEM
+    report_line_id: AAV_VECTOR_SYSTEM
+    include_in_product_report: true
+    mapping_status: approved
+    reason: Rep/Cap 质粒和 packaging system 归入 AAV Vector System。
+  - id: aav-expression-vector
+    priority: 90
+    match: {type: any_keyword, values: [pgmaav-, pscaav-]}
+    product_line_id: AAV_EXPRESSION_VECTOR
+    report_line_id: AAV_EXPRESSION_VECTOR
+    include_in_product_report: true
+    mapping_status: approved
+    reason: pGMAAV 与 pscAAV 路径归入 AAV Expression Vector。
+  - id: lv-expression-vector
+    priority: 100
+    match: {type: any_keyword, values: [pgmlv-, pcdh]}
+    product_line_id: LV_EXPRESSION_VECTOR
+    report_line_id: LV_EXPRESSION_VECTOR
+    include_in_product_report: true
+    mapping_status: approved
+    reason: pGMLV 与 pCDH 路径归入 LV Expression Vector。
+  - id: adv-expression-vector
+    priority: 110
+    match: {type: path_prefix, values: [/i/pgmad-]}
+    product_line_id: ADV_EXPRESSION_VECTOR
+    report_line_id: ADV_EXPRESSION_VECTOR
+    include_in_product_report: true
+    mapping_status: approved
+    reason: pGMAd 路径归入 ADV Expression Vector。
+  - id: vt-non-infectious
+    priority: 120
+    match: {type: any_keyword, values: [gmp-fel-, gmp-can-, gmp-bov-, gmp-equ-, gmp-swi-, gmp-ovi-]}
+    product_line_id: VT_NON_INFECTIOUS
+    report_line_id: VT_NON_INFECTIOUS
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 指定兽医物种前缀归入 VT Non-infectious。
+  - id: vt-infectious
+    priority: 130
+    match: {type: path_prefix, values: [/i/gmp-vt-]}
+    product_line_id: VT_INFECTIOUS
+    report_line_id: VT_INFECTIOUS
+    include_in_product_report: true
+    mapping_status: approved
+    reason: GMP-VT 路径归入 VT Infectious。
+  - id: ivd-non-infectious
+    priority: 140
+    match: {type: path_prefix, values: [/i/gmp-h-]}
+    product_line_id: IVD_NON_INFECTIOUS
+    report_line_id: IVD_NON_INFECTIOUS
+    include_in_product_report: true
+    mapping_status: approved
+    reason: GMP-h 路径归入 IVD Non-infectious。
+  - id: ivd-infectious
+    priority: 150
+    match: {type: path_prefix, values: [/i/gmp-ivd-]}
+    product_line_id: IVD_INFECTIOUS
+    report_line_id: IVD_INFECTIOUS
+    include_in_product_report: true
+    mapping_status: approved
+    reason: GMP-IVD 路径归入 IVD Infectious。
+  - id: smt
+    priority: 160
+    match: {type: path_prefix, values: [/i/gmp-smt]}
+    product_line_id: SMT
+    report_line_id: SMT
+    include_in_product_report: true
+    mapping_status: approved
+    reason: GMP-SMT 路径归入 SMT 与 SMT-IVD。
+  - id: target-antigen
+    priority: 170
+    match: {type: path_prefix, values: [/i/gm-tg-g]}
+    product_line_id: TARGET_ANTIGEN
+    report_line_id: TARGET_ANTIGEN
+    include_in_product_report: true
+    mapping_status: approved
+    reason: GM-Tg-g 路径归入 Target Antigen。
+  - id: target-antibody
+    priority: 180
+    match: {type: any_keyword, values: [gm-tg-hg-, -ab]}
+    exclude_values: [-conjugate]
+    product_line_id: TARGET_ANTIBODY
+    report_line_id: TARGET_ANTIBODY
+    include_in_product_report: true
+    mapping_status: approved
+    reason: GM-Tg-hg 或 -Ab 路径归入 Target Antibody，但排除 conjugate。
+  - id: target
+    priority: 190
+    match: {type: path_prefix, values: [/i/itd]}
+    product_line_id: TARGET
+    report_line_id: TARGET
+    include_in_product_report: true
+    mapping_status: approved
+    reason: ITD 路径归入 Target。
+  - id: orf
+    priority: 200
+    match: {type: path_prefix, values: [/g/]}
+    product_line_id: ORF
+    report_line_id: ORF
+    include_in_product_report: true
+    mapping_status: approved
+    reason: /g/ 产品路径归入 ORF。
+  - id: diagnostics-gmp-fallback
+    priority: 900
+    match: {type: path_prefix, values: [/i/gmp-]}
+    product_line_id: DIAGNOSTICS_OTHER
+    report_line_id: DIAGNOSTICS_OTHER
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 未命中更具体规则的 GMP 产品页归入其他诊断产品。
+  - id: other-product-fallback
+    priority: 1000
+    match: {type: page_class, values: [product_page]}
+    product_line_id: OTHER_PRODUCT
+    report_line_id: OTHER_PRODUCT
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 经 pages.template 权威规则确认的其余产品页归入其他产品。

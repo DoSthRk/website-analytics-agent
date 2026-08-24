@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from website_analytics.periods import AnalyticsPeriod
+from website_analytics.information_mapping import InformationMapping
 from website_analytics.page_classification import PageDimension
 from website_analytics.product_mapping import ProductMapping, build_product_report
 
@@ -76,6 +77,7 @@ def build_dashboard_records(
     mapping: ProductMapping,
     page_dimension: PageDimension,
     sync_batch: str,
+    information_mapping: InformationMapping | None = None,
 ) -> dict[str, Any]:
     """Return one overview row and one row per approved product report line."""
     _require_complete_fetch(current_result)
@@ -104,6 +106,7 @@ def build_dashboard_records(
         current_details,
         previous_details or {},
         page_dimension,
+        information_mapping,
     )
     page_types = _index(product_report.get("pageTypeLines"), "pageTypeId")
     coverage = product_report.get("classificationCoverage")

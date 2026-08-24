@@ -11,7 +11,7 @@ from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import yaml
 
@@ -21,9 +21,30 @@ from website_analytics.page_classification import (
     canonical_page_path,
 )
 
+if TYPE_CHECKING:
+    from website_analytics.information_mapping import InformationMapping
 
-RuleMatchType = Literal["exact_path", "path_prefix", "any_keyword", "all_keywords"]
-_MATCH_TYPES = frozenset({"exact_path", "path_prefix", "any_keyword", "all_keywords"})
+
+RuleMatchType = Literal[
+    "exact_path",
+    "path_prefix",
+    "any_keyword",
+    "all_keywords",
+    "page_class",
+    "template_exact",
+    "template_any_keyword",
+]
+_MATCH_TYPES = frozenset(
+    {
+        "exact_path",
+        "path_prefix",
+        "any_keyword",
+        "all_keywords",
+        "page_class",
+        "template_exact",
+        "template_any_keyword",
+    }
+)
 _PAGE_METRICS = (
     "ga4Sessions",
     "gscClicks",
@@ -55,6 +76,9 @@ class ProductMappingError(ValueError):
 class ReportLine:
     identifier: str
     name: str
+    category_l1: str = ""
+    category_l2: str = ""
+    category_l3: str = ""
 
 
 @dataclass(frozen=True)
@@ -68,6 +92,7 @@ class ProductRule:
     include_in_product_report: bool
     mapping_status: str
     reason: str
+    exclude_values: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -105,15 +130,30 @@ def load_product_mapping(path: str | Path, site_key: str) -> ProductMapping | No
     )
 
 
+def match_product_rule(
+    mapping: ProductMapping, path: str, page_class: str, template: str = ""
+) -> ProductRule | None:
+    """Return the first approved product rule for one canonical page path."""
+    normalized_path = canonical_page_path(path)
+    if normalized_path is None:
+        return None
+    return _match_rule(mapping.rules, normalized_path, page_class, template)
+
+
 def build_product_report(
     mapping: ProductMapping,
     current_details: Mapping[str, Sequence[Mapping[str, Any]]],
     previous_details: Mapping[str, Sequence[Mapping[str, Any]]],
     page_dimension: PageDimension | None = None,
+    information_mapping: InformationMapping | None = None,
 ) -> dict[str, Any]:
     """Build source-separated current/previous product aggregates."""
-    current_pages = _mapped_pages(mapping, current_details, page_dimension)
-    previous_pages = _mapped_pages(mapping, previous_details, page_dimension)
+    current_pages = _mapped_pages(
+        mapping, current_details, page_dimension, information_mapping
+    )
+    previous_pages = _mapped_pages(
+        mapping, previous_details, page_dimension, information_mapping
+    )
     current_summary = _summary_by_line(mapping, current_pages)
     previous_summary = _summary_by_line(mapping, previous_pages)
 
@@ -125,6 +165,9 @@ def build_product_report(
             {
                 "reportLineId": line.identifier,
                 "reportLine": line.name,
+                "categoryL1": line.category_l1,
+                "categoryL2": line.category_l2,
+                "categoryL3": line.category_l3,
                 "currentCanonicalPages": current["canonicalPages"],
                 "ga4SessionsCurrent": current["ga4Sessions"],
                 "ga4SessionsPrevious": previous["ga4Sessions"],
@@ -140,7 +183,7 @@ def build_product_report(
                 "gscCtrDelta": _delta_ctr(current, previous),
             }
         )
-    return {
+    result = {
         "mappingVersion": mapping.version,
         "pageClassificationVersion": (
             page_dimension.version if page_dimension is not None else "unavailable"
@@ -153,7 +196,7 @@ def build_product_report(
         "classificationCoverage": _classification_coverage(current_pages),
         "pageMappings": current_pages,
         "productPageMappings": [
-            page for page in current_pages if bool(page.get("mappingRuleId"))
+            page for page in current_pages if page.get("pageClass") == "product_page"
         ],
         "inquiryReportLines": (
             _inquiry_report_lines(mapping, current_pages, previous_pages)
@@ -161,12 +204,24 @@ def build_product_report(
             else []
         ),
     }
+    if information_mapping is not None:
+        from website_analytics.information_mapping import build_information_report
+
+        result.update(
+            build_information_report(
+                information_mapping,
+                current_pages,
+                previous_pages,
+            )
+        )
+    return result
 
 
 def _mapped_pages(
     mapping: ProductMapping,
     details: Mapping[str, Sequence[Mapping[str, Any]]],
     page_dimension: PageDimension | None,
+    information_mapping: InformationMapping | None,
 ) -> list[dict[str, Any]]:
     metrics_by_path: dict[str, dict[str, float]] = defaultdict(
         lambda: {metric: 0.0 for metric in _PAGE_METRICS}
@@ -193,14 +248,13 @@ def _mapped_pages(
             if page_dimension is not None
             else _unavailable_page_dimension(path)
         )
-        rule = _match_rule(mapping.rules, path)
+        rule = _match_rule(mapping.rules, path, page.page_class, page.template)
         include = bool(
             rule is not None
             and rule.include_in_product_report
             and page.page_class == "product_page"
         )
-        mapped_pages.append(
-            {
+        mapped_page = {
                 "canonicalPath": path,
                 "pageId": page.page_id if page.page_id is not None else "",
                 "template": page.template,
@@ -225,8 +279,19 @@ def _mapped_pages(
                 "storedSubmissions": metrics["storedSubmissions"],
                 "quarantinedSubmissions": metrics["quarantinedSubmissions"],
                 "nonQuarantinedSubmissions": metrics["nonQuarantinedSubmissions"],
-            }
-        )
+        }
+        if information_mapping is not None:
+            from website_analytics.information_mapping import classify_information_page
+
+            mapped_page.update(
+                classify_information_page(
+                    information_mapping,
+                    path=path,
+                    template=page.template,
+                    page_class=page.page_class,
+                )
+            )
+        mapped_pages.append(mapped_page)
     return sorted(
         mapped_pages,
         key=lambda row: (
@@ -421,8 +486,13 @@ def _inquiry_summary_by_line(
     return summary
 
 
-def _match_rule(rules: Sequence[ProductRule], path: str) -> ProductRule | None:
+def _match_rule(
+    rules: Sequence[ProductRule], path: str, page_class: str, template: str
+) -> ProductRule | None:
+    normalized_template = template.casefold()
     for rule in rules:
+        if any(value in path for value in rule.exclude_values):
+            continue
         if rule.match_type == "exact_path" and path in rule.values:
             return rule
         if rule.match_type == "path_prefix" and any(path.startswith(value) for value in rule.values):
@@ -430,6 +500,14 @@ def _match_rule(rules: Sequence[ProductRule], path: str) -> ProductRule | None:
         if rule.match_type == "any_keyword" and any(value in path for value in rule.values):
             return rule
         if rule.match_type == "all_keywords" and all(value in path for value in rule.values):
+            return rule
+        if rule.match_type == "page_class" and page_class.casefold() in rule.values:
+            return rule
+        if rule.match_type == "template_exact" and normalized_template in rule.values:
+            return rule
+        if rule.match_type == "template_any_keyword" and any(
+            value in normalized_template for value in rule.values
+        ):
             return rule
     return None
 
@@ -472,12 +550,24 @@ def _parse_report_lines(value: object) -> tuple[ReportLine, ...]:
     for index, item in enumerate(value):
         if not isinstance(item, Mapping):
             raise ProductMappingError("product mapping report line must be a mapping")
-        _reject_unknown(item, {"id", "name"}, f"report_lines[{index}]")
+        _reject_unknown(
+            item,
+            {"id", "name", "category_l1", "category_l2", "category_l3"},
+            f"report_lines[{index}]",
+        )
         identifier = _required_text(item, "id", f"report_lines[{index}]")
         if identifier in seen:
             raise ProductMappingError("product mapping report line IDs must be unique")
         seen.add(identifier)
-        lines.append(ReportLine(identifier=identifier, name=_required_text(item, "name", f"report_lines[{index}]")))
+        lines.append(
+            ReportLine(
+                identifier=identifier,
+                name=_required_text(item, "name", f"report_lines[{index}]"),
+                category_l1=_optional_text(item, "category_l1", f"report_lines[{index}]"),
+                category_l2=_optional_text(item, "category_l2", f"report_lines[{index}]"),
+                category_l3=_optional_text(item, "category_l3", f"report_lines[{index}]"),
+            )
+        )
     return tuple(lines)
 
 
@@ -492,7 +582,7 @@ def _parse_rules(value: object, report_line_ids: set[str]) -> list[ProductRule]:
             raise ProductMappingError("product mapping rule must be a mapping")
         _reject_unknown(
             item,
-            {"id", "priority", "match", "product_line_id", "report_line_id", "include_in_product_report", "mapping_status", "reason"},
+            {"id", "priority", "match", "exclude_values", "product_line_id", "report_line_id", "include_in_product_report", "mapping_status", "reason"},
             context,
         )
         identifier = _required_text(item, "id", context)
@@ -503,6 +593,7 @@ def _parse_rules(value: object, report_line_ids: set[str]) -> list[ProductRule]:
         if isinstance(priority, bool) or not isinstance(priority, int) or priority < 0:
             raise ProductMappingError(f"{context} priority must be a non-negative integer")
         match_type, values = _parse_match(item.get("match"), context)
+        exclude_values = _parse_optional_values(item.get("exclude_values"), context)
         report_line_id = item.get("report_line_id")
         if report_line_id is not None and (not isinstance(report_line_id, str) or report_line_id not in report_line_ids):
             raise ProductMappingError(f"{context} report_line_id must reference report_lines")
@@ -520,6 +611,7 @@ def _parse_rules(value: object, report_line_ids: set[str]) -> list[ProductRule]:
                 priority=priority,
                 match_type=match_type,
                 values=values,
+                exclude_values=exclude_values,
                 product_line_id=_required_text(item, "product_line_id", context),
                 report_line_id=report_line_id,
                 include_in_product_report=include,
@@ -555,6 +647,21 @@ def _required_text(value: Mapping[str, object], field: str, context: str) -> str
     if not isinstance(raw, str) or not raw.strip():
         raise ProductMappingError(f"{context} field '{field}' must be a nonblank string")
     return raw.strip()
+
+
+def _optional_text(value: Mapping[str, object], field: str, context: str) -> str:
+    raw = value.get(field, "")
+    if not isinstance(raw, str):
+        raise ProductMappingError(f"{context} field '{field}' must be a string")
+    return raw.strip()
+
+
+def _parse_optional_values(value: object, context: str) -> tuple[str, ...]:
+    if value is None:
+        return ()
+    if not isinstance(value, list) or not value:
+        raise ProductMappingError(f"{context} exclude_values must be a non-empty list")
+    return tuple(_required_path_text(item, context) for item in value)
 
 
 def _reject_unknown(value: Mapping[object, object], allowed: set[str], context: str) -> None:
