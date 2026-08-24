@@ -22,6 +22,21 @@ V3 是本地 dry-run 设计，`write_enabled=false`，尚未创建飞书表，�
 
 `scripts/build_feishu_dashboard_v3_dry_run.py` 将单日 CLI 结果、受控缓存和同日页面维表转换为三张每日事实表。脚本只生成本地 JSON，不写飞书。
 
+连续日期回填使用 `scripts/backfill_feishu_dashboard_v3.py`。它只读取受限 CLI 已生成的逐日脱敏缓存、审计清单和页面维表快照；任意一天不是三源完整、GSC 明细被截断、稳定键重复或分类汇总不平，整个批次都会失败，不产生可写飞书的结果。
+
+```powershell
+.\.venv\Scripts\python.exe scripts\backfill_feishu_dashboard_v3.py `
+  --site genemedi-net `
+  --start 2026-07-25 `
+  --end 2026-08-21 `
+  --cache-dir cache `
+  --audit-dir audits `
+  --page-dimension-fixture outputs\feishu-v3-backfill\source\page_dimension.json `
+  --output outputs\feishu-v3-backfill\genemedi-net_2026-07-25_2026-08-21.json
+```
+
+该命令只生成本地 `backfill_dry_run` 文件，`write_enabled=false`，不会创建或更新飞书记录。
+
 ## 自定义日期下的指标规则
 
 可以跨日求和并进入默认看板的指标：
