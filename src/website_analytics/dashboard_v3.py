@@ -1,4 +1,4 @@
-"""Build read-only V3 dashboard prototype records from approved cache data."""
+"""Build additive daily facts for the date-selectable Feishu V3 dashboard."""
 
 from __future__ import annotations
 
@@ -8,494 +8,338 @@ from collections.abc import Mapping, Sequence
 from datetime import date, datetime, timezone
 from typing import Any
 
-from website_analytics.information_mapping import (
-    InformationMapping,
-    classify_information_page,
+from website_analytics.information_mapping import InformationMapping
+from website_analytics.page_classification import PageDimension
+from website_analytics.product_mapping import ProductMapping, build_product_report
+
+
+DATE_BOUNDARY_NOTE = (
+    "GA4按属性时区统计；GSC按Pacific Time统计；"
+    "询盘按网站服务器日历统计。三者是独立数据源，不直接视为转化漏斗。"
 )
-from website_analytics.page_classification import canonical_page_path
-from website_analytics.product_mapping import ProductMapping, match_product_rule
-
-
-_METRICS = (
-    "ga4_sessions",
-    "gsc_clicks",
-    "gsc_impressions",
-    "stored_submissions",
-    "quarantined_submissions",
-    "accepted_inquiries",
+_PAGE_METRICS = (
+    "ga4Sessions",
+    "gscClicks",
+    "gscImpressions",
+    "storedSubmissions",
+    "nonQuarantinedSubmissions",
 )
 
 
-def build_v3_dry_run(
+def build_v3_daily_records(
     *,
     site: str,
-    current_start: date,
-    current_end: date,
-    previous_start: date,
-    previous_end: date,
-    current_details: Mapping[str, Sequence[Mapping[str, Any]]],
-    previous_details: Mapping[str, Sequence[Mapping[str, Any]]],
+    data_date: date,
+    fetch_result: Mapping[str, Any],
+    details: Mapping[str, Sequence[Mapping[str, Any]]],
     product_mapping: ProductMapping,
+    page_dimension: PageDimension,
     information_mapping: InformationMapping,
-    product_paths: set[str],
-    refreshed_at: datetime,
 ) -> dict[str, Any]:
-    """Return a V3 dry-run payload without performing any external write.
+    """Return one complete day of additive V3 facts without external writes.
 
-    ``product_paths`` is deliberately explicit evidence. Information pages are
-    admitted only when a versioned slug rule matches; all remaining traffic is
-    kept in the overview's ``other`` bucket so prototype coverage stays honest.
+    The caller must fetch exactly one calendar day with the approved CLI. This
+    avoids introducing a new GA4/GSC dimension while still making every metric
+    additive across a user-selected date range.
     """
-    if current_end < current_start or previous_end < previous_start:
-        raise ValueError("period end cannot precede period start")
-    if refreshed_at.tzinfo is None:
-        raise ValueError("refreshed_at must include a timezone")
+    _require_complete_fetch(fetch_result)
+    _require_single_day(details, data_date)
+    refreshed_at = _freshness(fetch_result)
+    totals = _totals(fetch_result)
+    report = build_product_report(
+        product_mapping,
+        details,
+        {},
+        page_dimension,
+        information_mapping,
+    )
+    daily_key = f"{site}|{data_date.isoformat()}"
+    data_date_cell = data_date.isoformat()
+    refreshed_cell = refreshed_at.astimezone(timezone.utc).isoformat()
 
-    normalized_product_paths = {
-        normalized
-        for value in product_paths
-        if (normalized := canonical_page_path(value)) is not None
+    page_types = _index(report.get("pageTypeLines"), "pageTypeId")
+    product_type = _required(page_types, "product_page")
+    information_type = _required(page_types, "information_page")
+    total_sessions = _source_number(totals, "ga4", "sessions")
+    product_sessions = _number(product_type.get("ga4SessionsCurrent"))
+    information_sessions = _number(information_type.get("ga4SessionsCurrent"))
+    classified_sessions = product_sessions + information_sessions
+    other_sessions = total_sessions - classified_sessions
+    if other_sessions < 0:
+        raise ValueError("classified page sessions exceed GA4 daily sessions")
+
+    overview = {
+        "daily_key": daily_key,
+        "site": site,
+        "data_date": data_date_cell,
+        "data_status": "complete",
+        "ga4_sessions": _whole(total_sessions),
+        "ga4_key_events": _whole(
+            _source_number(totals, "ga4", "keyEvents")
+        ),
+        "gsc_clicks": _whole(_source_number(totals, "gsc", "clicks")),
+        "gsc_impressions": _whole(
+            _source_number(totals, "gsc", "impressions")
+        ),
+        "stored_submissions": _whole(
+            _source_number(totals, "inquiry", "storedSubmissions")
+        ),
+        "accepted_inquiries": _whole(
+            _source_number(totals, "inquiry", "nonQuarantinedSubmissions")
+        ),
+        "product_page_sessions": _whole(product_sessions),
+        "information_page_sessions": _whole(information_sessions),
+        "other_page_sessions": _whole(other_sessions),
+        "classified_page_sessions": _whole(classified_sessions),
+        "page_classification_version": page_dimension.version,
+        "product_mapping_version": product_mapping.version,
+        "information_mapping_version": information_mapping.version,
+        "refreshed_at": refreshed_cell,
+        "source_boundary_note": DATE_BOUNDARY_NOTE,
     }
-    periods = (
-        _PeriodData(
-            label=f"{current_start.isoformat()} 至 {current_end.isoformat()}",
-            start=current_start,
-            end=current_end,
-            details=current_details,
-            is_current=True,
-        ),
-        _PeriodData(
-            label=f"{previous_start.isoformat()} 至 {previous_end.isoformat()}",
-            start=previous_start,
-            end=previous_end,
-            details=previous_details,
-            is_current=False,
-        ),
-    )
-    classified = [
-        _classify_period(
-            period,
-            product_paths=normalized_product_paths,
-            product_mapping=product_mapping,
-            information_mapping=information_mapping,
-        )
-        for period in periods
-    ]
-    current, previous = classified
 
-    overview_records = [
-        _overview_record(
-            site=site,
-            period=period,
-            classified=data,
-            comparison=previous if period.is_current else None,
-            refreshed_at=refreshed_at,
+    report_lines = _index(report.get("reportLines"), "reportLineId")
+    inquiry_lines = _index(report.get("inquiryReportLines"), "reportLineId")
+    product_records: list[dict[str, Any]] = []
+    for configured in product_mapping.report_lines:
+        line = _required(report_lines, configured.identifier)
+        inquiry = _required(inquiry_lines, configured.identifier)
+        product_records.append(
+            {
+                "product_daily_key": f"{daily_key}|{configured.identifier}",
+                "daily_key": daily_key,
+                "site": site,
+                "data_date": data_date_cell,
+                "data_status": "complete",
+                "product_line_id": configured.identifier,
+                "product_name": configured.name,
+                "category_l1": configured.category_l1,
+                "category_l2": configured.category_l2,
+                "category_l3": configured.category_l3,
+                "ga4_sessions": _whole(line.get("ga4SessionsCurrent")),
+                "gsc_clicks": _whole(line.get("gscClicksCurrent")),
+                "gsc_impressions": _whole(line.get("gscImpressionsCurrent")),
+                "stored_submissions": _whole(
+                    inquiry.get("storedSubmissionsCurrent")
+                ),
+                "accepted_inquiries": _whole(
+                    inquiry.get("nonQuarantinedSubmissionsCurrent")
+                ),
+                "included_pages": _whole(line.get("currentCanonicalPages")),
+                "mapping_version": product_mapping.version,
+                "refreshed_at": refreshed_cell,
+            }
         )
-        for period, data in zip(periods, classified, strict=True)
-    ]
-    product_records = _product_records(
-        site=site,
-        periods=periods,
-        classified=classified,
-        product_mapping=product_mapping,
-        refreshed_at=refreshed_at,
+
+    information_summary = _information_summary(
+        report.get("informationPageMappings")
     )
-    information_records = _information_records(
-        site=site,
-        periods=periods,
-        classified=classified,
-        information_mapping=information_mapping,
-        refreshed_at=refreshed_at,
-    )
+    information_records: list[dict[str, Any]] = []
+    for theme in information_mapping.themes:
+        for content_type in information_mapping.content_types:
+            key = (theme.identifier, content_type.identifier)
+            metrics = information_summary.get(key, _empty_information_metrics())
+            information_records.append(
+                {
+                    "information_daily_key": (
+                        f"{daily_key}|{theme.identifier}|{content_type.identifier}"
+                    ),
+                    "daily_key": daily_key,
+                    "site": site,
+                    "data_date": data_date_cell,
+                    "data_status": "complete",
+                    "theme_id": theme.identifier,
+                    "theme": theme.name,
+                    "content_type_id": content_type.identifier,
+                    "content_type": content_type.name,
+                    "ga4_sessions": _whole(metrics["ga4Sessions"]),
+                    "gsc_clicks": _whole(metrics["gscClicks"]),
+                    "gsc_impressions": _whole(metrics["gscImpressions"]),
+                    "stored_submissions": _whole(
+                        metrics["storedSubmissions"]
+                    ),
+                    "accepted_inquiries": _whole(
+                        metrics["nonQuarantinedSubmissions"]
+                    ),
+                    "included_pages": _whole(metrics["includedPages"]),
+                    "mapping_version": information_mapping.version,
+                    "refreshed_at": refreshed_cell,
+                }
+            )
+
+    _require_product_totals(product_records, product_type)
+    _require_information_totals(information_records, information_type)
     return {
         "schema_version": "3",
-        "mode": "dry_run",
+        "mode": "daily_dry_run",
         "write_enabled": False,
         "site": site,
-        "classification_scope": {
-            "status": "prototype_partial",
-            "product_basis": "reviewed_product_page_evidence_snapshot",
-            "information_basis": "explicit_versioned_slug_rules_only",
-            "unmatched_handling": "kept_as_other; never silently assigned",
-            "product_evidence_paths": len(normalized_product_paths),
-            "note": (
-                "三类数据源均为完整缓存；页面分类仅用于 V3 原型，"
-                "正式同步前须改用同周期 pages.template 页面维表。"
-            ),
-        },
+        "data_date": data_date_cell,
         "records": {
-            "overview_periods": overview_records,
-            "product_periods": product_records,
-            "information_periods": information_records,
+            "overview_daily": [overview],
+            "product_daily": product_records,
+            "information_daily": information_records,
         },
     }
 
 
-class _PeriodData:
-    def __init__(
-        self,
-        *,
-        label: str,
-        start: date,
-        end: date,
-        details: Mapping[str, Sequence[Mapping[str, Any]]],
-        is_current: bool,
-    ) -> None:
-        self.label = label
-        self.start = start
-        self.end = end
-        self.details = details
-        self.is_current = is_current
+def _require_complete_fetch(result: Mapping[str, Any]) -> None:
+    if result.get("status") != "ok" or result.get("complete") is not True:
+        raise ValueError("V3 daily records require one complete three-source fetch")
+    sources = result.get("sources")
+    if not isinstance(sources, Mapping) or set(sources) != {
+        "ga4",
+        "gsc",
+        "inquiry",
+    }:
+        raise ValueError("V3 daily records require GA4, GSC, and inquiry")
+    if any(
+        not isinstance(value, Mapping) or value.get("status") != "ok"
+        for value in sources.values()
+    ):
+        raise ValueError("V3 daily records require all three sources to be ok")
 
 
-def _classify_period(
-    period: _PeriodData,
-    *,
-    product_paths: set[str],
-    product_mapping: ProductMapping,
-    information_mapping: InformationMapping,
-) -> dict[str, Any]:
-    paths = _metrics_by_path(period.details)
-    products: dict[str, dict[str, float | int]] = defaultdict(_empty_summary)
-    information: dict[tuple[str, str], dict[str, float | int]] = defaultdict(
-        _empty_summary
+def _require_single_day(
+    details: Mapping[str, Sequence[Mapping[str, Any]]], expected: date
+) -> None:
+    expected_value = expected.isoformat()
+    for collection in ("GA4 Daily", "GSC Daily", "Inquiry Daily"):
+        for row in details.get(collection, ()):
+            value = row.get("date")
+            if value != expected_value:
+                raise ValueError("V3 daily facts cannot contain another date")
+
+
+def _freshness(result: Mapping[str, Any]) -> datetime:
+    value = result.get("freshness")
+    if not isinstance(value, str):
+        raise ValueError("fetch freshness is missing")
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("fetch freshness must include a timezone")
+    return parsed
+
+
+def _totals(result: Mapping[str, Any]) -> Mapping[str, Mapping[str, Any]]:
+    totals = result.get("totals")
+    if not isinstance(totals, Mapping):
+        raise ValueError("fetch totals are missing")
+    normalized: dict[str, Mapping[str, Any]] = {}
+    for source, metrics in totals.items():
+        if not isinstance(source, str) or not isinstance(metrics, Mapping):
+            raise ValueError("fetch totals are invalid")
+        normalized[source] = metrics
+    return normalized
+
+
+def _source_number(
+    totals: Mapping[str, Mapping[str, Any]], source: str, metric: str
+) -> float:
+    source_metrics = totals.get(source)
+    if not isinstance(source_metrics, Mapping) or metric not in source_metrics:
+        raise ValueError(f"fetch totals are missing {source}.{metric}")
+    return _number(source_metrics[metric])
+
+
+def _information_summary(
+    value: object,
+) -> dict[tuple[str, str], dict[str, float]]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ValueError("information page mappings are unavailable")
+    summary: dict[tuple[str, str], dict[str, float]] = defaultdict(
+        _empty_information_metrics
     )
-    page_types: dict[str, dict[str, float | int]] = defaultdict(_empty_summary)
-
-    for path, metrics in paths.items():
-        if path in product_paths:
-            product_rule = match_product_rule(
-                product_mapping, path, "product_page", ""
-            )
-            if (
-                product_rule is not None
-                and product_rule.include_in_product_report
-                and product_rule.report_line_id is not None
-            ):
-                _add_summary(products[product_rule.report_line_id], metrics)
-                _add_summary(page_types["product_page"], metrics)
-                continue
-        information_result = classify_information_page(
-            information_mapping,
-            path=path,
-            template="",
-            page_class="information_page",
-        )
-        explicit_information = (
-            information_result["informationThemeStatus"] == "matched"
-            or information_result["informationContentTypeStatus"] == "matched"
-        )
-        if explicit_information and path not in product_paths:
-            key = (
-                information_result["informationThemeId"],
-                information_result["informationContentTypeId"],
-            )
-            _add_summary(information[key], metrics)
-            _add_summary(page_types["information_page"], metrics)
-            continue
-        _add_summary(page_types["other"], metrics)
-
-    return {
-        "totals": _period_totals(period.details),
-        "products": products,
-        "information": information,
-        "page_types": page_types,
-    }
+    observed_paths: dict[tuple[str, str], set[str]] = defaultdict(set)
+    for page in value:
+        if not isinstance(page, Mapping) or page.get("pageClass") != "information_page":
+            raise ValueError("information page mapping is invalid")
+        theme_id = page.get("informationThemeId")
+        content_type_id = page.get("informationContentTypeId")
+        path = page.get("canonicalPath")
+        if not all(isinstance(item, str) and item for item in (theme_id, content_type_id, path)):
+            raise ValueError("information page dimensions are invalid")
+        key = (str(theme_id), str(content_type_id))
+        row = summary[key]
+        for metric in _PAGE_METRICS:
+            row[metric] += _number(page.get(metric))
+        observed_paths[key].add(str(path))
+    for key, paths in observed_paths.items():
+        summary[key]["includedPages"] = float(len(paths))
+    return dict(summary)
 
 
-def _metrics_by_path(
-    details: Mapping[str, Sequence[Mapping[str, Any]]],
-) -> dict[str, dict[str, float]]:
-    result: dict[str, dict[str, float]] = defaultdict(_empty_metrics)
-    for row in details.get("GA4 Pages", ()):
-        path = canonical_page_path(row.get("landingPagePlusQueryString"))
-        if path is not None:
-            result[path]["ga4_sessions"] += _number(row.get("sessions"))
-    for row in details.get("GSC Pages", ()):
-        path = canonical_page_path(row.get("page"))
-        if path is not None:
-            result[path]["gsc_clicks"] += _number(row.get("clicks"))
-            result[path]["gsc_impressions"] += _number(row.get("impressions"))
-    for row in details.get("Inquiry Pages", ()):
-        path = canonical_page_path(row.get("sourceUrl"))
-        if path is not None:
-            result[path]["stored_submissions"] += _number(
-                row.get("storedSubmissions")
-            )
-            result[path]["quarantined_submissions"] += _number(
-                row.get("quarantinedSubmissions")
-            )
-            result[path]["accepted_inquiries"] += _number(
-                row.get("nonQuarantinedSubmissions")
-            )
-    return dict(result)
+def _empty_information_metrics() -> dict[str, float]:
+    return {metric: 0.0 for metric in (*_PAGE_METRICS, "includedPages")}
 
 
-def _period_totals(
-    details: Mapping[str, Sequence[Mapping[str, Any]]],
-) -> dict[str, float | None]:
-    ga4_daily = details.get("GA4 Daily", ())
-    gsc_daily = details.get("GSC Daily", ())
-    inquiry_daily = details.get("Inquiry Daily", ())
-    sessions = sum(_number(row.get("sessions")) for row in ga4_daily)
-    engaged = sum(_number(row.get("engagedSessions")) for row in ga4_daily)
-    clicks = sum(_number(row.get("clicks")) for row in gsc_daily)
-    impressions = sum(_number(row.get("impressions")) for row in gsc_daily)
-    return {
-        "ga4_sessions": sessions,
-        "ga4_active_users": sum(
-            _number(row.get("activeUsers")) for row in ga4_daily
-        ),
-        "ga4_key_events": sum(_number(row.get("keyEvents")) for row in ga4_daily),
-        "ga4_engagement_rate": engaged / sessions if sessions else None,
-        "gsc_clicks": clicks,
-        "gsc_impressions": impressions,
-        "gsc_ctr": clicks / impressions if impressions else None,
-        "gsc_position": (
-            sum(
-                _number(row.get("position")) * _number(row.get("impressions"))
-                for row in gsc_daily
-            )
-            / impressions
-            if impressions
-            else None
-        ),
-        "stored_submissions": sum(
-            _number(row.get("storedSubmissions")) for row in inquiry_daily
-        ),
-        "quarantined_submissions": sum(
-            _number(row.get("quarantinedSubmissions")) for row in inquiry_daily
-        ),
-        "accepted_inquiries": sum(
-            _number(row.get("nonQuarantinedSubmissions")) for row in inquiry_daily
-        ),
-    }
-
-
-def _overview_record(
-    *,
-    site: str,
-    period: _PeriodData,
-    classified: Mapping[str, Any],
-    comparison: Mapping[str, Any] | None,
-    refreshed_at: datetime,
-) -> dict[str, Any]:
-    totals = classified["totals"]
-    page_types = classified["page_types"]
-    product = page_types.get("product_page", _empty_summary())
-    information = page_types.get("information_page", _empty_summary())
-    previous_totals = comparison["totals"] if comparison is not None else None
-    classified_sessions = _number(product["ga4_sessions"]) + _number(
-        information["ga4_sessions"]
+def _require_product_totals(
+    rows: Sequence[Mapping[str, Any]], page_type: Mapping[str, Any]
+) -> None:
+    _require_metric_totals(
+        rows,
+        page_type,
+        {
+            "ga4_sessions": "ga4SessionsCurrent",
+            "gsc_clicks": "gscClicksCurrent",
+            "gsc_impressions": "gscImpressionsCurrent",
+            "stored_submissions": "storedSubmissionsCurrent",
+            "accepted_inquiries": "nonQuarantinedSubmissionsCurrent",
+        },
+        "product",
     )
-    sessions = _number(totals["ga4_sessions"])
-    return {
-        "period_key": _period_key(site, period),
-        "site": site,
-        "period_label": period.label,
-        "period_kind": "周",
-        "period_start": period.start.isoformat(),
-        "period_end": period.end.isoformat(),
-        "is_current": period.is_current,
-        "dashboard_windows": (
-            ["当前周期", "近4周", "近12周"]
-            if period.is_current
-            else ["近4周", "近12周"]
-        ),
-        "data_status": "页面分类原型",
-        "ga4_sessions": _whole(totals["ga4_sessions"]),
-        "ga4_active_users": _whole(totals["ga4_active_users"]),
-        "ga4_key_events": _whole(totals["ga4_key_events"]),
-        "gsc_clicks": _whole(totals["gsc_clicks"]),
-        "gsc_impressions": _whole(totals["gsc_impressions"]),
-        "gsc_ctr": totals["gsc_ctr"],
-        "gsc_position": totals["gsc_position"],
-        "stored_submissions": _whole(totals["stored_submissions"]),
-        "accepted_inquiries": _whole(totals["accepted_inquiries"]),
-        "product_page_sessions": _whole(product["ga4_sessions"]),
-        "information_page_sessions": _whole(information["ga4_sessions"]),
-        "other_page_sessions": _whole(sessions - classified_sessions),
-        "page_classification_rate": classified_sessions / sessions if sessions else None,
-        "sessions_delta": _metric_delta(totals, previous_totals, "ga4_sessions"),
-        "clicks_delta": _metric_delta(totals, previous_totals, "gsc_clicks"),
-        "inquiries_delta": _metric_delta(
-            totals, previous_totals, "accepted_inquiries"
-        ),
-        "ga4_available_through": period.end.isoformat(),
-        "gsc_available_through": period.end.isoformat(),
-        "inquiry_available_through": period.end.isoformat(),
-        "refreshed_at": refreshed_at.astimezone(timezone.utc).isoformat(),
-        "operations_summary": _overview_hint(totals, previous_totals),
-    }
 
 
-def _product_records(
-    *,
-    site: str,
-    periods: Sequence[_PeriodData],
-    classified: Sequence[Mapping[str, Any]],
-    product_mapping: ProductMapping,
-    refreshed_at: datetime,
-) -> list[dict[str, Any]]:
-    current_products = classified[0]["products"]
-    previous_products = classified[1]["products"]
-    rows: list[dict[str, Any]] = []
-    for index, period in enumerate(periods):
-        values = classified[index]["products"]
-        for line in product_mapping.report_lines:
-            metrics = values.get(line.identifier, _empty_summary())
-            counterpart = (
-                previous_products.get(line.identifier, _empty_summary())
-                if period.is_current
-                else None
-            )
-            if not _has_activity(metrics) and not (
-                period.is_current
-                and _has_activity(previous_products.get(line.identifier, {}))
-            ):
-                continue
-            rows.append(
-                {
-                    "product_period_key": (
-                        f"{_period_key(site, period)}|{line.identifier}"
-                    ),
-                    "period_key": _period_key(site, period),
-                    "site": site,
-                    "period_kind": "周",
-                    "period_start": period.start.isoformat(),
-                    "period_end": period.end.isoformat(),
-                    "is_current": period.is_current,
-                    "dashboard_windows": (
-                        ["当前周期", "近4周", "近12周"]
-                        if period.is_current
-                        else ["近4周", "近12周"]
-                    ),
-                    "product_line_id": line.identifier,
-                    "product_name": line.name,
-                    "category_l1": line.category_l1,
-                    "category_l2": line.category_l2,
-                    "category_l3": line.category_l3,
-                    **_metric_cells(metrics, counterpart),
-                    "mapping_version": product_mapping.version,
-                    "mapping_status": "页面证据快照原型",
-                    "operations_hint": _row_hint(metrics),
-                    "refreshed_at": refreshed_at.astimezone(timezone.utc).isoformat(),
-                }
-            )
-    return rows
-
-
-def _information_records(
-    *,
-    site: str,
-    periods: Sequence[_PeriodData],
-    classified: Sequence[Mapping[str, Any]],
-    information_mapping: InformationMapping,
-    refreshed_at: datetime,
-) -> list[dict[str, Any]]:
-    theme_names = {value.identifier: value.name for value in information_mapping.themes}
-    content_names = {
-        value.identifier: value.name for value in information_mapping.content_types
-    }
-    previous_information = classified[1]["information"]
-    keys = sorted(set(classified[0]["information"]) | set(previous_information))
-    rows: list[dict[str, Any]] = []
-    for index, period in enumerate(periods):
-        values = classified[index]["information"]
-        for theme_id, content_type_id in keys:
-            metrics = values.get((theme_id, content_type_id), _empty_summary())
-            counterpart = (
-                previous_information.get(
-                    (theme_id, content_type_id), _empty_summary()
-                )
-                if period.is_current
-                else None
-            )
-            if not _has_activity(metrics) and not (
-                period.is_current
-                and _has_activity(
-                    previous_information.get((theme_id, content_type_id), {})
-                )
-            ):
-                continue
-            rows.append(
-                {
-                    "information_period_key": (
-                        f"{_period_key(site, period)}|{theme_id}|{content_type_id}"
-                    ),
-                    "period_key": _period_key(site, period),
-                    "site": site,
-                    "period_kind": "周",
-                    "period_start": period.start.isoformat(),
-                    "period_end": period.end.isoformat(),
-                    "is_current": period.is_current,
-                    "dashboard_windows": (
-                        ["当前周期", "近4周", "近12周"]
-                        if period.is_current
-                        else ["近4周", "近12周"]
-                    ),
-                    "theme_id": theme_id,
-                    "theme": theme_names[theme_id],
-                    "content_type_id": content_type_id,
-                    "content_type": content_names[content_type_id],
-                    **_metric_cells(metrics, counterpart),
-                    "mapping_version": information_mapping.version,
-                    "mapping_status": "明确slug规则原型",
-                    "operations_hint": _row_hint(metrics),
-                    "refreshed_at": refreshed_at.astimezone(timezone.utc).isoformat(),
-                }
-            )
-    return rows
-
-
-def _metric_cells(
-    metrics: Mapping[str, Any], comparison: Mapping[str, Any] | None
-) -> dict[str, Any]:
-    impressions = _number(metrics.get("gsc_impressions", 0))
-    clicks = _number(metrics.get("gsc_clicks", 0))
-    return {
-        "ga4_sessions": _whole(metrics.get("ga4_sessions", 0)),
-        "gsc_clicks": _whole(clicks),
-        "gsc_impressions": _whole(impressions),
-        "gsc_ctr": clicks / impressions if impressions else None,
-        "stored_submissions": _whole(metrics.get("stored_submissions", 0)),
-        "accepted_inquiries": _whole(metrics.get("accepted_inquiries", 0)),
-        "included_pages": _whole(metrics.get("included_pages", 0)),
-        "sessions_delta": _metric_delta(metrics, comparison, "ga4_sessions"),
-        "clicks_delta": _metric_delta(metrics, comparison, "gsc_clicks"),
-        "inquiries_delta": _metric_delta(
-            metrics, comparison, "accepted_inquiries"
-        ),
-    }
-
-
-def _empty_metrics() -> dict[str, float]:
-    return {metric: 0.0 for metric in _METRICS}
-
-
-def _empty_summary() -> dict[str, float | int]:
-    return {**_empty_metrics(), "included_pages": 0}
-
-
-def _add_summary(target: dict[str, float | int], metrics: Mapping[str, Any]) -> None:
-    target["included_pages"] = int(target["included_pages"]) + 1
-    for metric in _METRICS:
-        target[metric] = _number(target[metric]) + _number(metrics.get(metric, 0))
-
-
-def _has_activity(metrics: Mapping[str, Any]) -> bool:
-    return bool(
-        metrics
-        and (
-            _number(metrics.get("included_pages", 0))
-            or any(_number(metrics.get(metric, 0)) for metric in _METRICS)
-        )
+def _require_information_totals(
+    rows: Sequence[Mapping[str, Any]], page_type: Mapping[str, Any]
+) -> None:
+    _require_metric_totals(
+        rows,
+        page_type,
+        {
+            "ga4_sessions": "ga4SessionsCurrent",
+            "gsc_clicks": "gscClicksCurrent",
+            "gsc_impressions": "gscImpressionsCurrent",
+            "stored_submissions": "storedSubmissionsCurrent",
+            "accepted_inquiries": "nonQuarantinedSubmissionsCurrent",
+        },
+        "information",
     )
+
+
+def _require_metric_totals(
+    rows: Sequence[Mapping[str, Any]],
+    expected: Mapping[str, Any],
+    metrics: Mapping[str, str],
+    label: str,
+) -> None:
+    for row_metric, expected_metric in metrics.items():
+        actual = sum(_number(row.get(row_metric)) for row in rows)
+        if actual != _number(expected.get(expected_metric)):
+            raise ValueError(f"{label} daily facts do not reconcile {row_metric}")
+
+
+def _index(value: object, key: str) -> dict[str, Mapping[str, Any]]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ValueError("dashboard report collection is invalid")
+    result: dict[str, Mapping[str, Any]] = {}
+    for row in value:
+        if not isinstance(row, Mapping) or not isinstance(row.get(key), str):
+            raise ValueError("dashboard report row is invalid")
+        result[str(row[key])] = row
+    return result
+
+
+def _required(
+    values: Mapping[str, Mapping[str, Any]], key: str
+) -> Mapping[str, Any]:
+    value = values.get(key)
+    if value is None:
+        raise ValueError(f"dashboard report is missing {key}")
+    return value
 
 
 def _number(value: object) -> float:
-    if value is None:
-        return 0.0
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError("metric must be numeric")
     number = float(value)
@@ -506,52 +350,3 @@ def _number(value: object) -> float:
 
 def _whole(value: object) -> int:
     return int(_number(value))
-
-
-def _metric_delta(
-    current: Mapping[str, Any], previous: Mapping[str, Any] | None, metric: str
-) -> int | None:
-    if previous is None:
-        return None
-    return _whole(_number(current.get(metric, 0)) - _number(previous.get(metric, 0)))
-
-
-def _period_key(site: str, period: _PeriodData) -> str:
-    return f"{site}|week|{period.start.isoformat()}|{period.end.isoformat()}"
-
-
-def _overview_hint(
-    current: Mapping[str, Any], previous: Mapping[str, Any] | None
-) -> str:
-    if previous is None:
-        return "历史对照周期；本行不计算环比。"
-    sessions_delta = _metric_delta(current, previous, "ga4_sessions") or 0
-    clicks_delta = _metric_delta(current, previous, "gsc_clicks") or 0
-    inquiries_delta = _metric_delta(current, previous, "accepted_inquiries") or 0
-    return (
-        f"访问较上期{_signed_text(sessions_delta, '次')}；"
-        f"自然搜索点击较上期{_signed_text(clicks_delta, '次')}；"
-        f"官网入库询盘较上期{_signed_text(inquiries_delta, '条')}。"
-    )
-
-
-def _row_hint(metrics: Mapping[str, Any]) -> str:
-    sessions = _number(metrics.get("ga4_sessions", 0))
-    clicks = _number(metrics.get("gsc_clicks", 0))
-    impressions = _number(metrics.get("gsc_impressions", 0))
-    inquiries = _number(metrics.get("accepted_inquiries", 0))
-    if inquiries:
-        return f"本期产生 {int(inquiries)} 条官网入库询盘，继续观察连续周期。"
-    if impressions >= 100 and clicks / impressions < 0.01:
-        return "曝光较高但点击率不足 1%，优先检查标题、摘要与搜索意图。"
-    if sessions >= 50:
-        return "访问较高但暂无入库询盘，检查页面行动按钮和表单路径。"
-    return "当前样本较小，建议结合连续周期判断。"
-
-
-def _signed_text(value: int, unit: str) -> str:
-    if value > 0:
-        return f"增加 {value}{unit}"
-    if value < 0:
-        return f"减少 {abs(value)}{unit}"
-    return "持平"
