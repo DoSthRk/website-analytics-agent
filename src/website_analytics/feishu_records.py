@@ -40,6 +40,8 @@ _TRANSIENT_LARK_ERROR_MARKERS = (
     "timeout",
     "too many requests",
     "rate limit",
+    "onoverqpslimit",
+    "cluster_limits",
     "http 429",
     "status 429",
     "bad gateway",

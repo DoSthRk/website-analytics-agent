@@ -6,10 +6,19 @@ import pytest
 from website_analytics.feishu_records import (
     FeishuTarget,
     LarkCLIRecordClient,
+    is_retryable_lark_failure,
     lark_cli_environment,
     load_feishu_target,
     sync_record_sets,
 )
+
+
+def test_lark_qps_limit_is_retryable() -> None:
+    assert is_retryable_lark_failure(
+        code=1,
+        message="GetChartLatestSnapshot onOverQPSLimit cluster_limits_123",
+        raw="",
+    )
 
 
 class FakeClient:

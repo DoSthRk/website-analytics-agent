@@ -1,13 +1,13 @@
 {
   "version": "3",
-  "status": "draft",
-  "write_enabled": false,
+  "status": "active",
+  "write_enabled": true,
   "date_selection": {
     "mode": "custom_range",
     "field": "数据日期",
     "inclusive": true,
-    "default": "最近7个完整数据日",
-    "presets": ["最近7个完整数据日", "最近28个完整数据日", "本月", "上月", "自定义起止日期"]
+    "default": "过去30天内",
+    "presets": ["过去7天内", "过去30天内", "本月", "上月", "自定义起止日期"]
   },
   "dashboards": [
     {

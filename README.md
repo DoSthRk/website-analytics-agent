@@ -187,3 +187,24 @@ registered GA4 property and GSC property.
 ```
 
 同步计划分别记录GA4、GSC和询盘的数据截至日期，并将周期标记为`complete`、`preliminary`或`partial`。延迟或失败的来源必须保持为空并等待回补，不能写成0。完整设计见`docs/analytics-time-model.md`。
+
+## 飞书 V3 每日运营看板
+
+V3 已启用“时间 × 产品”每日模型，并保留 V2 周数据作为回退：
+
+- `全站每日数据`：28 条全站日记录。
+- `产品每日数据`：616 条产品末级分类日记录。
+- `信息页每日数据`：1,764 条信息主题与内容类型日记录。
+- `负责人驾驶舱 V3`、`产品表现 V3`、`内容与 SEO V3`：共 22 个组件，其中 19 个数据图表。
+
+三个看板顶部均有`数据日期`筛选，默认是`过去 30 天内`。点击`筛选`可以改成过去 7 天、本月、上月、单日；任意起止日期可组合日期条件。图表内置`数据状态 = 完整`，只显示三个来源均已最终化的日记录。
+
+V3 的表创建、断点续传写入和回读验收命令分别是：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\apply_feishu_dashboard_v3_tables.py --base-token '<base token>' --contract config\feishu_dashboard\v3\data_contract.json --backfill '<audited backfill JSON>' --target config\feishu_dashboard\v3\sync_target.json
+.\.venv\Scripts\python.exe scripts\apply_feishu_dashboard_v3_records.py --contract config\feishu_dashboard\v3\data_contract.json --backfill '<audited backfill JSON>' --target config\feishu_dashboard\v3\sync_target.json
+.\.venv\Scripts\python.exe scripts\verify_feishu_dashboard_v3.py --contract config\feishu_dashboard\v3\data_contract.json --backfill '<audited backfill JSON>' --target config\feishu_dashboard\v3\sync_target.json
+```
+
+以上命令默认都是只读或 dry-run；只有显式增加`--apply`才会创建表或补写缺失记录。记录同步以稳定键去重，不会覆盖 V2，也不会删除飞书记录。自定义日期指标卡是每日可加指标的汇总；活跃用户、日点击率和平均排名等不可加指标不进入默认看板，需要时应重新调用对应来源的完整区间 API。

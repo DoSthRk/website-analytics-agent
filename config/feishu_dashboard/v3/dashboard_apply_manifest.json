@@ -1,0 +1,230 @@
+{
+  "version": "3",
+  "date_filter": {
+    "field": "数据日期",
+    "mode": "global_range",
+    "default": "过去30天内",
+    "managed_via": "feishu_ui"
+  },
+  "dashboards": [
+    {
+      "name": "负责人驾驶舱 V3",
+      "blocks": [
+        {
+          "name": "阅读说明",
+          "type": "text",
+          "data_config": {
+            "text": "# 负责人驾驶舱 · 可选日期\n顶部“数据日期”用于切换最近7天、最近28天、本月或任意起止日期。\n\n**官网访问次数**来自 GA4，**Google自然搜索点击**来自 GSC，**官网入库询盘**来自官网数据库。三类来源按各自日界线统计，只做并列观察，不直接视为严格转化漏斗。\n\n建议先看访问与搜索是否同向，再看 GA4 表单事件和官网入库询盘；若访问较高但询盘较低，再检查页面内容、行动按钮和表单链路。"
+          }
+        },
+        {
+          "name": "官网访问次数",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "Google自然搜索点击",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "表单提交事件（GA4）",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "表单提交事件（GA4）", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "官网入库询盘",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "官网入库询盘", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "产品页访问次数",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "产品页访问次数", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "信息页访问次数",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "信息页访问次数", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "其他页面访问次数",
+          "type": "statistics",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "其他页面访问次数", "rollup": "SUM"}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "官网访问趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "group_by": [{"field_name": "数据日期", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "Google自然搜索点击趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "group_by": [{"field_name": "数据日期", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "官网入库询盘趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "全站每日数据",
+            "series": [{"field_name": "官网入库询盘", "rollup": "SUM"}],
+            "group_by": [{"field_name": "数据日期", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "产品表现 V3",
+      "blocks": [
+        {
+          "name": "阅读说明",
+          "type": "text",
+          "data_config": {
+            "text": "# 产品 × 时间\n顶部日期筛选会同步影响本页所有图表。柱状图用于比较产品，折线图用于观察随时间的变化。\n\n访问来自 GA4，搜索点击来自 GSC，询盘来自官网数据库。产品分类只纳入已确认的产品页，并使用已审核的详细产品映射；信息页和其他页面不会混入。\n\n**运营判断：**访问高但搜索低，检查 SEO 覆盖；搜索有点击但询盘低，检查页面说服力、CTA 和表单；连续出现询盘的产品，再结合销售反馈判断质量。"
+          }
+        },
+        {
+          "name": "产品访问排行",
+          "type": "bar",
+          "data_config": {
+            "table_name": "产品每日数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "group_by": [{"field_name": "产品分类", "mode": "integrated", "sort": {"type": "value", "order": "desc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "产品搜索点击排行",
+          "type": "bar",
+          "data_config": {
+            "table_name": "产品每日数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "group_by": [{"field_name": "产品分类", "mode": "integrated", "sort": {"type": "value", "order": "desc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "产品询盘排行",
+          "type": "bar",
+          "data_config": {
+            "table_name": "产品每日数据",
+            "series": [{"field_name": "官网入库询盘", "rollup": "SUM"}],
+            "group_by": [{"field_name": "产品分类", "mode": "integrated", "sort": {"type": "value", "order": "desc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "一级分类访问趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "产品每日数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "group_by": [{"field_name": "数据日期", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}, {"field_name": "一级分类", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "一级分类搜索趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "产品每日数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "group_by": [{"field_name": "数据日期", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}, {"field_name": "一级分类", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        }
+      ]
+    },
+    {
+      "name": "内容与 SEO V3",
+      "blocks": [
+        {
+          "name": "阅读说明",
+          "type": "text",
+          "data_config": {
+            "text": "# 信息页 × 时间\n本页只看已确认的信息页，并按“信息主题”和“内容类型”聚合。顶部日期筛选可选择任意时间范围。\n\n主题回答“内容在讲哪个业务方向”，内容类型回答“它是什么形式”。访问来自 GA4，Google 搜索表现来自 GSC，官网入库询盘来自数据库。\n\n**运营判断：**曝光高但点击低，优先优化标题和搜索摘要；点击高但访问或询盘承接弱，检查落地页内容与 CTA；持续增长的主题可继续扩充内容。"
+          }
+        },
+        {
+          "name": "信息主题访问",
+          "type": "bar",
+          "data_config": {
+            "table_name": "信息页每日数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "group_by": [{"field_name": "信息主题", "mode": "integrated", "sort": {"type": "value", "order": "desc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "内容类型搜索点击",
+          "type": "bar",
+          "data_config": {
+            "table_name": "信息页每日数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "group_by": [{"field_name": "内容类型", "mode": "integrated", "sort": {"type": "value", "order": "desc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "信息主题访问趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "信息页每日数据",
+            "series": [{"field_name": "官网访问次数", "rollup": "SUM"}],
+            "group_by": [{"field_name": "数据日期", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}, {"field_name": "信息主题", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        },
+        {
+          "name": "内容类型搜索趋势",
+          "type": "line",
+          "data_config": {
+            "table_name": "信息页每日数据",
+            "series": [{"field_name": "Google自然搜索点击", "rollup": "SUM"}],
+            "group_by": [{"field_name": "数据日期", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}, {"field_name": "内容类型", "mode": "integrated", "sort": {"type": "group", "order": "asc"}}],
+            "filter": {"conjunction": "and", "conditions": [{"field_name": "数据状态", "operator": "is", "value": "完整"}]}
+          }
+        }
+      ]
+    }
+  ]
+}

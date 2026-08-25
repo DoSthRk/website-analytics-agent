@@ -1,0 +1,132 @@
+{
+  "dashboards": [
+    {
+      "name": "负责人驾驶舱 V3",
+      "dashboard_id": "blk078DBfzaLOvhD",
+      "blocks": [
+        {
+          "name": "阅读说明",
+          "type": "text",
+          "block_id": "chtcn6mJsYHYKdLzAT19ItIb0de"
+        },
+        {
+          "name": "官网访问次数",
+          "type": "statistics",
+          "block_id": "chtcnk2s0j0BhCS2HdQWPHZdLIf"
+        },
+        {
+          "name": "Google自然搜索点击",
+          "type": "statistics",
+          "block_id": "chtcnr448EVU11TTQa1XH6D5bnd"
+        },
+        {
+          "name": "表单提交事件（GA4）",
+          "type": "statistics",
+          "block_id": "chtcngCZbW9gespvOkAHpXnwF7f"
+        },
+        {
+          "name": "官网入库询盘",
+          "type": "statistics",
+          "block_id": "chtcn6mrWmPrYH2ci1xh9pOU0cg"
+        },
+        {
+          "name": "产品页访问次数",
+          "type": "statistics",
+          "block_id": "chtcnVNTnTxShI8mWuwATXlirDh"
+        },
+        {
+          "name": "信息页访问次数",
+          "type": "statistics",
+          "block_id": "chtcnGFEGdtNx4kOinnveL4clcg"
+        },
+        {
+          "name": "其他页面访问次数",
+          "type": "statistics",
+          "block_id": "chtcnF2MgAVtsDzQf8szLMNejDg"
+        },
+        {
+          "name": "官网访问趋势",
+          "type": "line",
+          "block_id": "chtcnDbJdYoGNcJfuHddrnDxIGh"
+        },
+        {
+          "name": "Google自然搜索点击趋势",
+          "type": "line",
+          "block_id": "chtcnDFXjPHk0iLT6wllQ8QYPUb"
+        },
+        {
+          "name": "官网入库询盘趋势",
+          "type": "line",
+          "block_id": "chtcnwOSJzkDLHHEPIfBVDt6Gid"
+        }
+      ]
+    },
+    {
+      "name": "产品表现 V3",
+      "dashboard_id": "blkDAELKkoTatW2T",
+      "blocks": [
+        {
+          "name": "阅读说明",
+          "type": "text",
+          "block_id": "chtcnllh91qeOCoa4wf0uzSnYlb"
+        },
+        {
+          "name": "产品访问排行",
+          "type": "bar",
+          "block_id": "chtcnPZoGL5NchiV5HwqH5hNqEg"
+        },
+        {
+          "name": "产品搜索点击排行",
+          "type": "bar",
+          "block_id": "chtcnpADgCj0uBTYVBCZcbbnURb"
+        },
+        {
+          "name": "产品询盘排行",
+          "type": "bar",
+          "block_id": "chtcndDUIeoHIiLrCxg5RTQcdug"
+        },
+        {
+          "name": "一级分类访问趋势",
+          "type": "line",
+          "block_id": "chtcnwrdDR8gIWfZR6taCQFZ3Wb"
+        },
+        {
+          "name": "一级分类搜索趋势",
+          "type": "line",
+          "block_id": "chtcnk8iyuo6cGkaqe5nOqnNrph"
+        }
+      ]
+    },
+    {
+      "name": "内容与 SEO V3",
+      "dashboard_id": "blkNhicQdxc6VHzm",
+      "blocks": [
+        {
+          "name": "阅读说明",
+          "type": "text",
+          "block_id": "chtcntnXt9wT7FoaEn4aFHR1zXc"
+        },
+        {
+          "name": "信息主题访问",
+          "type": "bar",
+          "block_id": "chtcnoK4mfhABLQQsICEzX3iTkc"
+        },
+        {
+          "name": "内容类型搜索点击",
+          "type": "bar",
+          "block_id": "chtcnj3PSgcTPsHmDeukjYaahlc"
+        },
+        {
+          "name": "信息主题访问趋势",
+          "type": "line",
+          "block_id": "chtcn5A30GxEHk88ANL4AZGTrbh"
+        },
+        {
+          "name": "内容类型搜索趋势",
+          "type": "line",
+          "block_id": "chtcnuOahX5upyQyIDcQZDJEutc"
+        }
+      ]
+    }
+  ]
+}

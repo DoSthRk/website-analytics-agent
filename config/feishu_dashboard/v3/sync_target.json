@@ -1,0 +1,10 @@
+{
+  "version": "3",
+  "base_token": "Qk54bBp6Zacl8BsIK07cUrWange",
+  "identity": "user",
+  "tables": {
+    "overview_daily": "tbliAunXKVuFuFyk",
+    "product_daily": "tblpdFHN9WoCWx7O",
+    "information_daily": "tblBi1eHCsATdLkQ"
+  }
+}

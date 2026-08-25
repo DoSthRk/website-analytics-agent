@@ -1,14 +1,14 @@
 {
   "version": "3",
-  "status": "draft",
-  "write_enabled": false,
+  "status": "active",
+  "write_enabled": true,
   "site": "genemedi-net",
   "model": "daily_time_x_product_with_information_dimensions",
   "date_filter": {
     "field": "数据日期",
     "mode": "custom_range",
     "inclusive": true,
-    "default": "最近7个完整数据日",
+    "default": "过去30天内",
     "maximum_history_days": 400,
     "rule": "只同步三类来源均达到最终状态的单日记录；看板按数据日期筛选后求和。"
   },

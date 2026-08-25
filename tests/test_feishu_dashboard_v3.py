@@ -30,7 +30,8 @@ def test_v3_manifest_references_only_declared_additive_fields() -> None:
     contract = json.loads(CONTRACT_PATH.read_text(encoding="utf-8"))
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     assert contract["version"] == manifest["version"] == "3"
-    assert contract["write_enabled"] is manifest["write_enabled"] is False
+    assert contract["status"] == manifest["status"] == "active"
+    assert contract["write_enabled"] is manifest["write_enabled"] is True
     assert contract["date_filter"]["mode"] == "custom_range"
     assert manifest["date_selection"]["field"] == "数据日期"
 
