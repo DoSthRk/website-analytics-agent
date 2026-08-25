@@ -155,8 +155,6 @@ def build_table_fields(
                     if (value := row.get(str(field["key"]))) not in (None, "")
                 }
             )
-            if not values:
-                raise ValueError(f"select field has no options: {name}")
             definition["multiple"] = False
             definition["options"] = [
                 {

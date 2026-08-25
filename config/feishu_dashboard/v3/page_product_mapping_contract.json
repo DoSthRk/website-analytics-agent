@@ -1,0 +1,49 @@
+{
+  "version": "1",
+  "logical_name": "page_product_mapping",
+  "display_name": "网页URL映射",
+  "stable_key": "URL键",
+  "grain": "站点 × 规范URL",
+  "partitions": [
+    {
+      "key": "product_tarmart",
+      "display_name": "产品URL映射-TARMART",
+      "page_classes": ["product_page"],
+      "category_l1": ["TARMART"]
+    },
+    {
+      "key": "product_other",
+      "display_name": "产品URL映射-其他产品",
+      "page_classes": ["product_page"],
+      "exclude_category_l1": ["TARMART"]
+    },
+    {
+      "key": "information",
+      "display_name": "信息与异常URL映射",
+      "page_classes": ["information_page", "invalid_broken"]
+    }
+  ],
+  "fields": [
+    {"key": "url_key", "name": "URL键", "type": "text"},
+    {"key": "site", "name": "站点", "type": "text"},
+    {"key": "hostname", "name": "Hostname", "type": "text"},
+    {"key": "full_url", "name": "完整URL", "type": "text"},
+    {"key": "canonical_path", "name": "规范路径", "type": "text"},
+    {"key": "page_id", "name": "页面ID", "type": "text"},
+    {"key": "template", "name": "页面模板", "type": "text"},
+    {"key": "page_class", "name": "页面类型", "type": "select"},
+    {"key": "classification_status", "name": "页面分类状态", "type": "select"},
+    {"key": "product_category_id", "name": "产品分类ID", "type": "text"},
+    {"key": "product_category", "name": "产品分类", "type": "text"},
+    {"key": "category_l1", "name": "一级分类", "type": "select"},
+    {"key": "category_l2", "name": "二级分类", "type": "select"},
+    {"key": "category_l3", "name": "三级分类", "type": "select"},
+    {"key": "mapping_rule_id", "name": "产品映射规则", "type": "text"},
+    {"key": "mapping_status", "name": "产品映射状态", "type": "select"},
+    {"key": "include_in_product_report", "name": "纳入产品分析", "type": "select"},
+    {"key": "page_classification_version", "name": "页面分类版本", "type": "text"},
+    {"key": "product_mapping_version", "name": "产品映射版本", "type": "text"},
+    {"key": "source_snapshot_at", "name": "源快照时间", "type": "datetime"},
+    {"key": "row_hash", "name": "行校验值", "type": "text"}
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "version": "1",
+  "base_token": "Qk54bBp6Zacl8BsIK07cUrWange",
+  "identity": "user",
+  "tables": {
+    "product_tarmart": "tblOWtqQaNMjHjxG",
+    "product_other": "tblWWv0FSSHh9m7j",
+    "information": "tblOzndwgGUVq1ay"
+  }
+}

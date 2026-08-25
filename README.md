@@ -208,3 +208,23 @@ V3 的表创建、断点续传写入和回读验收命令分别是：
 ```
 
 以上命令默认都是只读或 dry-run；只有显式增加`--apply`才会创建表或补写缺失记录。记录同步以稳定键去重，不会覆盖 V2，也不会删除飞书记录。自定义日期指标卡是每日可加指标的汇总；活跃用户、日点击率和平均排名等不可加指标不进入默认看板，需要时应重新调用对应来源的完整区间 API。
+
+## 网页 URL 主数据映射
+
+审核通过的 `genemedi-net` 页面维表已按“规范 URL × 页面类型 × 产品层级”发布到飞书。产品字段只允许出现在 `product_page`，信息页和异常 URL 的产品字段保持为空。由于飞书单表最多容纳 20,000 条记录，33,918 条 URL 被无重叠、无遗漏地拆为：
+
+- `产品URL映射-TARMART`：16,237 条产品页。
+- `产品URL映射-其他产品`：6,724 条产品页。
+- `信息与异常URL映射`：10,937 条信息页和 20 条异常 URL，共 10,957 条。
+
+映射基于 2026-08-24 的不可变官网页面快照，页面分类版本和产品映射版本都随每行写入。旧的 19,954 条不完整表保留并改名为`网页-产品分类映射（旧版错误且不完整）`，不得作为统计或运营筛选的数据源。
+
+映射产物的构建、幂等同步和全字段回读验收命令如下：
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_feishu_page_product_mapping.py --site genemedi-net --page-dimension-snapshot outputs\feishu-v3-backfill\source\page_dimension.json --output outputs\feishu-v3-page-product-mapping\genemedi-net_2026-08-24.json
+.\.venv\Scripts\python.exe scripts\apply_feishu_page_product_mapping.py --contract config\feishu_dashboard\v3\page_product_mapping_contract.json --data outputs\feishu-v3-page-product-mapping\genemedi-net_2026-08-24.json --daily-target config\feishu_dashboard\v3\sync_target.json --target config\feishu_dashboard\v3\page_product_mapping_target.json
+.\.venv\Scripts\python.exe scripts\verify_feishu_page_product_mapping.py --contract config\feishu_dashboard\v3\page_product_mapping_contract.json --data outputs\feishu-v3-page-product-mapping\genemedi-net_2026-08-24.json --target config\feishu_dashboard\v3\page_product_mapping_target.json
+```
+
+同步命令默认只生成差异计划；仅显式增加`--apply`才会创建表或补写/更新记录。全字段验收会读取三张表的全部 21 列，并逐单元格与审核产物比较。
