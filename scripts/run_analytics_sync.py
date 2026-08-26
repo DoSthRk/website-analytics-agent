@@ -21,7 +21,11 @@ from website_analytics.feishu_records import (
     load_feishu_target,
     sync_record_sets,
 )
-from website_analytics.feishu_v3 import additive_totals, load_json_object
+from website_analytics.feishu_v3 import (
+    additive_totals,
+    load_json_object,
+    validate_contract,
+)
 from website_analytics.feishu_v3_sync import (
     load_feishu_v3_target,
     sync_v3_record_sets,
@@ -179,6 +183,12 @@ def main() -> int:
     args = _arguments()
     if (args.v3_contract is None) != (args.v3_target is None):
         raise ValueError("--v3-contract and --v3-target must be configured together")
+    v3_contract: dict[str, Any] | None = None
+    v3_target = None
+    if args.v3_contract is not None and args.v3_target is not None:
+        v3_contract = load_json_object(args.v3_contract)
+        validate_contract(v3_contract)
+        v3_target = load_feishu_v3_target(args.v3_target)
     profile = load_sync_profile(args.profile)
     site = require_site(load_sites(args.site_config), profile.site)
     if site.timezone != profile.selection_timezone:
@@ -329,12 +339,11 @@ def main() -> int:
             overview,
             products,
         )
-        if v3_document is not None and args.v3_target is not None:
-            v3_target = load_feishu_v3_target(args.v3_target)
+        if v3_document is not None and v3_target is not None and v3_contract is not None:
             v3_write_result = sync_v3_record_sets(
                 LarkCLIRecordClient(v3_target.record_client_target()),
                 v3_target,
-                load_json_object(args.v3_contract),
+                v3_contract,
                 v3_document,
             )
     summary = {
