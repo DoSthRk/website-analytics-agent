@@ -337,8 +337,9 @@ def test_live_adapter_factory_returns_both_approved_clients(
         observed["scopes"] = scopes
         return credentials, None
 
-    def fake_ga4_client(*, credentials: object) -> object:
+    def fake_ga4_client(*, credentials: object, transport: str) -> object:
         observed["ga4_credentials"] = credentials
+        observed["ga4_transport"] = transport
         return ga4_client
 
     def fake_build(
@@ -370,6 +371,7 @@ def test_live_adapter_factory_returns_both_approved_clients(
             "https://www.googleapis.com/auth/webmasters.readonly",
         ),
         "ga4_credentials": credentials,
+        "ga4_transport": "rest",
         "gsc_build": ("searchconsole", "v1", credentials, False),
     }
 

@@ -486,7 +486,9 @@ def _create_live_adapters() -> tuple[GA4Adapter, GSCAdapter]:
         )
     )
     return (
-        GA4Adapter(BetaAnalyticsDataClient(credentials=credentials)),
+        # REST uses the service's explicit HTTP(S)_PROXY settings. The default
+        # gRPC transport does not reliably follow the split-proxy deployment.
+        GA4Adapter(BetaAnalyticsDataClient(credentials=credentials, transport="rest")),
         GSCAdapter(
             build(
                 "searchconsole",
