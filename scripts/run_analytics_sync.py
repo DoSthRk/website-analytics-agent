@@ -15,10 +15,16 @@ from zoneinfo import ZoneInfo
 from website_analytics.config import load_sites, require_site
 from website_analytics.adapters.page_dimension import create_page_dimension_adapter
 from website_analytics.dashboard_sync import build_dashboard_records, load_period_details
+from website_analytics.dashboard_v3 import build_v3_daily_records
 from website_analytics.feishu_records import (
     LarkCLIRecordClient,
     load_feishu_target,
     sync_record_sets,
+)
+from website_analytics.feishu_v3 import additive_totals, load_json_object
+from website_analytics.feishu_v3_sync import (
+    load_feishu_v3_target,
+    sync_v3_record_sets,
 )
 from website_analytics.information_mapping import load_information_mapping
 from website_analytics.periods import AnalyticsPeriod, period_key, previous_analytics_period
@@ -58,6 +64,16 @@ def _arguments() -> argparse.Namespace:
         "--target",
         type=Path,
         default=Path("config/feishu_dashboard/v2/sync_target.json"),
+    )
+    parser.add_argument(
+        "--v3-contract",
+        type=Path,
+        help="Optional validated V3 daily-table contract",
+    )
+    parser.add_argument(
+        "--v3-target",
+        type=Path,
+        help="Optional registered V3 daily-table target",
     )
     parser.add_argument("--apply", action="store_true", help="Write aggregate rows to Feishu")
     return parser.parse_args()
@@ -161,6 +177,8 @@ def _write_json(path: Path, value: Any) -> None:
 
 def main() -> int:
     args = _arguments()
+    if (args.v3_contract is None) != (args.v3_target is None):
+        raise ValueError("--v3-contract and --v3-target must be configured together")
     profile = load_sync_profile(args.profile)
     site = require_site(load_sites(args.site_config), profile.site)
     if site.timezone != profile.selection_timezone:
@@ -239,11 +257,70 @@ def main() -> int:
         overview.append(records["overview"])
         products.extend(records["products"])
 
+    v3_document: dict[str, Any] | None = None
+    if args.v3_contract is not None:
+        v3_records: dict[str, list[dict[str, Any]]] = {
+            "overview_daily": [],
+            "product_daily": [],
+            "information_daily": [],
+        }
+        finalized_days: list[str] = []
+        for period in target_periods:
+            key = period_key(profile.site, period)
+            if period.kind != "day" or plan_by_key[key].get("isFinal") is not True:
+                continue
+            payload = build_v3_daily_records(
+                site=profile.site,
+                data_date=period.start,
+                fetch_result=fetched[key],
+                details=details[key],
+                product_mapping=mapping,
+                page_dimension=page_dimension,
+                information_mapping=information_mapping,
+            )
+            for logical_name in v3_records:
+                rows = payload["records"].get(logical_name)
+                if not isinstance(rows, list):
+                    raise ValueError("V3 daily payload is missing a declared table")
+                v3_records[logical_name].extend(rows)
+            finalized_days.append(period.start.isoformat())
+        if not finalized_days:
+            raise ValueError("V3 sync selection contains no finalized daily facts")
+        record_counts = {name: len(rows) for name, rows in v3_records.items()}
+        v3_document = {
+            "schema_version": "3",
+            "mode": "incremental_daily_sync",
+            "write_enabled": args.apply,
+            "site": profile.site,
+            "date_range": {
+                "start": min(finalized_days),
+                "end": max(finalized_days),
+                "inclusive": True,
+                "days": len(finalized_days),
+            },
+            "generated_at": generated_at.isoformat().replace("+00:00", "Z"),
+            "records": v3_records,
+            "reconciliation": {
+                "status": "passed",
+                "complete_days": len(finalized_days),
+                "record_counts": record_counts,
+                "unique_stable_keys": True,
+                "additive_totals": additive_totals(v3_records),
+                "page_dimension": dict(page_dimension.summary),
+                "page_classification_version": page_dimension.version,
+                "product_mapping_version": mapping.version,
+                "information_mapping_version": information_mapping.version,
+            },
+        }
+
     run_dir = args.output_dir / batch
     run_dir.mkdir(parents=True, exist_ok=False)
     _write_json(run_dir / "overview.json", overview)
     _write_json(run_dir / "products.json", products)
+    if v3_document is not None:
+        _write_json(run_dir / "v3-daily.json", v3_document)
     write_result: dict[str, int] | None = None
+    v3_write_result: dict[str, dict[str, int]] | None = None
     if args.apply:
         target = load_feishu_target(args.target)
         write_result = sync_record_sets(
@@ -252,6 +329,14 @@ def main() -> int:
             overview,
             products,
         )
+        if v3_document is not None and args.v3_target is not None:
+            v3_target = load_feishu_v3_target(args.v3_target)
+            v3_write_result = sync_v3_record_sets(
+                LarkCLIRecordClient(v3_target.record_client_target()),
+                v3_target,
+                load_json_object(args.v3_contract),
+                v3_document,
+            )
     summary = {
         "status": "ok",
         "mode": "apply" if args.apply else "dry-run",
@@ -266,6 +351,11 @@ def main() -> int:
         "product_mapping_version": mapping.version,
         "information_mapping_version": information_mapping.version,
         "feishu": write_result,
+        "feishu_v3": {
+            "date_range": v3_document["date_range"],
+            "record_counts": v3_document["reconciliation"]["record_counts"],
+            "write_result": v3_write_result,
+        } if v3_document is not None else None,
         "output_dir": str(run_dir),
     }
     _write_json(run_dir / "summary.json", summary)
