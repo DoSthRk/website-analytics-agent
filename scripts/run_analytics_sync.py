@@ -79,6 +79,11 @@ def _arguments() -> argparse.Namespace:
         type=Path,
         help="Optional registered V3 daily-table target",
     )
+    parser.add_argument(
+        "--v3-only",
+        action="store_true",
+        help="Write only V3 daily tables and leave legacy V2 tables unchanged",
+    )
     parser.add_argument("--apply", action="store_true", help="Write aggregate rows to Feishu")
     return parser.parse_args()
 
@@ -183,6 +188,8 @@ def main() -> int:
     args = _arguments()
     if (args.v3_contract is None) != (args.v3_target is None):
         raise ValueError("--v3-contract and --v3-target must be configured together")
+    if args.v3_only and args.v3_contract is None:
+        raise ValueError("--v3-only requires --v3-contract and --v3-target")
     v3_contract: dict[str, Any] | None = None
     v3_target = None
     if args.v3_contract is not None and args.v3_target is not None:
@@ -329,16 +336,19 @@ def main() -> int:
     _write_json(run_dir / "products.json", products)
     if v3_document is not None:
         _write_json(run_dir / "v3-daily.json", v3_document)
-    write_result: dict[str, int] | None = None
+    write_result: dict[str, int | str] | None = None
     v3_write_result: dict[str, dict[str, int]] | None = None
     if args.apply:
-        target = load_feishu_target(args.target)
-        write_result = sync_record_sets(
-            LarkCLIRecordClient(target),
-            target,
-            overview,
-            products,
-        )
+        if args.v3_only:
+            write_result = {"status": "skipped", "reason": "v3_only"}
+        else:
+            target = load_feishu_target(args.target)
+            write_result = sync_record_sets(
+                LarkCLIRecordClient(target),
+                target,
+                overview,
+                products,
+            )
         if v3_document is not None and v3_target is not None and v3_contract is not None:
             v3_write_result = sync_v3_record_sets(
                 LarkCLIRecordClient(v3_target.record_client_target()),

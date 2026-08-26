@@ -209,8 +209,8 @@ V3 的表创建、断点续传写入和回读验收命令分别是：
 
 以上命令默认都是只读或 dry-run；只有显式增加`--apply`才会创建表或补写缺失记录。记录同步以稳定键去重，不会覆盖 V2，也不会删除飞书记录。自定义日期指标卡是每日可加指标的汇总；活跃用户、日点击率和平均排名等不可加指标不进入默认看板，需要时应重新调用对应来源的完整区间 API。
 
-生产服务器的 `website-analytics-sync@intraday.service` 同时维护 V2 回退表和
-V3 每日事实表。V3 只接收同步计划中 `isFinal=true` 的单日数据：每次先检查三张
+生产服务器的 `website-analytics-sync@intraday.service` 以 V3 每日事实表为唯一
+自动写入目标；旧 V2 表保留为历史回退快照，不再接收新分类数据。V3 只接收同步计划中 `isFinal=true` 的单日数据：每次先检查三张
 表的稳定键，再新增缺失日期，并且只更新指标或映射真正发生变化的记录；仅刷新
 时间变化不会产生飞书写入。历史记录不会被删除，任一来源失败或明细截断时也不会
 把缺失值写成 0。每批写入完成后会重新读取三张表，并逐键核对本批指标。服务参数
@@ -223,6 +223,7 @@ GA4/GSC 与飞书分别使用各自明确的代理环境变量。
 ```text
 --v3-contract config/feishu_dashboard/v3/data_contract.json
 --v3-target config/feishu_dashboard/v3/sync_target.json
+--v3-only
 ```
 
 ## 网页 URL 主数据映射
