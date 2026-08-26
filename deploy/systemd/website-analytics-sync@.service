@@ -14,6 +14,9 @@ Environment=HOME=/var/lib/website-analytics
 Environment=GOOGLE_APPLICATION_CREDENTIALS=/var/lib/website-analytics/.config/gcloud/application_default_credentials.json
 Environment=LARKSUITE_CLI_NO_UPDATE_NOTIFIER=1
 Environment=LARKSUITE_CLI_NO_SKILLS_NOTIFIER=1
+Environment=HTTP_PROXY=http://127.0.0.1:8890
+Environment=HTTPS_PROXY=http://127.0.0.1:8890
+Environment=NO_PROXY=127.0.0.1,localhost
 Environment=LARK_CLI_HTTP_PROXY=http://127.0.0.1:8890
 Environment=LARK_CLI_HTTPS_PROXY=http://127.0.0.1:8890
 Environment=PATH=/opt/website-analytics/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin

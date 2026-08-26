@@ -216,6 +216,10 @@ V3 每日事实表。V3 只接收同步计划中 `isFinal=true` 的单日数据�
 把缺失值写成 0。每批写入完成后会重新读取三张表，并逐键核对本批指标。服务参数
 中的 V3 契约与目标必须成对提供：
 
+Google API 请求由该服务显式通过服务器本机代理 `127.0.0.1:8890` 发出，
+`NO_PROXY` 保留本机控制器直连。同步任务不依赖其他项目共享的全局 TUN 流量路径；
+GA4/GSC 与飞书分别使用各自明确的代理环境变量。
+
 ```text
 --v3-contract config/feishu_dashboard/v3/data_contract.json
 --v3-target config/feishu_dashboard/v3/sync_target.json
