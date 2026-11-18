@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -73,6 +74,9 @@ def test_v3_only_fetches_exact_final_days_and_does_not_build_or_write_v2(monkeyp
     run = Path(result['output_dir'])
     assert not (run/'overview.json').exists() and not (run/'products.json').exists()
     assert json.loads((tmp_path/'runs/latest-run-status.json').read_text())['status'] == 'ok'
+    # The deployed full-site publisher reads run time from this token.
+    assert re.search(r'\d{8}T\d{6}Z', run.name)
+    assert run.name.startswith(f'{scope}-')
 
 
 def test_source_failure_reports_stage_without_secrets_or_false_zeros(monkeypatch,tmp_path,capsys):

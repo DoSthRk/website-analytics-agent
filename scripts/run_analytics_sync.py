@@ -227,7 +227,12 @@ def main() -> int:
     if args.v3_only and args.v3_contract is None:
         raise ValueError("--v3-only requires --v3-contract and --v3-target")
     generated_at = datetime.now(timezone.utc)
-    batch = f"{args.scope}-{generated_at.strftime('%Y%m%dT%H%M%S%fZ')}"
+    # The full-site publisher orders runs by the first ``\d{8}T\d{6}Z`` in the
+    # directory name; keep that token intact and make it unique with a suffix.
+    batch = (
+        f"{args.scope}-{generated_at.strftime('%Y%m%dT%H%M%SZ')}"
+        f"-{generated_at.microsecond:06d}"
+    )
     args.output_dir.mkdir(parents=True, exist_ok=True)
     run_dir = args.output_dir / batch
     run_dir.mkdir(exist_ok=False)
