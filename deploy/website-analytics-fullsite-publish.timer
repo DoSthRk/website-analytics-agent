@@ -1,0 +1,12 @@
+[Unit]
+Description=Check for successfully updated full-site aggregates every 15 minutes
+
+[Timer]
+OnCalendar=*-*-* *:00,15,30,45:00 UTC
+Persistent=true
+RandomizedDelaySec=20
+AccuracySec=5s
+Unit=website-analytics-fullsite-publish.service
+
+[Install]
+WantedBy=timers.target

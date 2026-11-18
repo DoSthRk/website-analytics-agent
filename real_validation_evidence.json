@@ -1,0 +1,62 @@
+{
+  "status": "pass",
+  "mode": "Read-only SSH stdin validation; no server files written",
+  "database": "/var/lib/website-analytics-query/fullsite/fullsite.sqlite",
+  "publisher_sha256": "d6951bc0ca053c761d69298dbd68126e4390609f0ce2bbf7c358cd06eb2ed7f8",
+  "comparison_count": 19,
+  "all_numeric_multisets_and_row_counts_equal": true,
+  "interval_samples": {
+    "ga4_pages": [
+      89,
+      256859
+    ],
+    "gsc_pages": [
+      0,
+      15558
+    ],
+    "gsc_queries": [
+      0,
+      33768
+    ],
+    "inquiry_pages": [
+      0,
+      160
+    ]
+  },
+  "all_daily_latest_counts": {
+    "ga4_daily": 1274,
+    "gsc_daily": 498,
+    "inquiry_daily": 265
+  },
+  "all_derived_latest_counts": {
+    "ga4_totals": 377,
+    "information_daily": 3843,
+    "overview_daily": 61,
+    "overview_periods": 258,
+    "product_daily": 1342,
+    "product_funnel_daily": 1320,
+    "product_funnel_stages_daily": 6600,
+    "product_periods": 5297
+  },
+  "catalog_dataset_count": 15,
+  "catalog_interval_count": 4669,
+  "catalog_pagination_complete": true,
+  "sqlite_quick_check": "ok",
+  "limitation": "Interval comparisons sample smallest and largest windows per dataset, not every interval. Daily and derived comparisons cover all saved rows. No Windows-device validation.",
+  "privacy_scan": {
+    "status": "pass",
+    "scanned_rows": 10208826,
+    "dataset_count": 15,
+    "field_count": 123,
+    "nested_fields": 0,
+    "nonfinite_values": 0,
+    "url_private_components": 0,
+    "url_or_query_email_patterns": 0,
+    "block_count_mismatches": 0,
+    "initial_scanner_allowlist_omission": "ambiguity_reason",
+    "fixed_reason_records_checked": 925,
+    "fixed_reason_scope_count": 177,
+    "fixed_reason_value_mismatches": 0,
+    "note": "Whole-database first scan completed; only unknown field was safe publisher-generated ambiguity_reason. Targeted follow-up verified all 925 occurrences equal the approved fixed string."
+  }
+}
