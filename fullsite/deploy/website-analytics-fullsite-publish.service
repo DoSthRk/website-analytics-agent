@@ -1,0 +1,35 @@
+[Unit]
+Description=Publish sanitized full-site aggregate query snapshot from existing successful source caches
+After=local-fs.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+ExecCondition=/usr/bin/python3 -I -B /opt/website-analytics-query/fullsite-20261110/source_idle.py
+ExecStart=/usr/bin/python3 -I -B /opt/website-analytics-query/fullsite-20261110/publish_fullsite.py /var/lib/website-analytics-query/fullsite/fullsite.sqlite
+UMask=0027
+TimeoutStartSec=20min
+MemoryMax=768M
+TasksMax=8
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_READ_SEARCH
+AmbientCapabilities=
+PrivateNetwork=yes
+RestrictAddressFamilies=AF_UNIX
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+ReadOnlyPaths=/opt/website-analytics/shared/cache /opt/website-analytics/shared/audits /opt/website-analytics/shared/sync-runs
+ReadWritePaths=/var/lib/website-analytics-query/fullsite
+InaccessiblePaths=-/opt/website-analytics/shared/analytics.env -/var/lib/website-analytics -/etc/ssh -/etc/website-analytics-refresh -/var/lib/website-analytics-refresh -/opt/website-analytics-refresh
+StandardOutput=journal
+StandardError=journal
