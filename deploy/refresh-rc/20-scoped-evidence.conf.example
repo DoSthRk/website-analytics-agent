@@ -1,0 +1,6 @@
+# PROPOSAL ONLY. Retain original service file/old evidence for rollback.
+[Service]
+WorkingDirectory=/opt/website-analytics-query/releases/@RELEASE_ID@
+ExecStart=
+ExecStart=/opt/website-analytics-query/releases/@RELEASE_ID@/venv-query/bin/python -I -B /opt/website-analytics-query/releases/@RELEASE_ID@/deploy/refresh-rc/query.py
+ReadOnlyPaths=/opt/website-analytics-query /var/lib/website-analytics-query

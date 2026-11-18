@@ -1,0 +1,22 @@
+# PROPOSAL ONLY. Append as a final Match block at EOF of sshd_config AFTER approval.
+# Do not blindly place this block in an early Include: Match context matters.
+# Preserve an existing administrator SSH session while validating/reloading.
+# No existing user's/root's authentication settings are changed by this Match.
+Match User analyticsquery-tunnel
+    AuthenticationMethods publickey
+    PubkeyAuthentication yes
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    AuthorizedKeysFile /etc/ssh/authorized_keys/%u
+    AllowTcpForwarding local
+    PermitOpen 127.0.0.1:8765
+    AllowStreamLocalForwarding no
+    PermitListen none
+    GatewayPorts no
+    MaxSessions 0
+    PermitTTY no
+    AllowAgentForwarding no
+    X11Forwarding no
+    PermitTunnel no
+    PermitUserRC no
+# Keep at EOF; no general/global directives below this Match block.

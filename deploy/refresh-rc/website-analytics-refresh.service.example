@@ -1,0 +1,27 @@
+# PROPOSAL ONLY; replace @RELEASE_ID@ after manifest verification. No timer/enable.
+[Unit]
+Description=Bounded website analytics shadow source pilot
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=websiteanalytics
+Group=websiteanalytics
+WorkingDirectory=/opt/website-analytics-refresh/releases/@RELEASE_ID@
+ExecStart=/opt/website-analytics-refresh/releases/@RELEASE_ID@/venv-worker/bin/python -I -B /opt/website-analytics-refresh/releases/@RELEASE_ID@/deploy/refresh-rc/source-pilot.py
+UMask=0077
+Restart=no
+TimeoutStartSec=600
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadWritePaths=/var/lib/website-analytics-refresh/worker /var/lib/website-analytics-refresh/outbox
+InaccessiblePaths=/var/lib/website-analytics-query /etc/ssh
+MemoryMax=512M
+TasksMax=32
+StandardOutput=journal
+StandardError=journal

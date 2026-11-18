@@ -1,0 +1,19 @@
+# PROPOSAL ONLY: after each colleague's public key is individually approved.
+# The matching private key stays on that colleague's device, never in the app/repo.
+# Fill ANALYTICS_SERVER_HOST with the administrator-verified existing SSH endpoint.
+Host genemedi-analytics-read
+    HostName ANALYTICS_SERVER_HOST
+    User analyticsquery-tunnel
+    Port 22
+    IdentityFile ~/.ssh/genemedi_analytics_read
+    IdentitiesOnly yes
+    StrictHostKeyChecking yes
+    ForwardAgent no
+    RequestTTY no
+    ExitOnForwardFailure yes
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+    LocalForward 127.0.0.1:8765 127.0.0.1:8765
+# Start explicitly with: ssh -N -T genemedi-analytics-read
+# Local and remote port must match the server's Host check. Do not switch only
+# the local side to 18765; that would correctly receive HTTP 403 from this app.

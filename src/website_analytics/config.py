@@ -162,7 +162,7 @@ def _optional_inquiry_source(
         return None
     if not isinstance(value, Mapping):
         raise ConfigError(f"site '{site_key}' field 'inquiry_source' must be a mapping")
-    allowed = {"kind", "credential_env", "credential_target", "site_scope", "site_scope_evidence"}
+    allowed = {"kind", "credential_env", "credential_target", "site_scope", "site_scope_evidence", "registered_database", "registered_table", "allowed_hosts"}
     _reject_unexpected_fields(
         value,
         frozenset(allowed),
@@ -187,15 +187,28 @@ def _optional_inquiry_source(
                 f"site '{site_key}' inquiry_source credential_target must be a WebsiteAnalytics/* name"
             )
     site_scope = value.get("site_scope")
-    if site_scope != "dedicated_database":
+    if site_scope not in {"dedicated_database", "fixed_registered_source"}:
         raise ConfigError(f"site '{site_key}' inquiry_source requires site_scope: dedicated_database; shared or unverified databases are unsupported")
     site_scope_evidence = _required_text(value, site_key, "site_scope_evidence")
+    database=table=None;hosts=()
+    if site_scope=="fixed_registered_source":
+        database=_required_text(value,site_key,"registered_database")
+        table=_required_text(value,site_key,"registered_table")
+        hosts=_required_list(value,site_key,"allowed_hosts")
+        normalized=tuple(h.casefold().rstrip(".") for h in hosts)
+        registered={d.casefold().rstrip(".") for d in site.get("domains",[])}
+        if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}",database) or table!="contacts" or len(set(normalized))!=len(hosts) or not set(normalized)<={"genemedi.net","www.genemedi.net"} or not set(normalized)<=registered:
+            raise ConfigError("fixed registered inquiry binding mismatch")
+        hosts=normalized
+    elif any(k in value for k in ("registered_database","registered_table","allowed_hosts")):
+        raise ConfigError("fixed source bindings require fixed_registered_source")
     return InquirySourceConfig(
         kind=kind,
         credential_env=credential_env,
         credential_target=credential_target,
         site_scope=site_scope,
         site_scope_evidence=site_scope_evidence,
+        registered_database=database,registered_table=table,allowed_hosts=hosts,
     )
 
 

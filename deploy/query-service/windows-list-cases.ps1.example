@@ -1,0 +1,18 @@
+# PROPOSAL ONLY. Run after the approved SSH tunnel is open; Windows not tested.
+# No Python/project/source credentials are needed by this HTTP example.
+Add-Type -AssemblyName System.Net.Http
+$queryHandler = New-Object System.Net.Http.HttpClientHandler
+$queryHandler.UseProxy = $false
+$queryHandler.AllowAutoRedirect = $false
+$queryClient = New-Object System.Net.Http.HttpClient($queryHandler)
+try {
+    $queryClient.Timeout = [TimeSpan]::FromSeconds(10)
+    $queryBody = '{"contract":"batch-service/v1","operation":"list_cases"}'
+    $queryContent = New-Object System.Net.Http.StringContent($queryBody, [Text.Encoding]::UTF8, 'application/json')
+    $queryResponse = $queryClient.PostAsync('http://127.0.0.1:8765/v1/query', $queryContent).GetAwaiter().GetResult()
+    $queryResponse.EnsureSuccessStatusCode() | Out-Null
+    $queryResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult() | ConvertFrom-Json
+} finally {
+    $queryClient.Dispose()
+    $queryHandler.Dispose()
+}

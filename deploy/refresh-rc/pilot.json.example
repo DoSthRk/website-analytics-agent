@@ -1,0 +1,13 @@
+{
+  "contract": "source-pilot/v1",
+  "release_manifest_sha256": "<approved manifest SHA256>",
+  "source_config_sha256": "<public sites.yaml SHA256>",
+  "request_sha256": "<approved request.json SHA256>",
+  "metadata_windows_sha256": "<approved metadata-windows.json SHA256>",
+  "seed_database_sha256": "<private validated history seed SHA256>",
+  "previous_evidence_id": "<verified existing case evidence ID>",
+  "case_id": "purprox-seo-four-pages",
+  "run_id": "approved-shadow-pilot-1",
+  "capture_mode": "server_shadow",
+  "expected_python_version": "3.12.3"
+}

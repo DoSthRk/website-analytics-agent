@@ -1,0 +1,7 @@
+# Top-level baseline last observed on the existing server; no old-venv upgrade.
+google-analytics-data==0.23.0
+google-api-python-client==2.198.0
+google-auth==2.56.3
+PyMySQL==1.2.0
+PyYAML==6.0.3
+PySocks==1.7.1

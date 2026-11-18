@@ -1,0 +1,16 @@
+# NOT ACTIVE. Administrator must approve account, endpoint, key and host fingerprint.
+# Merge this entry into the user's existing config; never overwrite the file.
+Host genemedi-analytics-read
+    HostName ADMIN_CONFIRMED_ANALYTICS_SSH_ENDPOINT
+    Port 22
+    User analyticsquery-tunnel
+    IdentityFile ~/.ssh/genemedi_analytics_read
+    IdentitiesOnly yes
+    StrictHostKeyChecking yes
+    ForwardAgent no
+    RequestTTY no
+    ExitOnForwardFailure yes
+    ServerAliveInterval 30
+    ServerAliveCountMax 3
+    LocalForward 127.0.0.1:8765 127.0.0.1:8765
+# After approval/configuration: ssh -N -T genemedi-analytics-read

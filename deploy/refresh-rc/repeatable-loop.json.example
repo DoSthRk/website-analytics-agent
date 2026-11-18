@@ -1,0 +1,9 @@
+{
+  "contract": "repeatable-launcher/v1",
+  "release_manifest_sha256": "<approved new release manifest SHA256>",
+  "source_config_sha256": "<verified public sites.yaml SHA256>",
+  "task_sha256": "<root-owned task.json SHA256>",
+  "expected_python_version": "3.12.3",
+  "capture_mode": "server_shadow",
+  "include_open": true
+}

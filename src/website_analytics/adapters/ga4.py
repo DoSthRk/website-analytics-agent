@@ -16,11 +16,13 @@ from google.analytics.data_v1beta.types import (
     Row,
     RunReportRequest,
     RunReportResponse,
+    ResponseMetaData,
 )
 
 from website_analytics.models import DateRange, SiteConfig
 from website_analytics.retry import DEFAULT_RETRY_POLICY, RetryPolicy, retry_transient
 from website_analytics.url_safety import sanitize_url_query
+from website_analytics.adapters.scope import page_regex, validate_segments
 
 
 _METRICS = (
@@ -47,6 +49,8 @@ class _AnalyticsDataClient(Protocol):
 
 class GA4Adapter:
     """Read GA4 reports through an injected Analytics Data API client."""
+
+    exact_scope_contract = "genemedi-exact/v1"
 
     def __init__(
         self,
@@ -75,19 +79,56 @@ class GA4Adapter:
         """
         return self._run(site, date_range, ())
 
+    def scoped_aggregate(
+        self, site: SiteConfig, date_range: DateRange, paths: Sequence[str],
+        *, countries: Sequence[str] = (), channels: Sequence[str] = (),
+    ) -> list[AnalyticsRow]:
+        """One interval aggregate for a landing-page cohort; never sum page UV.
+
+        Optional ISO alpha-2 countries and session default channel groups are
+        GA4-only conditions. Registered hostname filtering is always retained.
+        """
+        return self._scoped(site, date_range, paths, countries=countries, channels=channels, exact_case=False)
+
+    def scoped_exact_aggregate(self, site, date_range, paths, *, countries=(), channels=()):
+        return self._scoped(site, date_range, paths, countries=countries, channels=channels, exact_case=True)
+
+    def _scoped(self, site, date_range, paths, *, countries, channels, exact_case):
+        self.last_exact_scope=None
+        validate_segments(countries, channels)
+        filters = [_hostname_filter(site.domains), FilterExpression(filter=Filter(
+            field_name="landingPagePlusQueryString", string_filter=Filter.StringFilter(
+                match_type=Filter.StringFilter.MatchType.FULL_REGEXP,
+                value=page_regex(paths, exact_case=exact_case), case_sensitive=exact_case,
+            ))) ]
+        for field, values in (("countryId", countries), ("sessionDefaultChannelGroup", channels)):
+            if values:
+                filters.append(FilterExpression(filter=Filter(field_name=field,
+                    in_list_filter=Filter.InListFilter(values=list(values), case_sensitive=False))))
+        result=self._run(site, date_range, (), FilterExpression(and_group=FilterExpressionList(expressions=filters)))
+        if exact_case:
+            self.last_exact_scope={"site":site.site_key,"property":site.ga4_property_id,"domains":sorted(site.domains),
+                "start":date_range.start.isoformat(),"end":date_range.end.isoformat(),"pages":list(paths),
+                "countries":list(countries),"channels":list(channels)}
+        return result
+
     def _run(
         self,
         site: SiteConfig,
         date_range: DateRange,
         dimensions: tuple[str, ...],
+        dimension_filter: FilterExpression | None = None,
     ) -> list[AnalyticsRow]:
         normalized_rows: list[AnalyticsRow] = []
+        self.last_exact_scope=None
+        observed_metadata=[]
+        self.last_response_metadata={}
         while True:
             request = RunReportRequest(
                 property=f"properties/{site.ga4_property_id}",
                 dimensions=[Dimension(name=name) for name in dimensions],
                 metrics=[Metric(name=name) for name in _METRICS],
-                dimension_filter=_hostname_filter(site.domains),
+                dimension_filter=dimension_filter if dimension_filter is not None else _hostname_filter(site.domains),
                 date_ranges=[
                     GA4DateRange(
                         start_date=date_range.start.isoformat(),
@@ -102,6 +143,13 @@ class GA4Adapter:
                 policy=self._retry_policy,
                 sleep=self._sleep,
             )
+            observed_metadata.append(_response_metadata(response))
+            zones=[m["timezone"] for m in observed_metadata]
+            self.last_response_metadata={"timezone":zones[0] if all(z is not None and z==zones[0] for z in zones) else None,
+                **{key:_observed_flag([m[key] for m in observed_metadata])
+                   for key in ("truncated","thresholded","sampled","other_row_loss","provider_truncated","restricted")},
+                "truncation_reasons_supported":False if any(m["truncation_reasons_supported"] is False for m in observed_metadata)
+                    else True if all(m["truncation_reasons_supported"] is True for m in observed_metadata) else None}
             page_rows = list(response.rows)
             normalized_rows.extend(
                 _normalize_row(row, dimensions) for row in page_rows
@@ -114,6 +162,32 @@ class GA4Adapter:
                 if row_count is None:
                     return normalized_rows
                 raise ValueError("GA4 response ended before its reported row_count")
+
+
+def _observed_flag(values):
+    if any(value is True for value in values):return True
+    return False if values and all(value is False for value in values) else None
+
+
+def _response_metadata(response):
+    """Keep capability separate from flags; never retain raw reason strings."""
+    meta=getattr(response,"metadata",None);pb=getattr(response,"_pb",None)
+    if pb is not None and not pb.HasField("metadata"):meta=None
+    declared=getattr(getattr(type(meta),"meta",None),"fields",None) if meta is not None else None
+    if declared is None and pb is not None:declared=ResponseMetaData.meta.fields
+    supported=("data_truncation_reasons" in declared) if declared is not None else hasattr(meta,"data_truncation_reasons") if meta is not None else None
+    samples=getattr(meta,"sampling_metadatas",None)
+    other=getattr(meta,"data_loss_from_other_row",None)
+    reasons=getattr(meta,"data_truncation_reasons",None) if supported is True else None
+    restrictions=getattr(meta,"schema_restriction_response",None)
+    active=getattr(restrictions,"active_metric_restrictions",None)
+    return {"timezone":getattr(meta,"time_zone",None) or None,
+        "truncated":other,"other_row_loss":other,
+        "thresholded":getattr(meta,"subject_to_thresholding",None),
+        "sampled":bool(list(samples)) if samples is not None else None,
+        "truncation_reasons_supported":supported,
+        "provider_truncated":bool(list(reasons)) if supported is True and reasons is not None else None,
+        "restricted":bool(list(active)) if active is not None else None}
 
 
 def _normalize_row(row: Row, dimensions: Sequence[str]) -> AnalyticsRow:

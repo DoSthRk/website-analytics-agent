@@ -1,0 +1,113 @@
+{
+  "proposal_only": true,
+  "server_files_written": false,
+  "release_candidate": "candidate-20261028-fixed-evidence",
+  "base_commit": "2b534f686c1473a68f6bedcf9b58a97b5cce94d9",
+  "branch": "codex/change-batch-analysis",
+  "uncommitted_source_content_is_pinned_by_file_hashes": true,
+  "source_files_sha256": {
+    "src/website_analytics/__init__.py": "91447944015cec709e8aa7655f7e9d64e1e4508e7023a57fe3746911c0fc6fed",
+    "src/website_analytics/__main__.py": "da6cb613de8cb39bfb489d16a1956d1bd64a0983cadd8847a7f45cafba23ee31",
+    "src/website_analytics/adapters/__init__.py": "5425efd6cca257edfba6cc1a851b5cc265573f6fca487e569351ae038a2c558a",
+    "src/website_analytics/adapters/ga4.py": "5d02c61d5ae0f3cd33986fe67211d0d0aeeee644b1abbfc7422b7317375cfd48",
+    "src/website_analytics/adapters/gsc.py": "0c601c6b773d124a28e679d65c90eaab6cb214bd369d991e74036f491148a877",
+    "src/website_analytics/adapters/inquiry.py": "a5bac7ff6cae4adb5d01d2ffdd5435ffdc9318a9394e0461dd0a58ce233ebc92",
+    "src/website_analytics/adapters/page_dimension.py": "a1eb86c9f706dc64ecb50dd81f32ebbf640e7b71fd4e63ac118c2ec051832b06",
+    "src/website_analytics/adapters/scope.py": "134d059c69b592710231b81f563d9fdb1e5f55f7c82dbab4469b708b1515a56d",
+    "src/website_analytics/analysis/__init__.py": "1d1056a292dc415d11d47ae0d4b695c64ea94de2d05ae9b4676ece181fada2c1",
+    "src/website_analytics/analysis/__main__.py": "86a88d5d681d8d5caec116500f1197aa0395132b8031367df91f86049fe94098",
+    "src/website_analytics/analysis/batches.py": "dadc85b46fe32f655aa920df141c8db59cd838758a4bd958b7645cb732b8baa2",
+    "src/website_analytics/analysis/case_validation.py": "866006a61c68a3ab60f5b2b96ec03414c61d1af1ac9cf87b53fc3fd3684ca645",
+    "src/website_analytics/analysis/cases.py": "79a5106103d3e5965da0fd32de76b4e0cc1fa5763423a8f7fb2f90604eb9fa72",
+    "src/website_analytics/analysis/client.py": "aa87ea575e3ded062ac9f33468a27d99129eeab638eca22b82f395fea922e150",
+    "src/website_analytics/analysis/continuous.py": "66a84aecddf7ce20b7dbd0c82dbfb933d0edcb7f6df6569dbfe88058f4fbdae5",
+    "src/website_analytics/analysis/contracts.py": "1cb4fcf1d3ea9e5c06187ebc257ec842fc2878f13a8841e56d18c7dc3e2e544f",
+    "src/website_analytics/analysis/preview.py": "c54c8fae1e22ef5184a604d55452eb9d70123155bc0b1b8074bfc5de2f4668d6",
+    "src/website_analytics/analysis/query.py": "d2789bbfb0b91171a32921831913c1a5b378efc52dae5788879bfc7a5445baa4",
+    "src/website_analytics/analysis/readers.py": "a1fb656df127051baeb0edf2ff1dec6a9a37a768330c4a7e4980f40894087923",
+    "src/website_analytics/analysis/service.py": "6d69d64e7958fe46b1fe2323c7b52896a77e045b2d21c178996f74f2fcc56267",
+    "src/website_analytics/analysis/snapshots.py": "cc16136e841a18338b2e2082c01202e4f5734f78e724818c38228e9c5263049e",
+    "src/website_analytics/cache.py": "db686e572e7bb818cc35c15d48c3cb86095c62a820496e4ac7988bdb8ab2d11d",
+    "src/website_analytics/cli.py": "580e4650ca194782396e39acca2622649657e1c09ae1b37b49b4e7e6101e6768",
+    "src/website_analytics/config.py": "e3866b369a547ee482d05e28e727724e7d3cfb4b6ae0dfec15d7f24f5102f7ce",
+    "src/website_analytics/dashboard_sync.py": "9dd33cc7e402e70fc778bfccef3e6c4fd2420e4af16dcdc6e306caf6bbb3a106",
+    "src/website_analytics/dashboard_v3.py": "2cbabfef68044ecaa340dacfad6f9a4d79b3eae182923dfe5ad670939a7a636d",
+    "src/website_analytics/dashboard_v3_backfill.py": "9f238b95ced5f5f8638cfba7f204f5bf1c98f4766570ec76ed35d97128ce9d1e",
+    "src/website_analytics/dates.py": "204b76c798cc525d448988eb3fbb65c41f8061088eba71ba6412554259a5c382",
+    "src/website_analytics/feishu_records.py": "916b4301c50e6289330a3cd0104f6cebd467c219502610c801ce58478e3213f0",
+    "src/website_analytics/feishu_v3.py": "c0149e89fdad5189dba2d944f1d5f8222b65accf1bf0c8fb0b318b29eb86ca45",
+    "src/website_analytics/feishu_v3_sync.py": "46d0edcdb7000be95d83d69529e2dedba254b353b6694d1dd416e654429909d3",
+    "src/website_analytics/information_mapping.py": "c41b9e95c1a7bd63864fd24d9ef3103b4ef128347d5e6e5e97c3314fb5d6e94e",
+    "src/website_analytics/models.py": "c1a191ab90c8f090c2bc4f6351df61251aac49c4702ed50f4854ee1bb0c201a6",
+    "src/website_analytics/page_classification.py": "b4827a253efa57fe0b734741f60ad9d9df40d4ce915254842964706f6dec70e2",
+    "src/website_analytics/page_product_dimension.py": "f5ae5a02df8b71d8b0d8b093a6ec95ea7a6cad1c83ddd0cbf39929a03a968bd4",
+    "src/website_analytics/periods.py": "5f1b3dfa6e681843c358081cd4e129afd518039d81d0c1fa86a7907d6a09fd9d",
+    "src/website_analytics/product_mapping.py": "1afa36582c512c8a8e6822a16e3c62fbc6b68c3b3a06605bd7a6eb5a87c98394",
+    "src/website_analytics/reporting.py": "68a72cd7d92c049f9f5f72e81bc890d1c6cb58903eaa6d9edd30f5ab165a181d",
+    "src/website_analytics/retry.py": "5275052215f6bddc8ef730d93a44bd0b99078dd53d07f1a9d77a0eb1ec14566d",
+    "src/website_analytics/sync_plan.py": "acd17353ff890b74f30110453dad64f3b4d495717c97bd78ef4670096ee47183",
+    "src/website_analytics/sync_status.py": "0a48dec056456b0f6c73facaa0ed0dd967ce5a7bbaebb16f0cca7ddb6e7516cb",
+    "src/website_analytics/url_safety.py": "0acaded5522936a1510e1699a918fa6154c6e0fea4fdcfbf45245c36e2ad8ee1",
+    "src/website_analytics/windows_credentials.py": "ef657ebb228d4271434118465d189301b6e5b4528d9673f942c359765eeedeb7",
+    "src/website_analytics/workbook_payload.py": "a0ec7368208310914f8fe8a514b22a215653c5bc63ff8fa97301a517004747aa"
+  },
+  "templates_sha256": {
+    "README.md": "d47001606a06374dca48c253aad2bbf051ee170f6529f97fa4cbc959f5a77f78",
+    "requirements-query.txt": "70fdcfff56dd258e51bd5b1b4d4be839f971110c1ce8dade595f0c1110211b9a",
+    "sshd-match-at-eof.conf.example": "1bf26d816ea4d9eef8815c3fffa099e6797008cb9e3d9c2afac809e1506d3d26",
+    "website-analytics-query.service.example": "57f7983c9007a9582ec97906b280e671c9292592e10c4a52918fec04ba78d55d",
+    "windows-list-cases.ps1.example": "ff803289264588d3fd9e27a99bf3612b22b35514ae56d7b3c54d9b36849f209c",
+    "windows-ssh-config.example": "af5883d6af2685b4f26ecf483474f3cbc1a8e8b6707ea075cfaa161dadd2fa99"
+  },
+  "evidence": {
+    "target_basename": "cases.sqlite",
+    "sha256": "3ad7de84bb9d8b0c8e60f462c2c2d64bd7d83765291fb67b74d02c4ec7c9aa3d",
+    "bytes": 126976,
+    "cases": [
+      {
+        "case_id": "purprox-seo-four-pages",
+        "evidence_state": "provisional",
+        "sample": false,
+        "batch_confirmed": false,
+        "versions": [
+          {
+            "evidence_id": "683101ec2058ca7f8b314671bf8aa9fb8694251d3cf02f96921f4d96b2124968",
+            "kind": "continuous_trend",
+            "evidence_state": "provisional",
+            "sample": false,
+            "batch_confirmed": false,
+            "report_contract": "continuous-trend-report/v1",
+            "report_digest": "d44dae05ff2c75dc4f3a75bc5f82f9e5f78b755ec9ef477c297f3ee4e6509876",
+            "source_packet_digest": "16f053900c84d8e01ca08dd58fbead5d083e1138efa7d0f3354fdaa50741a3e0",
+            "interpretation_contract": "case-interpretation/v2",
+            "source_queried_at": "2026-10-28T09:15:53.573990+00:00",
+            "stored_at": "2026-10-28T09:38:03.871639+00:00"
+          },
+          {
+            "evidence_id": "837e0e5e624f8bd2957b42e9d9b4f8492da1377d990bb19179110276d202cd3a",
+            "kind": "approximate_window",
+            "evidence_state": "provisional",
+            "sample": false,
+            "batch_confirmed": false,
+            "report_contract": "batch-preview-report/v1",
+            "report_digest": "cf6408f31d19b4a43e3a31b30ce1a628b49e54f668dcf9fd54dcf81b05dc962e",
+            "source_packet_digest": "ec2b57e75acbd15a9b5616d435a600d2a4864997d1462c750d7b27f07f1e264b",
+            "interpretation_contract": "case-interpretation/v2",
+            "source_queried_at": "2026-10-28T07:37:26.927327+00:00",
+            "stored_at": "2026-10-28T09:38:03.871287+00:00"
+          }
+        ]
+      }
+    ]
+  },
+  "excluded": [
+    "config/sites.yaml",
+    "analytics.env",
+    "ADC",
+    "private_keys",
+    "source_cache",
+    "customer_rows"
+  ],
+  "minimal_dependency": "PyYAML==6.0.3",
+  "final_package_archive_not_built_or_uploaded": true
+}

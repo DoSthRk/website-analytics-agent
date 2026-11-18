@@ -1,0 +1,8 @@
+{
+  "contract": "batch-analysis/v1",
+  "site": "genemedi-net",
+  "batch_id": "sample-english-pages",
+  "revision": 1,
+  "window_days": 7,
+  "include_control": true
+}

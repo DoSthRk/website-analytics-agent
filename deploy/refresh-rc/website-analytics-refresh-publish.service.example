@@ -1,0 +1,26 @@
+# PROPOSAL ONLY. Fixed root-owned profile; no network/source environment.
+[Unit]
+Description=Publish approved website analytics aggregate candidate
+
+[Service]
+Type=oneshot
+User=root
+WorkingDirectory=/opt/website-analytics-refresh/releases/@RELEASE_ID@
+ExecStart=/opt/website-analytics-refresh/releases/@RELEASE_ID@/venv-query/bin/python -I -B /opt/website-analytics-refresh/releases/@RELEASE_ID@/deploy/refresh-rc/publish-candidate.py
+UMask=0077
+Restart=no
+TimeoutStartSec=60
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_CHOWN CAP_DAC_READ_SEARCH
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+PrivateDevices=yes
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/var/lib/website-analytics-query/live
+InaccessiblePaths=/opt/website-analytics /var/lib/website-analytics /var/lib/website-analytics-refresh/worker /etc/ssh
+MemoryMax=256M
+TasksMax=16
+StandardOutput=journal
+StandardError=journal

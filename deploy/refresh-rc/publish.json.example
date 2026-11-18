@@ -1,0 +1,6 @@
+{
+  "contract": "fixed-publication/v1",
+  "release_manifest_sha256": "<approved manifest SHA256>",
+  "candidate_sha256": "<reviewed candidate SHA256>",
+  "expected_previous_sha256": null
+}

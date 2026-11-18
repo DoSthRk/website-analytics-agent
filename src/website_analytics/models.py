@@ -13,6 +13,9 @@ class InquirySourceConfig:
     credential_target: str | None = None
     site_scope: str | None = None
     site_scope_evidence: str | None = None
+    registered_database: str | None = None
+    registered_table: str | None = None
+    allowed_hosts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

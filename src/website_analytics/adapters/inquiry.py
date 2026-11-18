@@ -27,8 +27,8 @@ _METRICS = (
     "nonQuarantinedSubmissions",
 )
 _DATE_BOUNDARY = (
-    "contacts.submission_date is written by the legacy website server calendar; "
-    "it can differ from the configured site timezone, GA4, and GSC boundaries."
+    "contacts.submission_date is a stored DATE label with unverified writer timezone; "
+    "do not infer a legacy website server calendar or equate it with site, GA4, or GSC boundaries."
 )
 _DAILY_QUERY = """
 SELECT submission_date AS date,
@@ -96,23 +96,33 @@ class InquiryQueryResult:
     pages: tuple[InquiryRow, ...]
     totals: dict[str, float]
     page_rows_truncated: bool
+    site_scope: str | None = None
+    unknown_attribution_count: float | None = None
 
 
 class LegacyContactsAdapter:
     """Query only aggregate, non-PII facts from the approved ``contacts`` table."""
 
-    def __init__(self, dsn: str, *, connector: Connector | None = None, domains: Sequence[str] = ()) -> None:
+    def __init__(self, dsn: str, *, connector: Connector | None = None, domains: Sequence[str] = (), registered_database: str | None = None) -> None:
         self._connection_options = _connection_options(dsn)
         if connector is None and not domains:
             raise InquirySourceError("live inquiry adapter requires registered domains")
         self._connector = connector or _pymysql_connect
         self._domains = frozenset(domain.casefold().rstrip(".") for domain in domains)
+        self._registered_database=registered_database
+        if registered_database is not None and self._connection_options["database"]!=registered_database:
+            raise InquiryScopeError("inquiry configured database binding mismatch")
 
     def query(self, date_range: DateRange) -> InquiryQueryResult:
         connection: _Connection | None = None
         try:
             connection = self._connector(**self._connection_options)
             with connection.cursor() as cursor:
+                if self._registered_database is not None:
+                    cursor.execute("SELECT DATABASE() AS selected_database")
+                    selected=cursor.fetchall()
+                    if len(selected)!=1 or selected[0].get("selected_database")!=self._registered_database:
+                        raise InquiryScopeError("inquiry active database binding mismatch")
                 cursor.execute(
                     _DAILY_QUERY,
                     (date_range.start.isoformat(), date_range.end.isoformat()),
@@ -128,7 +138,7 @@ class LegacyContactsAdapter:
                     for row in raw_page_rows[:_PAGE_ROW_CAP]:
                         origin = urlsplit(str(row.get("source_url", "")).strip())
                         hostname = (origin.hostname or "").casefold().rstrip(".")
-                        if origin.scheme in {"http", "https"} and hostname and hostname not in self._domains:
+                        if (origin.scheme in {"http", "https"} or self._registered_database is not None and origin.netloc) and hostname and hostname not in self._domains:
                             raise InquiryScopeError("inquiry site scope violation; no records were filtered or published")
         except InquirySourceError:
             raise
@@ -138,11 +148,19 @@ class LegacyContactsAdapter:
             if connection is not None:
                 connection.close()
 
+        totals={metric: sum(_metric(row, metric) for row in daily) for metric in _METRICS}
+        truncated=len(raw_page_rows)>_PAGE_ROW_CAP
+        unknown=None
+        if self._registered_database is not None and not truncated:
+            known=sum(_metric(row,"storedSubmissions") for row in pages if row["sourceUrl"]!="[UNATTRIBUTED]")
+            unknown=totals["storedSubmissions"]-known
+            if unknown<0:raise InquiryScopeError("inquiry attribution exceeds fixed-source total")
         return InquiryQueryResult(
             daily=daily,
             pages=pages,
-            totals={metric: sum(_metric(row, metric) for row in daily) for metric in _METRICS},
-            page_rows_truncated=len(raw_page_rows) > _PAGE_ROW_CAP,
+            totals=totals,page_rows_truncated=truncated,
+            site_scope="fixed_registered_source" if self._registered_database is not None else None,
+            unknown_attribution_count=unknown,
         )
 
 
@@ -150,8 +168,16 @@ def create_inquiry_adapter(source: InquirySourceConfig, *, domains: Sequence[str
     """Load a fixed database connection from a named local environment variable."""
     if source.kind != "legacy_contacts_mysql":
         raise InquirySourceError("configured inquiry source is unsupported")
-    if source.site_scope != "dedicated_database" or not source.site_scope_evidence or not source.site_scope_evidence.strip() or not domains:
+    if source.site_scope not in {"dedicated_database","fixed_registered_source"} or not source.site_scope_evidence or not source.site_scope_evidence.strip() or not domains:
         raise InquiryScopeError("inquiry source requires verified dedicated_database scope and registered domains")
+    selected_domains=domains;database=None
+    if source.site_scope=="fixed_registered_source":
+        import re
+        database=source.registered_database
+        hosts=tuple(h.casefold().rstrip(".") for h in source.allowed_hosts)
+        if not isinstance(database,str) or not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,63}",database) or source.registered_table!="contacts" or not hosts or len(set(hosts))!=len(hosts) or not set(hosts)<={"genemedi.net","www.genemedi.net"} or not set(hosts)<={h.casefold().rstrip(".") for h in domains}:
+            raise InquiryScopeError("invalid fixed registered inquiry binding")
+        selected_domains=hosts
     dsn = os.environ.get(source.credential_env)
     if not dsn and source.credential_target:
         try:
@@ -160,7 +186,7 @@ def create_inquiry_adapter(source: InquirySourceConfig, *, domains: Sequence[str
             raise InquirySourceError("configured inquiry credential is unavailable") from error
     if not dsn:
         raise InquirySourceError("configured inquiry credential is unavailable")
-    return LegacyContactsAdapter(dsn, domains=domains)
+    return LegacyContactsAdapter(dsn, domains=selected_domains,registered_database=database)
 
 
 def inquiry_source_data(
@@ -172,9 +198,10 @@ def inquiry_source_data(
         {"Inquiry Daily": list(result.daily), "Inquiry Pages": list(result.pages)},
         result.totals,
         {
-            "status": "partial" if result.page_rows_truncated else "ok",
+            "status": "partial" if result.page_rows_truncated or result.site_scope=="fixed_registered_source" and result.unknown_attribution_count!=0 else "ok",
             "date_boundary": _DATE_BOUNDARY,
-            "site_scope": "dedicated_database_attestation_and_page_origin_check",
+            "site_scope": "fixed_registered_source_not_physical_dedication" if result.site_scope=="fixed_registered_source" else "dedicated_database_attestation_and_page_origin_check",
+            **({"unknown_attribution_count":result.unknown_attribution_count,"totals_scope":"fixed_database_records_not_verified_site_total"} if result.site_scope=="fixed_registered_source" else {}),
             "details": {
                 "Inquiry Pages": {
                     "rows": len(result.pages),

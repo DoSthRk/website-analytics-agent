@@ -1,0 +1,53 @@
+{
+  "checked_at_utc": "2026-10-28T10:00:22.608379+00:00",
+  "original_identity": {
+    "user": "websiteanalytics",
+    "shell": "/usr/sbin/nologin"
+  },
+  "runtime": {
+    "machine": "x86_64",
+    "python": "3.12.3",
+    "base_executable": "/usr/bin/python3.12",
+    "sqlite": "3.45.1",
+    "PyYAML": "6.0.3",
+    "systemd": "255",
+    "venv_ensurepip_sqlite_modules_present": true
+  },
+  "original_timers": {
+    "intraday": "enabled/active/waiting",
+    "full": "enabled/active/waiting"
+  },
+  "sync_services_at_observation": "inactive/dead",
+  "nginx": "active/running",
+  "listeners": {
+    "22": "all addresses",
+    "80": "all addresses",
+    "443": "all addresses",
+    "8890": "127.0.0.1",
+    "8765": "not listening"
+  },
+  "analytics_specific_reverse_proxy_or_auth_entry": "not found in bounded 13-file relevant Nginx metadata scan",
+  "dedicated_query_directories": "not present",
+  "proposed_query_and_tunnel_users_groups": "not present",
+  "sshd_dropin_include_present": true,
+  "private_network_or_reusable_company_SSO": "not verified",
+  "opt_free_bytes": 10937962496,
+  "adc_metadata": {
+    "owner": "websiteanalytics",
+    "mode": "0600",
+    "mtime_utc": "2026-10-22T02:40:29.851183+00:00"
+  },
+  "google_read_check": {
+    "at_utc": "2026-10-28T10:02:41.174890+00:00",
+    "standard_refresh": "passed",
+    "ga4": "passed",
+    "gsc": "passed",
+    "adc_mtime_unchanged": true,
+    "grant_changed": false,
+    "scopes": [
+      "analytics.readonly",
+      "webmasters.readonly"
+    ]
+  },
+  "remote_writes_or_deployment_actions": false
+}

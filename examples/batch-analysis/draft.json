@@ -1,0 +1,20 @@
+{
+  "contract": "batch-analysis/v1",
+  "site": "genemedi-net",
+  "batch_id": "sample-english-pages",
+  "revision": 1,
+  "previous_digest": null,
+  "title": "SYNTHETIC ONLY: example page change",
+  "description": "Synthetic development batch, not a real publication or measured business result.",
+  "pages": [
+    "/i/aav-example",
+    "/i/unmapped-example"
+  ],
+  "control_pages": [
+    "/i/aav-control"
+  ],
+  "control_rationale": "Synthetic unchanged cohort, for demonstrating separate comparisons only.",
+  "published_at": "2026-08-08T10:00:00-07:00",
+  "published_timezone": "America/Los_Angeles",
+  "sample": true
+}

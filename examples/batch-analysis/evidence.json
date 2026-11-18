@@ -1,0 +1,389 @@
+{
+  "contract": "batch-evidence/v1",
+  "sample": true,
+  "generated_at": "2026-08-20T12:00:00+00:00",
+  "page_dimension_rows": [
+    {
+      "route_url": "/i/aav-example",
+      "route_page_id": 987001,
+      "content_page_id": 987001,
+      "route_source": "pages",
+      "template": "indexwithSideBar"
+    },
+    {
+      "route_url": "/i/aav-control",
+      "route_page_id": 987002,
+      "content_page_id": 987002,
+      "route_source": "pages",
+      "template": "indexwithSideBar"
+    }
+  ],
+  "records": [
+    {
+      "source": "ga4",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-01",
+        "end": "2026-08-07",
+        "pages": [
+          "/i/aav-example",
+          "/i/unmapped-example"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "sessions": 100,
+          "totalUsers": 70,
+          "activeUsers": 65,
+          "engagedSessions": 50,
+          "engagementRate": 0.5,
+          "screenPageViews": 200,
+          "keyEvents": 4
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-01",
+        "coverage_end": "2026-08-07",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false
+      }
+    },
+    {
+      "source": "gsc",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-01",
+        "end": "2026-08-07",
+        "pages": [
+          "/i/aav-example",
+          "/i/unmapped-example"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "clicks": 10,
+          "impressions": 100,
+          "ctr": 0.1,
+          "position": 8
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-01",
+        "coverage_end": "2026-08-07",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false
+      }
+    },
+    {
+      "source": "inquiry",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-01",
+        "end": "2026-08-07",
+        "pages": [
+          "/i/aav-example",
+          "/i/unmapped-example"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "storedSubmissions": 5,
+          "quarantinedSubmissions": 2,
+          "nonQuarantinedSubmissions": 3
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-01",
+        "coverage_end": "2026-08-07",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false,
+        "unattributed_submissions": 3
+      }
+    },
+    {
+      "source": "ga4",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-09",
+        "end": "2026-08-15",
+        "pages": [
+          "/i/aav-example",
+          "/i/unmapped-example"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "sessions": 120,
+          "totalUsers": 80,
+          "activeUsers": 75,
+          "engagedSessions": 72,
+          "engagementRate": 0.6,
+          "screenPageViews": 240,
+          "keyEvents": 4
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-09",
+        "coverage_end": "2026-08-15",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false
+      }
+    },
+    {
+      "source": "gsc",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-09",
+        "end": "2026-08-15",
+        "pages": [
+          "/i/aav-example",
+          "/i/unmapped-example"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "clicks": 15,
+          "impressions": 300,
+          "ctr": 0.05,
+          "position": 6
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-09",
+        "coverage_end": "2026-08-15",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false
+      }
+    },
+    {
+      "source": "inquiry",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-09",
+        "end": "2026-08-15",
+        "pages": [
+          "/i/aav-example",
+          "/i/unmapped-example"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "storedSubmissions": 7,
+          "quarantinedSubmissions": 1,
+          "nonQuarantinedSubmissions": 6
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-09",
+        "coverage_end": "2026-08-15",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false,
+        "unattributed_submissions": 3
+      }
+    },
+    {
+      "source": "ga4",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-01",
+        "end": "2026-08-07",
+        "pages": [
+          "/i/aav-control"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "sessions": 60,
+          "totalUsers": 50,
+          "activeUsers": 45,
+          "engagedSessions": 30,
+          "engagementRate": 0.5,
+          "screenPageViews": 120,
+          "keyEvents": 4
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-01",
+        "coverage_end": "2026-08-07",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false
+      }
+    },
+    {
+      "source": "gsc",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-01",
+        "end": "2026-08-07",
+        "pages": [
+          "/i/aav-control"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "clicks": 20,
+          "impressions": 200,
+          "ctr": 0.1,
+          "position": 7
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-01",
+        "coverage_end": "2026-08-07",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false
+      }
+    },
+    {
+      "source": "inquiry",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-01",
+        "end": "2026-08-07",
+        "pages": [
+          "/i/aav-control"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "storedSubmissions": 4,
+          "quarantinedSubmissions": 1,
+          "nonQuarantinedSubmissions": 3
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-01",
+        "coverage_end": "2026-08-07",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false,
+        "unattributed_submissions": 3
+      }
+    },
+    {
+      "source": "ga4",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-09",
+        "end": "2026-08-15",
+        "pages": [
+          "/i/aav-control"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "sessions": 65,
+          "totalUsers": 53,
+          "activeUsers": 48,
+          "engagedSessions": 39,
+          "engagementRate": 0.6,
+          "screenPageViews": 130,
+          "keyEvents": 4
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-09",
+        "coverage_end": "2026-08-15",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false
+      }
+    },
+    {
+      "source": "gsc",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-09",
+        "end": "2026-08-15",
+        "pages": [
+          "/i/aav-control"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "clicks": 21,
+          "impressions": 250,
+          "ctr": 0.084,
+          "position": 6
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-09",
+        "coverage_end": "2026-08-15",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false
+      }
+    },
+    {
+      "source": "inquiry",
+      "scope": {
+        "site": "genemedi-net",
+        "start": "2026-08-09",
+        "end": "2026-08-15",
+        "pages": [
+          "/i/aav-control"
+        ],
+        "countries": [],
+        "channels": []
+      },
+      "evidence": {
+        "status": "complete",
+        "metrics": {
+          "storedSubmissions": 4,
+          "quarantinedSubmissions": 1,
+          "nonQuarantinedSubmissions": 3
+        },
+        "fetched_at": "2026-08-20T12:00:00+00:00",
+        "date_boundary": "America/Los_Angeles (synthetic example only)",
+        "coverage_start": "2026-08-09",
+        "coverage_end": "2026-08-15",
+        "complete_through": "2026-08-19",
+        "cutoff_basis": "sample",
+        "truncated": false,
+        "unattributed_submissions": 3
+      }
+    }
+  ]
+}

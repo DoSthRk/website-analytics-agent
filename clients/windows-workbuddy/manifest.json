@@ -1,0 +1,46 @@
+{
+  "contract": "windows-readonly-pilot/v1",
+  "prepared_for": "boss_windows_workbuddy_first_pilot",
+  "server_contract": "batch-service/v1",
+  "compatible_deployed_release": "rc-667b38ed4adb25a4",
+  "allowed_operations": [
+    "list_cases",
+    "case_versions",
+    "case_observations",
+    "case_detail",
+    "case_trend",
+    "page_contribution"
+  ],
+  "saved_data_only": true,
+  "automatic_refresh_enabled": false,
+  "server_access_created": false,
+  "keys_included": false,
+  "windows_device_verified": false,
+  "powershell_runtime_available_for_validation": false,
+  "files": {
+    "ADMIN-APPROVAL.md": {
+      "sha256": "2c8599a59cbc31276345cd73f3c332a02ac6f4879307d2089ea1c1a891f1265c",
+      "bytes": 1826
+    },
+    "Query-Analytics.ps1": {
+      "sha256": "0fb71f16b7fc046bffb83d7a338e92d3d2f4882c0300b65218a2e5d4d8b2e6bd",
+      "bytes": 3233
+    },
+    "README.zh-CN.md": {
+      "sha256": "1311aef4186618ba0c9f236312483934e8ebd8e4d9dd1afe066accd737100b89",
+      "bytes": 4538
+    },
+    "WorkBuddy-INSTRUCTIONS.md": {
+      "sha256": "71e8d6e60300849e4a49762dd6c6daeae6263a4013f25c1c4733e4a2683dac70",
+      "bytes": 1473
+    },
+    "analytics_query.py": {
+      "sha256": "965b5ec2f1b791481712180ae1d2ca0b6da2bdbd0cb87594e892576afb390edd",
+      "bytes": 2927
+    },
+    "ssh_config.example": {
+      "sha256": "8cd4ef329666d50554bb708687eb5f81faa65a4337d7b5fa90113f5bf697a3d5",
+      "bytes": 622
+    }
+  }
+}

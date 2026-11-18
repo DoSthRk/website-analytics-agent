@@ -1,0 +1,3 @@
+# Phase 1 only: no Google, MySQL, SSH or Feishu SDKs are needed.
+# Matches the existing server's observed PyYAML version; install in a NEW venv.
+PyYAML==6.0.3
