@@ -1,0 +1,23 @@
+[Unit]
+Description=Website analytics Google API egress
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+DynamicUser=yes
+RuntimeDirectory=website-analytics-google-proxy
+RuntimeDirectoryMode=0700
+UMask=0077
+LoadCredential=node.json:/etc/website-analytics-google-proxy/node.json
+ExecStart=/usr/local/bin/cyber-engine -d /run/website-analytics-google-proxy -f %d/node.json
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+StandardOutput=null
+StandardError=null
+
+[Install]
+WantedBy=multi-user.target
