@@ -71,13 +71,18 @@ def write_audit_manifest(
     request: Any,
     source_statuses: Any,
     output_path: str | Path | None = None,
+    *,
+    generated_at: str | None = None,
 ) -> Path:
-    """Write a redacted local manifest describing a report-generation request."""
+    """Write a redacted local manifest describing a report-generation request.
+
+    ``generated_at`` overrides the write time when the manifest keeps source
+    statuses from an earlier collection, so it never claims newer data.
+    """
     output_hash = _hash_output(output_path) if output_path is not None else None
     manifest = {
-        "generated_at": datetime.now(timezone.utc)
-        .isoformat()
-        .replace("+00:00", "Z"),
+        "generated_at": generated_at
+        or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "package_version": __version__,
         "request": _redact(request),
         "source_statuses": _redact(source_statuses),

@@ -960,3 +960,79 @@ def _copy_config(tmp_path: Path) -> Path:
     destination = tmp_path / "sites.yaml"
     shutil.copy(PROJECT_ROOT / "config" / "sites.example.yaml", destination)
     return destination
+
+
+def _fetch_args(tmp_path: Path) -> list[str]:
+    return [
+        "fetch",
+        "--site",
+        "demo",
+        "--start",
+        "2026-08-03",
+        "--end",
+        "2026-08-09",
+        "--config",
+        str(_copy_config(tmp_path)),
+        "--fixture-dir",
+        str(FIXTURES),
+        "--cache-dir",
+        str(tmp_path / "cache"),
+        "--audit-dir",
+        str(tmp_path / "audits"),
+    ]
+
+
+def _break_gsc(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fail(*_args: object, **_kwargs: object) -> object:
+        raise ConnectionError("synthetic transport failure")
+
+    monkeypatch.setattr(cli, "_gsc_source_data", fail)
+
+
+def test_failed_refresh_keeps_last_successful_source_status(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    arguments = _fetch_args(tmp_path)
+    assert cli.main(arguments) == 0
+    capsys.readouterr()
+    audit_path = next((tmp_path / "audits").glob("*.json"))
+    first = json.loads(audit_path.read_text(encoding="utf-8"))
+    gsc_cache = next((tmp_path / "cache").rglob("gsc/*.json"))
+    gsc_bytes = gsc_cache.read_bytes()
+
+    _break_gsc(monkeypatch)
+    assert cli.main(arguments) == 3
+    capsys.readouterr()
+
+    second = json.loads(audit_path.read_text(encoding="utf-8"))
+    gsc = second["source_statuses"]["sources"]["gsc"]
+    first_gsc = first["source_statuses"]["sources"]["gsc"]
+    assert gsc["status"] == "ok"
+    assert gsc["preserved_after_failed_refresh"] is True
+    assert gsc["failed_refresh"]["status"] == "error"
+    assert gsc["failed_refresh"]["error_type"] == "ConnectionError"
+    assert {k: v for k, v in gsc.items() if k not in {"preserved_after_failed_refresh", "failed_refresh"}} == first_gsc
+    assert second["source_statuses"]["sources"]["ga4"]["status"] == "ok"
+    assert "preserved_after_failed_refresh" not in second["source_statuses"]["sources"]["ga4"]
+    assert second["generated_at"] == first["generated_at"]
+    assert gsc_cache.read_bytes() == gsc_bytes
+
+
+def test_failed_refresh_without_prior_success_stays_failed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    arguments = _fetch_args(tmp_path)
+    _break_gsc(monkeypatch)
+    assert cli.main(arguments) == 3
+    capsys.readouterr()
+    audit_path = next((tmp_path / "audits").glob("*.json"))
+    first = json.loads(audit_path.read_text(encoding="utf-8"))
+    assert first["source_statuses"]["sources"]["gsc"]["status"] == "error"
+
+    assert cli.main(arguments) == 3
+    capsys.readouterr()
+    second = json.loads(audit_path.read_text(encoding="utf-8"))
+    gsc = second["source_statuses"]["sources"]["gsc"]
+    assert gsc["status"] == "error"
+    assert "preserved_after_failed_refresh" not in gsc
+    assert not list((tmp_path / "cache").rglob("gsc/*.json"))

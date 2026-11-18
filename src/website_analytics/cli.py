@@ -726,12 +726,60 @@ def _persist_dataset(
     if previous is not None:
         request["previous_date_range"] = _range_json(previous["date_range"])
     audit_path = args.audit_dir / f"{_safe_audit_name(site.site_key, current['date_range'])}.json"
+    audit_sources, preserved_generated_at = _keep_successful_sources(audit_path, audit_sources)
     write_audit_manifest(
         audit_path,
         request,
         {"generated_at": current["freshness"], "sources": audit_sources},
         output_path,
+        generated_at=preserved_generated_at,
     )
+
+
+_USABLE_SOURCE_STATUSES = frozenset({"ok", "partial"})
+
+
+def _keep_successful_sources(
+    audit_path: Path, sources: Mapping[str, Any]
+) -> tuple[dict[str, Any], str | None]:
+    """Keep a source's earlier successful status when this attempt failed.
+
+    Audits are named by date range and overwritten in place, while caches are
+    only written for usable sources. Without this, a failed refresh would mark
+    a range unusable even though its last good cache is still on disk, and
+    downstream consumers would drop it. The failure is recorded alongside, and
+    the audit keeps the earlier ``generated_at`` so it never overstates
+    freshness.
+    """
+    merged = dict(sources)
+    try:
+        previous = json.loads(audit_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return merged, None
+    prior_statuses = previous.get("source_statuses") if isinstance(previous, dict) else None
+    prior_sources = prior_statuses.get("sources") if isinstance(prior_statuses, dict) else None
+    prior_generated_at = previous.get("generated_at") if isinstance(previous, dict) else None
+    if not isinstance(prior_sources, dict) or not isinstance(prior_generated_at, str):
+        return merged, None
+    attempted_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    preserved = False
+    for name, status in sources.items():
+        prior = prior_sources.get(name)
+        if not isinstance(status, Mapping) or status.get("status") in _USABLE_SOURCE_STATUSES:
+            continue
+        if not isinstance(prior, dict) or prior.get("status") not in _USABLE_SOURCE_STATUSES:
+            continue
+        merged[name] = {
+            **prior,
+            "preserved_after_failed_refresh": True,
+            "failed_refresh": {
+                "status": status.get("status"),
+                "error_type": status.get("error_type"),
+                "attempted_at": attempted_at,
+            },
+        }
+        preserved = True
+    return merged, (prior_generated_at if preserved else None)
 
 
 def _write_cache(root: Path, site_key: str, dataset: Mapping[str, Any]) -> None:
