@@ -21,6 +21,15 @@ from website_analytics.feishu_records import (
     load_feishu_target,
     sync_record_sets,
 )
+from website_analytics.feishu_product_funnel import (
+    additive_totals as product_funnel_additive_totals,
+    validate_backfill as validate_product_funnel_backfill,
+    validate_contract as validate_product_funnel_contract,
+)
+from website_analytics.feishu_product_funnel_sync import (
+    load_product_funnel_target,
+    sync_product_funnel_record_sets,
+)
 from website_analytics.feishu_v3 import (
     additive_totals,
     load_json_object,
@@ -37,6 +46,10 @@ from website_analytics.page_classification import (
     load_page_classification,
 )
 from website_analytics.product_mapping import load_product_mapping
+from website_analytics.product_funnel import build_product_funnel_observation_daily
+from website_analytics.product_funnel_backfill import (
+    TABLE_KEYS as PRODUCT_FUNNEL_TABLE_KEYS,
+)
 from website_analytics.sync_plan import load_sync_profile, select_sync_periods
 
 
@@ -78,6 +91,16 @@ def _arguments() -> argparse.Namespace:
         "--v3-target",
         type=Path,
         help="Optional registered V3 daily-table target",
+    )
+    parser.add_argument(
+        "--product-funnel-contract",
+        type=Path,
+        help="Optional validated aggregate product-funnel contract",
+    )
+    parser.add_argument(
+        "--product-funnel-target",
+        type=Path,
+        help="Optional registered aggregate product-funnel target",
     )
     parser.add_argument(
         "--v3-only",
@@ -188,6 +211,13 @@ def main() -> int:
     args = _arguments()
     if (args.v3_contract is None) != (args.v3_target is None):
         raise ValueError("--v3-contract and --v3-target must be configured together")
+    if (args.product_funnel_contract is None) != (
+        args.product_funnel_target is None
+    ):
+        raise ValueError(
+            "--product-funnel-contract and --product-funnel-target "
+            "must be configured together"
+        )
     if args.v3_only and args.v3_contract is None:
         raise ValueError("--v3-only requires --v3-contract and --v3-target")
     v3_contract: dict[str, Any] | None = None
@@ -196,6 +226,17 @@ def main() -> int:
         v3_contract = load_json_object(args.v3_contract)
         validate_contract(v3_contract)
         v3_target = load_feishu_v3_target(args.v3_target)
+    product_funnel_contract: dict[str, Any] | None = None
+    product_funnel_target = None
+    if (
+        args.product_funnel_contract is not None
+        and args.product_funnel_target is not None
+    ):
+        product_funnel_contract = load_json_object(args.product_funnel_contract)
+        validate_product_funnel_contract(product_funnel_contract)
+        product_funnel_target = load_product_funnel_target(
+            args.product_funnel_target
+        )
     profile = load_sync_profile(args.profile)
     site = require_site(load_sites(args.site_config), profile.site)
     if site.timezone != profile.selection_timezone:
@@ -274,6 +315,17 @@ def main() -> int:
         overview.append(records["overview"])
         products.extend(records["products"])
 
+    finalized_periods = [
+        period
+        for period in target_periods
+        if period.kind == "day"
+        and plan_by_key[period_key(profile.site, period)].get("isFinal") is True
+    ]
+    if (v3_contract is not None or product_funnel_contract is not None) and not (
+        finalized_periods
+    ):
+        raise ValueError("sync selection contains no finalized daily facts")
+
     v3_document: dict[str, Any] | None = None
     if args.v3_contract is not None:
         v3_records: dict[str, list[dict[str, Any]]] = {
@@ -282,10 +334,8 @@ def main() -> int:
             "information_daily": [],
         }
         finalized_days: list[str] = []
-        for period in target_periods:
+        for period in finalized_periods:
             key = period_key(profile.site, period)
-            if period.kind != "day" or plan_by_key[key].get("isFinal") is not True:
-                continue
             payload = build_v3_daily_records(
                 site=profile.site,
                 data_date=period.start,
@@ -301,8 +351,6 @@ def main() -> int:
                     raise ValueError("V3 daily payload is missing a declared table")
                 v3_records[logical_name].extend(rows)
             finalized_days.append(period.start.isoformat())
-        if not finalized_days:
-            raise ValueError("V3 sync selection contains no finalized daily facts")
         record_counts = {name: len(rows) for name, rows in v3_records.items()}
         v3_document = {
             "schema_version": "3",
@@ -330,14 +378,76 @@ def main() -> int:
             },
         }
 
+    product_funnel_document: dict[str, Any] | None = None
+    if product_funnel_contract is not None:
+        product_funnel_records: dict[str, list[dict[str, Any]]] = {
+            key: [] for key in PRODUCT_FUNNEL_TABLE_KEYS
+        }
+        product_funnel_days: list[str] = []
+        for period in finalized_periods:
+            key = period_key(profile.site, period)
+            payload = build_product_funnel_observation_daily(
+                site=profile.site,
+                data_date=period.start,
+                fetch_result=fetched[key],
+                details=details[key],
+                product_mapping=mapping,
+                page_dimension=page_dimension,
+            )
+            for logical_name in PRODUCT_FUNNEL_TABLE_KEYS:
+                rows = payload["records"].get(logical_name)
+                if not isinstance(rows, list):
+                    raise ValueError(
+                        "product funnel daily payload is missing a declared table"
+                    )
+                product_funnel_records[logical_name].extend(rows)
+            product_funnel_days.append(period.start.isoformat())
+        product_funnel_counts = {
+            name: len(rows) for name, rows in product_funnel_records.items()
+        }
+        product_funnel_document = {
+            "schema_version": "1",
+            "mode": "incremental_daily_sync",
+            "write_enabled": False,
+            "site": profile.site,
+            "date_range": {
+                "start": min(product_funnel_days),
+                "end": max(product_funnel_days),
+                "inclusive": True,
+                "days": len(product_funnel_days),
+            },
+            "generated_at": generated_at.isoformat().replace("+00:00", "Z"),
+            "records": product_funnel_records,
+            "reconciliation": {
+                "status": "passed",
+                "complete_days": len(product_funnel_days),
+                "record_counts": product_funnel_counts,
+                "unique_stable_keys": True,
+                "additive_totals": product_funnel_additive_totals(
+                    product_funnel_records
+                ),
+                "page_dimension": dict(page_dimension.summary),
+                "page_classification_version": page_dimension.version,
+                "product_mapping_version": mapping.version,
+            },
+        }
+        # Validate the exact publishable shape before creating any local artifact.
+        validate_product_funnel_backfill(
+            product_funnel_document,
+            validate_product_funnel_contract(product_funnel_contract),
+        )
+
     run_dir = args.output_dir / batch
     run_dir.mkdir(parents=True, exist_ok=False)
     _write_json(run_dir / "overview.json", overview)
     _write_json(run_dir / "products.json", products)
     if v3_document is not None:
         _write_json(run_dir / "v3-daily.json", v3_document)
+    if product_funnel_document is not None:
+        _write_json(run_dir / "product-funnel-daily.json", product_funnel_document)
     write_result: dict[str, int | str] | None = None
     v3_write_result: dict[str, dict[str, int]] | None = None
+    product_funnel_write_result: dict[str, dict[str, int]] | None = None
     if args.apply:
         if args.v3_only:
             write_result = {"status": "skipped", "reason": "v3_only"}
@@ -355,6 +465,19 @@ def main() -> int:
                 v3_target,
                 v3_contract,
                 v3_document,
+            )
+        if (
+            product_funnel_document is not None
+            and product_funnel_target is not None
+            and product_funnel_contract is not None
+        ):
+            product_funnel_write_result = sync_product_funnel_record_sets(
+                LarkCLIRecordClient(
+                    product_funnel_target.record_client_target()
+                ),
+                product_funnel_target,
+                product_funnel_contract,
+                product_funnel_document,
             )
     summary = {
         "status": "ok",
@@ -375,6 +498,13 @@ def main() -> int:
             "record_counts": v3_document["reconciliation"]["record_counts"],
             "write_result": v3_write_result,
         } if v3_document is not None else None,
+        "product_funnel": {
+            "date_range": product_funnel_document["date_range"],
+            "record_counts": product_funnel_document["reconciliation"][
+                "record_counts"
+            ],
+            "write_result": product_funnel_write_result,
+        } if product_funnel_document is not None else None,
         "output_dir": str(run_dir),
     }
     _write_json(run_dir / "summary.json", summary)

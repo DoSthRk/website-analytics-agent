@@ -21,6 +21,10 @@ class FeishuTarget:
     identity: str
 
 
+class UncertainCreateError(RuntimeError):
+    """A create may have succeeded; reconcile live stable keys before retrying."""
+
+
 class RecordClient(Protocol):
     def list_records(self, table_id: str) -> list[tuple[str, dict[str, Any]]]: ...
 
@@ -253,8 +257,13 @@ class LarkCLIRecordClient:
             )
             data = result.get("data")
             ids = data.get("record_id_list") if isinstance(data, Mapping) else None
-            if not isinstance(ids, list) or len(ids) != len(batch):
-                raise RuntimeError("Feishu create response did not confirm every record")
+            if (not isinstance(ids, list) or len(ids) != len(batch)
+                    or not all(isinstance(record_id, str) and record_id for record_id in ids)
+                    or len(set(ids)) != len(ids)):
+                raise UncertainCreateError(
+                    "Feishu create response is unconfirmed; stopped without replay. "
+                    "Reconcile live stable keys and record IDs before rerunning."
+                )
             created += len(ids)
         return created
 
@@ -286,6 +295,7 @@ class LarkCLIRecordClient:
 
     def _run(self, command: list[str]) -> dict[str, Any]:
         environment = lark_cli_environment()
+        is_create = "+record-batch-create" in command
         for attempt in range(6):
             completed = subprocess.run(
                 command,
@@ -300,16 +310,33 @@ class LarkCLIRecordClient:
             try:
                 result = json.loads(raw)
             except json.JSONDecodeError as error:
+                if is_create:
+                    raise UncertainCreateError(
+                        "Feishu create response is unreadable; stopped without replay. "
+                        "Reconcile live stable keys and record IDs before rerunning."
+                    ) from None
                 if attempt < 5 and is_retryable_lark_failure(code=None, message=None, raw=raw):
                     time.sleep(min(3 * (attempt + 1), 15))
                     continue
                 raise RuntimeError("lark-cli returned a non-JSON response") from error
             if not isinstance(result, dict):
+                if is_create:
+                    raise UncertainCreateError(
+                        "Feishu create response is invalid; stopped without replay. "
+                        "Reconcile live stable keys and record IDs before rerunning."
+                    )
                 raise RuntimeError("lark-cli returned an invalid response")
             error_data = result.get("error")
             code = error_data.get("code") if isinstance(error_data, Mapping) else None
             message = error_data.get("message") if isinstance(error_data, Mapping) else None
             failed = completed.returncode != 0 or result.get("ok") is not True
+            if failed and is_create and is_retryable_lark_failure(
+                code=code, message=message, raw=raw
+            ):
+                raise UncertainCreateError(
+                    "Feishu create result is uncertain; stopped without replay. "
+                    "Reconcile live stable keys and record IDs before rerunning."
+                )
             if failed and attempt < 5 and is_retryable_lark_failure(
                 code=code,
                 message=message,

@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "base_token": "Qk54bBp6Zacl8BsIK07cUrWange",
+  "identity": "bot",
+  "tables": {
+    "product_funnel_daily": "tblBDFra8GAA95US",
+    "product_funnel_stage_daily": "tblC0FUzN8BFAf6v"
+  }
+}

@@ -1,0 +1,228 @@
+{
+  "version": "1",
+  "status": "aggregate_observation_active",
+  "write_enabled": false,
+  "site": "genemedi-net",
+  "model": "product_search_to_inquiry_funnel",
+  "purpose": "在不混淆 GA4、GSC 和官网数据库口径的前提下，按自选日期和产品层级汇总搜索曝光、产品落地及真实询盘。",
+  "selection": {
+    "date_field": "数据日期",
+    "date_range_inclusive": true,
+    "product_dimensions": ["一级分类", "二级分类", "三级分类", "产品分类"],
+    "mode": "aggregate_observation",
+    "supports_category_and_multi_product": true,
+    "category_or_multi_product_mode": "允许按一级、二级、三级分类或多个末级产品汇总规模、趋势和排行；不解释为用户访问顺序。",
+    "default_channel": "Google自然搜索"
+  },
+  "source_boundaries": {
+    "index": {
+      "source": "GSC URL Inspection API",
+      "unit": "URL snapshot",
+      "rule": "收录是搜索健康门槛，不与曝光、点击或会话计算漏斗转化率。"
+    },
+    "gsc": {
+      "source": "GSC Search Analytics",
+      "unit": "search result occurrences",
+      "rule": "曝光、点击和排名只在 GSC 区段内计算 CTR 与曝光加权平均排名。"
+    },
+    "ga4": {
+      "source": "GA4 Data API",
+      "unit": "sessions",
+      "rule": "产品到达、有效浏览、表单开始和成功提交统一使用包含该步骤的会话数。"
+    },
+    "inquiry": {
+      "source": "configured website inquiry database",
+      "unit": "accepted inquiry records",
+      "rule": "官网入库询盘是业务结果；与 GA4 成功提交的比率只作为跨来源核对指标。"
+    },
+    "cross_source_rule": "GSC 点击、GA4 会话和数据库询盘不是同一识别体系；看板使用虚线标明来源边界，不把跨来源比率称为严格转化率。"
+  },
+  "current_metric_correction": {
+    "existing_field": "产品页访问次数",
+    "correct_name": "产品落地会话（全部渠道）",
+    "source": "GA4 landingPagePlusQueryString + sessions",
+    "reason": "当前页面明细按会话落地页分组，只覆盖以产品页作为入口的会话，不能证明用户在站内点击或到达过产品页。"
+  },
+  "availability": {
+    "available_now": [
+      "产品 URL 与产品层级映射",
+      "GSC 产品页曝光与点击",
+      "GSC 曝光加权排名分子",
+      "GA4 产品落地会话（全部渠道）",
+      "GA4 产品落地页 engagedSessions 与 keyEvents 原始指标",
+      "GA4 产品落地有效会话",
+      "按提交 PageURL 映射的官网入库询盘"
+    ],
+    "pipeline_change_required": [
+      "GA4 Google 自然搜索产品落地会话"
+    ],
+    "deferred_user_level_instrumentation": [
+      "产品链接点击 select_item",
+      "产品页到达 view_item",
+      "按产品归属的 form_start",
+      "后端入库成功后触发 generate_lead",
+      "直接产品落地与信息页辅助路径"
+    ],
+    "new_source_required": [
+      "产品 URL 索引健康快照"
+    ]
+  },
+  "tables": [
+    {
+      "logical_name": "product_funnel_daily",
+      "display_name": "产品漏斗每日数据",
+      "stable_key": "产品漏斗每日键",
+      "grain": "站点 × 数据日期 × 产品末级分类",
+      "fields": [
+        {"key": "product_funnel_daily_key", "name": "产品漏斗每日键", "type": "text", "required": true, "source": "system", "aggregation": "key"},
+        {"key": "site", "name": "站点", "type": "text", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "data_date", "name": "数据日期", "type": "datetime", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "data_status", "name": "数据状态", "type": "select", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "product_line_id", "name": "产品分类ID", "type": "text", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "product_name", "name": "产品分类", "type": "text", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "category_l1", "name": "一级分类", "type": "select", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "category_l2", "name": "二级分类", "type": "select", "required": false, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "category_l3", "name": "三级分类", "type": "select", "required": false, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "gsc_impressions", "name": "Google搜索曝光", "type": "number", "required": true, "source": "gsc.impressions", "availability": "available_now", "aggregation": "sum"},
+        {"key": "gsc_clicks", "name": "Google自然搜索点击", "type": "number", "required": true, "source": "gsc.clicks", "availability": "available_now", "aggregation": "sum"},
+        {"key": "gsc_position_impression_sum", "name": "排名曝光加权分子", "type": "number", "required": true, "source": "sum(gsc.position * gsc.impressions)", "availability": "available_now", "aggregation": "sum"},
+        {"key": "ga4_product_landing_sessions_all_channels", "name": "产品落地会话（全部渠道）", "type": "number", "required": true, "source": "ga4.pages.sessions", "availability": "available_now", "aggregation": "sum"},
+        {"key": "ga4_product_landing_engaged_sessions_all_channels", "name": "产品落地有效会话（全部渠道）", "type": "number", "required": true, "source": "ga4.pages.engagedSessions", "availability": "available_now", "aggregation": "sum"},
+        {"key": "ga4_product_landing_key_events_all_channels", "name": "产品落地关键事件（全部渠道）", "type": "number", "required": true, "source": "ga4.pages.keyEvents", "availability": "available_now", "aggregation": "sum"},
+        {"key": "ga4_organic_product_landing_sessions", "name": "自然搜索产品落地会话", "type": "number", "required": false, "source": "ga4 landingPagePlusQueryString + sessionSourceMedium", "availability": "pipeline_change_required", "aggregation": "sum"},
+        {"key": "ga4_direct_product_arrival_sessions", "name": "直接产品到达会话", "type": "number", "required": false, "source": "ga4 view_item", "availability": "website_instrumentation_required", "aggregation": "sum", "cross_product_aggregation": "non_additive"},
+        {"key": "ga4_content_assisted_product_arrival_sessions", "name": "信息页辅助产品到达会话", "type": "number", "required": false, "source": "ga4 select_item + view_item", "availability": "website_instrumentation_required", "aggregation": "sum", "cross_product_aggregation": "non_additive"},
+        {"key": "ga4_other_assisted_product_arrival_sessions", "name": "其他路径产品到达会话", "type": "number", "required": false, "source": "ga4 view_item", "availability": "website_instrumentation_required", "aggregation": "sum", "cross_product_aggregation": "non_additive"},
+        {"key": "ga4_engaged_product_sessions", "name": "有效产品浏览会话", "type": "number", "required": false, "source": "ga4 view_item + engaged session", "availability": "website_instrumentation_required", "aggregation": "sum", "cross_product_aggregation": "non_additive"},
+        {"key": "ga4_form_start_sessions", "name": "表单开始会话", "type": "number", "required": false, "source": "ga4 form_start", "availability": "website_instrumentation_required", "aggregation": "sum", "cross_product_aggregation": "non_additive"},
+        {"key": "ga4_generate_lead_sessions", "name": "成功提交会话", "type": "number", "required": false, "source": "ga4 generate_lead", "availability": "website_instrumentation_required", "aggregation": "sum", "cross_product_aggregation": "non_additive"},
+        {"key": "db_accepted_inquiries", "name": "官网入库询盘", "type": "number", "required": true, "source": "inquiry.nonQuarantinedSubmissions", "availability": "available_now_with_page_url_attribution", "aggregation": "sum"},
+        {"key": "mapping_version", "name": "产品映射版本", "type": "text", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "measurement_version", "name": "漏斗埋点版本", "type": "text", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "refreshed_at", "name": "数据更新时间", "type": "datetime", "required": true, "source": "system", "aggregation": "non_additive"},
+        {"key": "source_boundary_note", "name": "口径边界说明", "type": "text", "required": true, "source": "system", "aggregation": "non_additive"}
+      ]
+    },
+    {
+      "logical_name": "product_funnel_stage_daily",
+      "display_name": "产品漏斗阶段每日数据",
+      "stable_key": "产品漏斗阶段每日键",
+      "grain": "站点 × 数据日期 × 产品末级分类 × 观察阶段",
+      "fields": [
+        {"key": "product_funnel_stage_daily_key", "name": "产品漏斗阶段每日键", "type": "text", "required": true, "source": "system", "aggregation": "key"},
+        {"key": "product_funnel_daily_key", "name": "产品漏斗每日键", "type": "text", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "site", "name": "站点", "type": "text", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "data_date", "name": "数据日期", "type": "datetime", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "data_status", "name": "数据状态", "type": "select", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "product_line_id", "name": "产品分类ID", "type": "text", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "product_name", "name": "产品分类", "type": "text", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "category_l1", "name": "一级分类", "type": "select", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "category_l2", "name": "二级分类", "type": "select", "required": false, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "category_l3", "name": "三级分类", "type": "select", "required": false, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "stage_order", "name": "阶段顺序", "type": "number", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "stage_id", "name": "阶段ID", "type": "text", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "stage_name", "name": "漏斗阶段", "type": "select", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "stage_source", "name": "数据来源", "type": "select", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "stage_unit", "name": "统计单位", "type": "select", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "stage_value", "name": "阶段数量", "type": "number", "required": true, "source": "derived", "aggregation": "sum"},
+        {"key": "strict_transition_from_previous", "name": "与上一阶段同源可转化", "type": "checkbox", "required": true, "source": "system", "aggregation": "non_additive"},
+        {"key": "rate_from_previous", "name": "同源阶段转化率", "type": "number", "required": false, "source": "derived", "aggregation": "non_additive"},
+        {"key": "rate_key", "name": "同源转化率ID", "type": "text", "required": false, "source": "system", "aggregation": "dimension"},
+        {"key": "source_boundary_note", "name": "阶段口径说明", "type": "text", "required": true, "source": "system", "aggregation": "non_additive"},
+        {"key": "mapping_version", "name": "产品映射版本", "type": "text", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "measurement_version", "name": "漏斗埋点版本", "type": "text", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "refreshed_at", "name": "数据更新时间", "type": "datetime", "required": true, "source": "system", "aggregation": "non_additive"}
+      ]
+    },
+    {
+      "logical_name": "product_index_snapshot",
+      "display_name": "产品搜索健康快照",
+      "stable_key": "产品索引快照键",
+      "grain": "站点 × 快照日期 × 产品末级分类",
+      "fields": [
+        {"key": "product_index_snapshot_key", "name": "产品索引快照键", "type": "text", "required": true, "source": "system", "aggregation": "key"},
+        {"key": "site", "name": "站点", "type": "text", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "snapshot_date", "name": "快照日期", "type": "datetime", "required": true, "source": "system", "aggregation": "dimension"},
+        {"key": "product_line_id", "name": "产品分类ID", "type": "text", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "product_name", "name": "产品分类", "type": "text", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "eligible_urls", "name": "应收录URL", "type": "number", "required": true, "source": "page_dimension", "aggregation": "snapshot_non_additive"},
+        {"key": "inspected_urls", "name": "已检查URL", "type": "number", "required": true, "source": "gsc_url_inspection", "aggregation": "snapshot_non_additive"},
+        {"key": "indexed_urls", "name": "已收录URL", "type": "number", "required": true, "source": "gsc_url_inspection", "aggregation": "snapshot_non_additive"},
+        {"key": "excluded_urls", "name": "未收录URL", "type": "number", "required": true, "source": "gsc_url_inspection", "aggregation": "snapshot_non_additive"},
+        {"key": "canonical_mismatch_urls", "name": "Canonical异常URL", "type": "number", "required": true, "source": "gsc_url_inspection", "aggregation": "snapshot_non_additive"},
+        {"key": "crawl_error_urls", "name": "抓取异常URL", "type": "number", "required": true, "source": "gsc_url_inspection", "aggregation": "snapshot_non_additive"},
+        {"key": "not_inspected_urls", "name": "未检查URL", "type": "number", "required": true, "source": "derived", "aggregation": "snapshot_non_additive"},
+        {"key": "mapping_version", "name": "产品映射版本", "type": "text", "required": true, "source": "product_mapping", "aggregation": "dimension"},
+        {"key": "refreshed_at", "name": "数据更新时间", "type": "datetime", "required": true, "source": "system", "aggregation": "non_additive"}
+      ]
+    }
+  ],
+  "derived_metrics": [
+    {"key": "index_coverage", "name": "产品收录率", "scope": "index", "formula": "indexed_urls / eligible_urls", "strict_conversion": false},
+    {"key": "gsc_ctr", "name": "搜索点击率", "scope": "gsc", "formula": "sum(gsc_clicks) / sum(gsc_impressions)", "strict_conversion": true},
+    {"key": "gsc_weighted_position", "name": "曝光加权平均排名", "scope": "gsc", "formula": "sum(gsc_position_impression_sum) / sum(gsc_impressions)", "strict_conversion": false},
+    {"key": "ga4_landing_engagement_rate", "name": "产品落地有效会话率", "scope": "ga4", "formula": "sum(ga4_product_landing_engaged_sessions_all_channels) / sum(ga4_product_landing_sessions_all_channels)", "strict_conversion": true},
+    {"key": "landing_match_rate", "name": "到站匹配率", "scope": "cross_source_diagnostic", "formula": "sum(ga4_organic_product_landing_sessions) / sum(gsc_clicks)", "strict_conversion": false},
+    {"key": "product_engagement_rate", "name": "产品承接率", "scope": "ga4", "formula": "sum(ga4_engaged_product_sessions) / sum(product_arrival_sessions)", "strict_conversion": true},
+    {"key": "form_start_rate", "name": "表单开启率", "scope": "ga4", "formula": "sum(ga4_form_start_sessions) / sum(ga4_engaged_product_sessions)", "strict_conversion": true},
+    {"key": "form_completion_rate", "name": "表单完成率", "scope": "ga4", "formula": "sum(ga4_generate_lead_sessions) / sum(ga4_form_start_sessions)", "strict_conversion": true},
+    {"key": "db_reconciliation_rate", "name": "真实入库核对率", "scope": "cross_source_diagnostic", "formula": "sum(db_accepted_inquiries) / sum(ga4_generate_lead_sessions)", "strict_conversion": false}
+  ],
+  "journey_attribution": {
+    "status": "deferred_not_in_active_dashboard",
+    "direct_product_landing": "会话落地页属于所选产品；搜索点击进站与产品页到达是同一步，不额外制造产品点击步骤。",
+    "content_assisted": "会话落地页属于信息页，随后发生指向所选产品的 select_item，并成功触发该产品的 view_item。",
+    "other_assisted": "会话落地页既非所选产品也非信息页，随后成功触发所选产品的 view_item。",
+    "lead_product_precedence": [
+      "表单显式选择的产品分类ID",
+      "form_start 前最后一次 view_item 的产品分类ID",
+      "提交页面 URL 的产品映射",
+      "会话落地产品"
+    ],
+    "multi_product_rule": "当前看板只汇总产品落地页会话，不重建会话内的多产品访问顺序；用户级路径归因已暂缓。"
+  },
+  "instrumentation_status": "deferred_not_required_for_aggregate_observation",
+  "measurement_plan": "config/product_funnel/v1/measurement_plan.json",
+  "event_contract": [
+    {
+      "event": "select_item",
+      "trigger": "用户点击指向产品详情页的产品卡片、正文链接或 CTA。",
+      "required_parameters": ["product_line_id", "source_page_class", "tracking_version", "ecommerce"],
+      "required_item_parameters": ["item_id", "item_name", "item_category"]
+    },
+    {
+      "event": "view_item",
+      "trigger": "产品详情页完成规范 URL 和产品映射解析后加载。",
+      "required_parameters": ["product_line_id", "journey_type", "tracking_version", "ecommerce"],
+      "required_item_parameters": ["item_id", "item_name", "item_category"]
+    },
+    {
+      "event": "form_start",
+      "trigger": "用户首次与询盘表单发生有效交互。",
+      "required_parameters": ["form_id", "product_line_id", "journey_type", "tracking_version"],
+      "required_item_parameters": []
+    },
+    {
+      "event": "generate_lead",
+      "trigger": "官网后端确认询盘已成功写入数据库后。",
+      "required_parameters": ["form_id", "product_line_id", "journey_type", "tracking_version", "ecommerce"],
+      "required_item_parameters": ["item_id", "item_name", "item_category"]
+    }
+  ],
+  "privacy": {
+    "allowed": ["产品分类ID", "产品分类名称", "产品层级", "规范页面路径", "页面类型", "表单类型", "直接或辅助路径", "埋点版本"],
+    "forbidden": ["姓名", "邮箱", "电话", "公司联系人", "询盘正文", "表单原始载荷", "询盘数据库主键"],
+    "rule": "GA4、飞书和分析缓存只保留产品维度与汇总指标，不传输或展示询盘个人信息。"
+  },
+  "acceptance": [
+    "看板必须显示各数据源的最终数据截止日期。",
+    "允许按自选日期、产品大类或多个产品汇总阶段数量、趋势和排行。",
+    "观察漏斗不声称重建了同一用户的访问顺序。",
+    "索引快照不进入日期区间求和。",
+    "CTR 使用区间点击总和除以曝光总和。",
+    "平均排名使用曝光加权分子除以曝光总和。",
+    "GA4 只使用产品落地会话及产品落地有效会话，不使用尚未部署的用户级事件。",
+    "跨 GSC、GA4 和数据库的比率必须标记为核对或诊断指标。",
+    "不采集、不输出、不上传任何询盘个人信息。"
+  ]
+}

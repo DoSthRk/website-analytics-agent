@@ -47,8 +47,11 @@ _MATCH_TYPES = frozenset(
 )
 _PAGE_METRICS = (
     "ga4Sessions",
+    "ga4EngagedSessions",
+    "ga4KeyEvents",
     "gscClicks",
     "gscImpressions",
+    "gscPositionImpressionSum",
     "storedSubmissions",
     "quarantinedSubmissions",
     "nonQuarantinedSubmissions",
@@ -172,12 +175,30 @@ def build_product_report(
                 "ga4SessionsCurrent": current["ga4Sessions"],
                 "ga4SessionsPrevious": previous["ga4Sessions"],
                 "ga4SessionsDelta": current["ga4Sessions"] - previous["ga4Sessions"],
+                "ga4EngagedSessionsCurrent": current["ga4EngagedSessions"],
+                "ga4EngagedSessionsPrevious": previous["ga4EngagedSessions"],
+                "ga4EngagedSessionsDelta": current["ga4EngagedSessions"]
+                - previous["ga4EngagedSessions"],
+                "ga4KeyEventsCurrent": current["ga4KeyEvents"],
+                "ga4KeyEventsPrevious": previous["ga4KeyEvents"],
+                "ga4KeyEventsDelta": current["ga4KeyEvents"]
+                - previous["ga4KeyEvents"],
                 "gscClicksCurrent": current["gscClicks"],
                 "gscClicksPrevious": previous["gscClicks"],
                 "gscClicksDelta": current["gscClicks"] - previous["gscClicks"],
                 "gscImpressionsCurrent": current["gscImpressions"],
                 "gscImpressionsPrevious": previous["gscImpressions"],
                 "gscImpressionsDelta": current["gscImpressions"] - previous["gscImpressions"],
+                "gscPositionImpressionSumCurrent": current[
+                    "gscPositionImpressionSum"
+                ],
+                "gscPositionImpressionSumPrevious": previous[
+                    "gscPositionImpressionSum"
+                ],
+                "gscPositionImpressionSumDelta": current[
+                    "gscPositionImpressionSum"
+                ]
+                - previous["gscPositionImpressionSum"],
                 "gscCtrCurrent": _ctr(current["gscClicks"], current["gscImpressions"]),
                 "gscCtrPrevious": _ctr(previous["gscClicks"], previous["gscImpressions"]),
                 "gscCtrDelta": _delta_ctr(current, previous),
@@ -230,11 +251,19 @@ def _mapped_pages(
         path = _page_path(record.get("landingPagePlusQueryString"))
         if path:
             metrics_by_path[path]["ga4Sessions"] += _metric(record, "sessions")
+            metrics_by_path[path]["ga4EngagedSessions"] += _metric(
+                record, "engagedSessions"
+            )
+            metrics_by_path[path]["ga4KeyEvents"] += _metric(record, "keyEvents")
     for record in details.get("GSC Pages", ()):
         path = _page_path(record.get("page"))
         if path:
             metrics_by_path[path]["gscClicks"] += _metric(record, "clicks")
-            metrics_by_path[path]["gscImpressions"] += _metric(record, "impressions")
+            impressions = _metric(record, "impressions")
+            metrics_by_path[path]["gscImpressions"] += impressions
+            metrics_by_path[path]["gscPositionImpressionSum"] += (
+                _metric(record, "position") * impressions
+            )
     for record in details.get("Inquiry Pages", ()):
         path = _page_path(record.get("sourceUrl"))
         if path:
@@ -273,8 +302,13 @@ def _mapped_pages(
                     else "No approved product-line rule matched this page."
                 ),
                 "ga4Sessions": metrics["ga4Sessions"],
+                "ga4EngagedSessions": metrics["ga4EngagedSessions"],
+                "ga4KeyEvents": metrics["ga4KeyEvents"],
                 "gscClicks": metrics["gscClicks"],
                 "gscImpressions": metrics["gscImpressions"],
+                "gscPositionImpressionSum": metrics[
+                    "gscPositionImpressionSum"
+                ],
                 "gscCtr": _ctr(metrics["gscClicks"], metrics["gscImpressions"]),
                 "storedSubmissions": metrics["storedSubmissions"],
                 "quarantinedSubmissions": metrics["quarantinedSubmissions"],
