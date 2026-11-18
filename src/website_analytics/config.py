@@ -162,7 +162,7 @@ def _optional_inquiry_source(
         return None
     if not isinstance(value, Mapping):
         raise ConfigError(f"site '{site_key}' field 'inquiry_source' must be a mapping")
-    allowed = {"kind", "credential_env", "credential_target"}
+    allowed = {"kind", "credential_env", "credential_target", "site_scope", "site_scope_evidence"}
     _reject_unexpected_fields(
         value,
         frozenset(allowed),
@@ -186,10 +186,16 @@ def _optional_inquiry_source(
             raise ConfigError(
                 f"site '{site_key}' inquiry_source credential_target must be a WebsiteAnalytics/* name"
             )
+    site_scope = value.get("site_scope")
+    if site_scope != "dedicated_database":
+        raise ConfigError(f"site '{site_key}' inquiry_source requires site_scope: dedicated_database; shared or unverified databases are unsupported")
+    site_scope_evidence = _required_text(value, site_key, "site_scope_evidence")
     return InquirySourceConfig(
         kind=kind,
         credential_env=credential_env,
         credential_target=credential_target,
+        site_scope=site_scope,
+        site_scope_evidence=site_scope_evidence,
     )
 
 

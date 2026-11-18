@@ -452,7 +452,7 @@ def _collect_dataset(
                 _FixtureInquiryAdapter(fixture_dir).source_data(date_range)
                 if fixture_dir is not None
                 else inquiry_source_data(
-                    create_inquiry_adapter(site.inquiry_source), date_range
+                    create_inquiry_adapter(site.inquiry_source, domains=site.domains), date_range
                 )
             ),
         )

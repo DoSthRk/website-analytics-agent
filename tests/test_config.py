@@ -47,6 +47,8 @@ sites:
     gsc_property_url: sc-domain:example.com
     inquiry_source:
       kind: legacy_contacts_mysql
+      site_scope: dedicated_database
+      site_scope_evidence: Synthetic test fixture only
       credential_env: WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN
 """.lstrip(),
         encoding="utf-8",
@@ -73,6 +75,8 @@ sites:
     gsc_property_url: sc-domain:example.com
     inquiry_source:
       kind: legacy_contacts_mysql
+      site_scope: dedicated_database
+      site_scope_evidence: Synthetic test fixture only
       credential_env: WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN
       credential_target: WebsiteAnalytics/demo/inquiry-dsn
 """.lstrip(),
@@ -120,6 +124,8 @@ sites:
     gsc_property_url: sc-domain:example.com
     inquiry_source:
       kind: legacy_contacts_mysql
+      site_scope: dedicated_database
+      site_scope_evidence: Synthetic test fixture only
       credential_env: WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN
       credential_target: ../other
 """.lstrip(),

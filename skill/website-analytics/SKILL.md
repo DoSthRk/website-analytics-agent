@@ -93,3 +93,13 @@ raw SQL outside the adapter.
 - State that database days use the legacy website server calendar, which may
   differ from GA4, GSC, and `selection_timezone`. If inquiry page detail is
   `partial`, do not call it complete or use it to claim all product pages.
+
+
+## Inquiry scope validation
+
+实际inquiry_source现在必须显式声明site_scope: dedicated_database，并提供
+site_scope_evidence；仅可填写真实已核实的站点数据库隔离依据，不得为通过校验猜测。
+共享/未确认数据库不受支持，不能扩大SQL或权限来绕过。实时采集对PageURL hostname
+使用登记domains校验；外域来源整源失败，不静默过滤。缺失页面归因不改变原始入库总数。
+GA4 keyEvents是全部关键事件，配置key_events目前仅元数据，不能将其解释为表单事件。
+V3卡片采用准确语义标题，但保留原字段名和稳定键以兼容已有表；本地manifest不代表已更新线上。

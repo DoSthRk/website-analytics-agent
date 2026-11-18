@@ -392,6 +392,8 @@ sites:
     key_events: [inquiry]
     inquiry_source:
       kind: legacy_contacts_mysql
+      site_scope: dedicated_database
+      site_scope_evidence: Synthetic test fixture only
       credential_env: WEBSITE_ANALYTICS_GENEMEDI_NET_INQUIRY_DSN
 """.lstrip(),
         encoding="utf-8",

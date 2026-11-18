@@ -64,6 +64,10 @@ class InquirySourceError(RuntimeError):
     """Raised when a configured inquiry source cannot safely be queried."""
 
 
+class InquiryScopeError(InquirySourceError):
+    """The configured database or observed origins have no verified site scope."""
+
+
 class _Cursor(Protocol):
     def execute(self, query: str, args: Sequence[object] | None = None) -> object:
         """Execute a prepared, fixed query."""
@@ -97,9 +101,12 @@ class InquiryQueryResult:
 class LegacyContactsAdapter:
     """Query only aggregate, non-PII facts from the approved ``contacts`` table."""
 
-    def __init__(self, dsn: str, *, connector: Connector | None = None) -> None:
+    def __init__(self, dsn: str, *, connector: Connector | None = None, domains: Sequence[str] = ()) -> None:
         self._connection_options = _connection_options(dsn)
+        if connector is None and not domains:
+            raise InquirySourceError("live inquiry adapter requires registered domains")
         self._connector = connector or _pymysql_connect
+        self._domains = frozenset(domain.casefold().rstrip(".") for domain in domains)
 
     def query(self, date_range: DateRange) -> InquiryQueryResult:
         connection: _Connection | None = None
@@ -117,6 +124,12 @@ class LegacyContactsAdapter:
                 )
                 raw_page_rows = cursor.fetchall()
                 pages = tuple(_page_row(row) for row in raw_page_rows[:_PAGE_ROW_CAP])
+                if self._domains:
+                    for row in raw_page_rows[:_PAGE_ROW_CAP]:
+                        origin = urlsplit(str(row.get("source_url", "")).strip())
+                        hostname = (origin.hostname or "").casefold().rstrip(".")
+                        if origin.scheme in {"http", "https"} and hostname and hostname not in self._domains:
+                            raise InquiryScopeError("inquiry site scope violation; no records were filtered or published")
         except InquirySourceError:
             raise
         except Exception as error:
@@ -133,10 +146,12 @@ class LegacyContactsAdapter:
         )
 
 
-def create_inquiry_adapter(source: InquirySourceConfig) -> LegacyContactsAdapter:
+def create_inquiry_adapter(source: InquirySourceConfig, *, domains: Sequence[str]) -> LegacyContactsAdapter:
     """Load a fixed database connection from a named local environment variable."""
     if source.kind != "legacy_contacts_mysql":
         raise InquirySourceError("configured inquiry source is unsupported")
+    if source.site_scope != "dedicated_database" or not source.site_scope_evidence or not source.site_scope_evidence.strip() or not domains:
+        raise InquiryScopeError("inquiry source requires verified dedicated_database scope and registered domains")
     dsn = os.environ.get(source.credential_env)
     if not dsn and source.credential_target:
         try:
@@ -145,7 +160,7 @@ def create_inquiry_adapter(source: InquirySourceConfig) -> LegacyContactsAdapter
             raise InquirySourceError("configured inquiry credential is unavailable") from error
     if not dsn:
         raise InquirySourceError("configured inquiry credential is unavailable")
-    return LegacyContactsAdapter(dsn)
+    return LegacyContactsAdapter(dsn, domains=domains)
 
 
 def inquiry_source_data(
@@ -159,6 +174,7 @@ def inquiry_source_data(
         {
             "status": "partial" if result.page_rows_truncated else "ok",
             "date_boundary": _DATE_BOUNDARY,
+            "site_scope": "dedicated_database_attestation_and_page_origin_check",
             "details": {
                 "Inquiry Pages": {
                     "rows": len(result.pages),
@@ -234,7 +250,7 @@ def _safe_source_url(value: str) -> str:
     """Keep only an HTTP(S) page identity; legacy URLs can contain form data."""
     sanitized = sanitize_url_query(value.strip())
     parts = urlsplit(sanitized)
-    if parts.scheme not in {"http", "https"} or not parts.netloc:
+    if parts.scheme not in {"http", "https"} or not parts.netloc or parts.username or parts.password:
         return "[UNATTRIBUTED]"
     return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
 

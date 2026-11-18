@@ -154,12 +154,13 @@ def test_create_inquiry_adapter_reads_only_named_environment_variable(
     source = InquirySourceConfig(
         kind="legacy_contacts_mysql",
         credential_env="WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN",
+        site_scope="dedicated_database", site_scope_evidence="Synthetic fixture only",
     )
     monkeypatch.setenv(
         source.credential_env, "mysql://analytics:password@db.example.test/analytics"
     )
 
-    assert isinstance(create_inquiry_adapter(source), LegacyContactsAdapter)
+    assert isinstance(create_inquiry_adapter(source, domains=("www.genemedi.net",)), LegacyContactsAdapter)
 
 
 def test_create_inquiry_adapter_can_read_only_the_configured_windows_credential_target(
@@ -168,6 +169,7 @@ def test_create_inquiry_adapter_can_read_only_the_configured_windows_credential_
     source = InquirySourceConfig(
         kind="legacy_contacts_mysql",
         credential_env="WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN",
+        site_scope="dedicated_database", site_scope_evidence="Synthetic fixture only",
         credential_target="WebsiteAnalytics/demo/inquiry-dsn",
     )
     observed = []
@@ -177,5 +179,5 @@ def test_create_inquiry_adapter_can_read_only_the_configured_windows_credential_
         lambda target: observed.append(target) or "mysql://analytics:password@db.example.test/analytics",
     )
 
-    assert isinstance(create_inquiry_adapter(source), LegacyContactsAdapter)
+    assert isinstance(create_inquiry_adapter(source, domains=("www.genemedi.net",)), LegacyContactsAdapter)
     assert observed == ["WebsiteAnalytics/demo/inquiry-dsn"]

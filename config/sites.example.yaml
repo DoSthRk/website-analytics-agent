@@ -12,5 +12,9 @@ sites:
     # the named local environment variable, never this YAML file.
     # inquiry_source:
     #   kind: legacy_contacts_mysql
+    #   site_scope: dedicated_database
+    #   site_scope_evidence: <confirmed isolation evidence; never a credential>
+    # Only use dedicated_database after verifying that contacts belongs to this site.
+    # Shared/unverified databases are rejected; include every observed site hostname.
     #   credential_env: WEBSITE_ANALYTICS_DEMO_INQUIRY_DSN
     #   credential_target: WebsiteAnalytics/demo/inquiry-dsn

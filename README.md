@@ -129,6 +129,8 @@ Add this local-only block to the registered site in `config/sites.yaml`:
 ```yaml
 inquiry_source:
   kind: legacy_contacts_mysql
+  site_scope: dedicated_database
+  site_scope_evidence: <已确认该数据库contacts仅属于此站点的依据，不填凭据>
   credential_env: WEBSITE_ANALYTICS_GENEMEDI_NET_INQUIRY_DSN
   credential_target: WebsiteAnalytics/genemedi-net/inquiry-dsn
 ```
@@ -245,3 +247,34 @@ GA4/GSC 与飞书分别使用各自明确的代理环境变量。
 ```
 
 同步命令默认只生成差异计划；仅显式增加`--apply`才会创建表或补写/更新记录。全字段验收会读取三张表的全部 21 列，并逐单元格与审核产物比较。
+
+
+## V3 第一批本地优化与兼容性
+
+V3-only 在选期、抓取和构建阶段只处理已最终化的单日，不抓比较期或构建 V2。
+配置延迟仍是 finality 估计，不是实时来源水位。默认 profile 在 2026-09-30
+full 只需 11 个日区间，intraday 只需 2 个；未加 --v3-only 的旧规划保持原行为。
+
+每次执行在输出目录留下 `latest-run-status.json`，批次目录留下
+`run-status.json` 与成功的 `summary.json`。状态包含 started/finished、阶段、
+active period、最后成功检查时刻、publication 和本批 selected/generated/missing dates。
+缺日仅针对本批选中区间；remote_history_coverage=not_verified，不能据此断言线上历史缺失。
+失败只记录错误类型，不记录异常原文或来源 payload。publication=failed_or_partial
+表示可能已写入部分表，未承诺回滚；not_requested 表示只运行 dry-run。
+`last_successful_check_at` 与表中仅事实变化才更新的 refreshed_at 是两个口径。
+14 日窗口以外的历史仍须另行核查回填；本次未自动扩展来源访问或回填范围。
+
+询盘实时配置现在必须填写 `site_scope: dedicated_database` 与非空
+`site_scope_evidence`。这是一项需要真实隔离证据的声明，不是程序自动验证数据库隔离。
+缺失、未确认或共享库会在配置验证阶段拒绝；不能为了通过验证捏造证据。
+domains 必须包含该站所有合法 PageURL hostname。实时 adapter 校验非空合法
+页面来源：发现外域即整源失败，报 InquiryScopeError，不默默过滤提交或将全库总数当本站。
+空/无法归因页面仍保留在总入库数中，不能自动当无效询盘。共享库需要先确认可信站点字段
+与固定聚合方案，当前不支持任意字段/SQL/DSN 参数。本地没有实际 sites.yaml，尚未核实生产隔离。
+
+V3 卡片标题/说明改为 GA4关键事件总数、非隔离表单入库数、官网会话与落地会话。
+`data_contract.json` 的 semantic_label 定义准确含义；原 name、JSON key、source、
+稳定键和数据数值保持兼容，accepted_inquiries 是遗留键名，不是已确认有效线索。
+更新卡片配置需要未来单独批准的飞书操作；当前线上仍未修改。
+已有 dashboard_result 记录旧组件名，未来应用/验收更名组件前应按 block_id 核对，
+不能直接把 manifest 当已在线更新。详细范围与验收见 docs/feishu-dashboard-v3.md。

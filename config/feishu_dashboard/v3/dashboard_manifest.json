@@ -16,14 +16,14 @@
       "table": "全站每日数据",
       "filters": ["数据日期", "站点", "数据状态"],
       "blocks": [
-        {"name": "官网访问次数", "type": "statistics", "metric": "官网访问次数", "aggregation": "sum"},
+        {"name": "官网会话次数", "type": "statistics", "metric": "官网访问次数", "aggregation": "sum"},
         {"name": "Google自然搜索点击", "type": "statistics", "metric": "Google自然搜索点击", "aggregation": "sum"},
-        {"name": "表单提交事件（GA4）", "type": "statistics", "metric": "表单提交事件（GA4）", "aggregation": "sum"},
-        {"name": "官网入库询盘", "type": "statistics", "metric": "官网入库询盘", "aggregation": "sum"},
-        {"name": "官网访问趋势", "type": "line", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["数据日期"]},
+        {"name": "GA4关键事件总数", "type": "statistics", "metric": "表单提交事件（GA4）", "aggregation": "sum"},
+        {"name": "非隔离表单入库数", "type": "statistics", "metric": "官网入库询盘", "aggregation": "sum"},
+        {"name": "官网会话趋势", "type": "line", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["数据日期"]},
         {"name": "自然搜索点击趋势", "type": "line", "metric": "Google自然搜索点击", "aggregation": "sum", "group_by": ["数据日期"]},
-        {"name": "官网入库询盘趋势", "type": "line", "metric": "官网入库询盘", "aggregation": "sum", "group_by": ["数据日期"]},
-        {"name": "产品页与信息页访问构成", "type": "bar", "metrics": ["产品页访问次数", "信息页访问次数", "其他页面访问次数"], "aggregation": "sum"}
+        {"name": "非隔离表单入库数趋势", "type": "line", "metric": "官网入库询盘", "aggregation": "sum", "group_by": ["数据日期"]},
+        {"name": "落地页类型会话构成", "type": "bar", "metrics": ["产品页访问次数", "信息页访问次数", "其他页面访问次数"], "aggregation": "sum"}
       ]
     },
     {
@@ -32,10 +32,10 @@
       "table": "产品每日数据",
       "filters": ["数据日期", "站点", "数据状态", "一级分类", "二级分类", "三级分类"],
       "blocks": [
-        {"name": "产品访问排行", "type": "bar", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["产品分类"], "limit": 12},
+        {"name": "产品落地会话排行", "type": "bar", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["产品分类"], "limit": 12},
         {"name": "产品搜索点击排行", "type": "bar", "metric": "Google自然搜索点击", "aggregation": "sum", "group_by": ["产品分类"], "limit": 12},
         {"name": "产品询盘排行", "type": "bar", "metric": "官网入库询盘", "aggregation": "sum", "group_by": ["产品分类"], "limit": 12},
-        {"name": "一级分类访问趋势", "type": "line", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["数据日期", "一级分类"]},
+        {"name": "一级分类落地会话趋势", "type": "line", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["数据日期", "一级分类"]},
         {"name": "一级分类搜索趋势", "type": "line", "metric": "Google自然搜索点击", "aggregation": "sum", "group_by": ["数据日期", "一级分类"]},
         {"name": "产品表现明细", "type": "table", "fields": ["产品分类", "一级分类", "二级分类", "三级分类", "官网访问次数", "Google搜索曝光", "Google自然搜索点击", "官网入库询盘"], "sort": [{"field": "官网访问次数", "order": "desc"}]}
       ]
@@ -46,9 +46,9 @@
       "table": "信息页每日数据",
       "filters": ["数据日期", "站点", "数据状态", "信息主题", "内容类型"],
       "blocks": [
-        {"name": "信息主题访问", "type": "bar", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["信息主题"]},
+        {"name": "信息主题落地会话", "type": "bar", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["信息主题"]},
         {"name": "内容类型搜索点击", "type": "bar", "metric": "Google自然搜索点击", "aggregation": "sum", "group_by": ["内容类型"]},
-        {"name": "信息主题访问趋势", "type": "line", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["数据日期", "信息主题"]},
+        {"name": "信息主题落地会话趋势", "type": "line", "metric": "官网访问次数", "aggregation": "sum", "group_by": ["数据日期", "信息主题"]},
         {"name": "内容类型搜索趋势", "type": "line", "metric": "Google自然搜索点击", "aggregation": "sum", "group_by": ["数据日期", "内容类型"]},
         {"name": "内容机会明细", "type": "table", "fields": ["信息主题", "内容类型", "官网访问次数", "Google搜索曝光", "Google自然搜索点击", "官网入库询盘"], "sort": [{"field": "Google搜索曝光", "order": "desc"}]}
       ]

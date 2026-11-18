@@ -51,6 +51,7 @@ from website_analytics.product_funnel_backfill import (
     TABLE_KEYS as PRODUCT_FUNNEL_TABLE_KEYS,
 )
 from website_analytics.sync_plan import load_sync_profile, select_sync_periods
+from website_analytics.sync_status import daily_coverage, previous_success, save_status
 
 
 def _arguments() -> argparse.Namespace:
@@ -151,6 +152,14 @@ def _validate(site: str, config: Path) -> None:
         raise RuntimeError("registered analytics site configuration is invalid")
 
 
+class FetchIncompleteError(RuntimeError):
+    """Safe per-source failure details, without payloads or exception text."""
+
+    def __init__(self, statuses: dict[str, Any]) -> None:
+        super().__init__("three-source fetch did not complete")
+        self.source_statuses = statuses
+
+
 def _fetch(
     site: str,
     config: Path,
@@ -194,10 +203,7 @@ def _fetch(
         for name, value in sources.items()
         if isinstance(name, str) and isinstance(value, dict)
     } if isinstance(sources, dict) else {}
-    raise RuntimeError(
-        "three-source fetch did not complete: "
-        + json.dumps(statuses, ensure_ascii=True, sort_keys=True)
-    )
+    raise FetchIncompleteError(statuses)
 
 
 def _write_json(path: Path, value: Any) -> None:
@@ -220,6 +226,49 @@ def main() -> int:
         )
     if args.v3_only and args.v3_contract is None:
         raise ValueError("--v3-only requires --v3-contract and --v3-target")
+    generated_at = datetime.now(timezone.utc)
+    batch = f"{args.scope}-{generated_at.strftime('%Y%m%dT%H%M%S%fZ')}"
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = args.output_dir / batch
+    run_dir.mkdir(exist_ok=False)
+    status: dict[str, Any] = {
+        "status": "running", "stage": "validation", "scope": args.scope,
+        "batch": batch, "started_at": generated_at.isoformat(),
+        "last_successful_check_at": previous_success(args.output_dir),
+        "publication": "not_started" if args.apply else "not_requested",
+        "remote_history_coverage": "not_verified",
+    }
+    save_status(args.output_dir, run_dir, status)
+    try:
+        summary = _execute(args, run_dir, batch, generated_at, status)
+    except Exception as error:
+        status.update(status="failed", finished_at=datetime.now(timezone.utc).isoformat(),
+                      error_type=type(error).__name__)
+        if isinstance(error, FetchIncompleteError):
+            status["source_statuses"] = error.source_statuses
+        # A write-stage failure can leave a partially applied batch. Never call
+        # the previous published data invalid or claim it was rolled back.
+        if args.apply and status["stage"] == "publication":
+            status["publication"] = "failed_or_partial"
+        save_status(args.output_dir, run_dir, status)
+        print(json.dumps(status, ensure_ascii=False, allow_nan=False), file=sys.stderr)
+        return 1
+    checked_at = datetime.now(timezone.utc).isoformat()
+    status.update(status="ok", stage="completed", finished_at=checked_at,
+                  last_successful_check_at=checked_at)
+    save_status(args.output_dir, run_dir, status)
+    summary["run_status"] = status
+    _write_json(run_dir / "summary.json", summary)
+    print(json.dumps(summary, ensure_ascii=False, allow_nan=False))
+    return 0
+
+
+def _execute(args: argparse.Namespace, run_dir: Path, batch: str,
+             generated_at: datetime, status: dict[str, Any]) -> dict[str, Any]:
+    def checkpoint(stage: str, **values: Any) -> None:
+        status.update(stage=stage, **values)
+        save_status(args.output_dir, run_dir, status)
+
     v3_contract: dict[str, Any] | None = None
     v3_target = None
     if args.v3_contract is not None and args.v3_target is not None:
@@ -251,31 +300,37 @@ def main() -> int:
         raise ValueError("approved information mapping is required")
     if site.inquiry_source is None:
         raise ValueError("approved page dimension requires the registered read-only database source")
+    _validate(profile.site, args.site_config)
+    checkpoint("page_dimension", site=profile.site)
     classification = load_page_classification(args.page_classification, profile.site)
     page_dimension = build_page_dimension(
         classification,
         create_page_dimension_adapter(site.inquiry_source).query(),
     )
+    checkpoint("planning")
     anchor = (
         date.fromisoformat(args.anchor)
         if args.anchor
         else datetime.now(ZoneInfo(profile.selection_timezone)).date()
     )
-    _validate(profile.site, args.site_config)
-
-    target_rows = select_sync_periods(profile, anchor, args.scope)
+    target_rows = select_sync_periods(profile, anchor, args.scope, v3_only=args.v3_only)
+    if args.v3_only and not target_rows:
+        raise ValueError("V3 sync selection contains no finalized daily facts")
+    checkpoint("fetch", coverage=daily_coverage(target_rows, []))
     target_periods = [_period(row) for row in target_rows]
     plan_by_key = {str(row["periodKey"]): row for row in target_rows}
     required_by_key: dict[str, AnalyticsPeriod] = {}
     for period in target_periods:
         required_by_key[period_key(profile.site, period)] = period
-        previous = previous_analytics_period(period)
-        required_by_key[period_key(profile.site, previous)] = previous
+        if not args.v3_only:
+            previous = previous_analytics_period(period)
+            required_by_key[period_key(profile.site, previous)] = previous
 
     fetched: dict[str, dict[str, Any]] = {}
     details: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for index, key in enumerate(sorted(required_by_key), start=1):
         period = required_by_key[key]
+        checkpoint("fetch", active_period_key=key, fetched_periods=index - 1, required_periods=len(required_by_key))
         print(
             json.dumps(
                 {"event": "fetch", "index": index, "total": len(required_by_key), "periodKey": key}
@@ -292,11 +347,10 @@ def main() -> int:
         )
         details[key] = load_period_details(args.cache_dir, profile.site, period)
 
-    generated_at = datetime.now(timezone.utc)
-    batch = f"{profile.site}-{args.scope}-{generated_at.strftime('%Y%m%dT%H%M%SZ')}"
+    checkpoint("build", active_period_key=None, fetched_periods=len(fetched))
     overview: list[dict[str, Any]] = []
     products: list[dict[str, Any]] = []
-    for period in target_periods:
+    for period in (() if args.v3_only else target_periods):
         key = period_key(profile.site, period)
         previous_key = period_key(profile.site, previous_analytics_period(period))
         records = build_dashboard_records(
@@ -437,18 +491,19 @@ def main() -> int:
             validate_product_funnel_contract(product_funnel_contract),
         )
 
-    run_dir = args.output_dir / batch
-    run_dir.mkdir(parents=True, exist_ok=False)
-    _write_json(run_dir / "overview.json", overview)
-    _write_json(run_dir / "products.json", products)
+    if not args.v3_only:
+        _write_json(run_dir / "overview.json", overview)
+        _write_json(run_dir / "products.json", products)
     if v3_document is not None:
         _write_json(run_dir / "v3-daily.json", v3_document)
+        checkpoint("publication" if args.apply else "dry_run", coverage=daily_coverage(target_rows, finalized_days))
     if product_funnel_document is not None:
         _write_json(run_dir / "product-funnel-daily.json", product_funnel_document)
     write_result: dict[str, int | str] | None = None
     v3_write_result: dict[str, dict[str, int]] | None = None
     product_funnel_write_result: dict[str, dict[str, int]] | None = None
     if args.apply:
+        checkpoint("publication", publication="in_progress")
         if args.v3_only:
             write_result = {"status": "skipped", "reason": "v3_only"}
         else:
@@ -479,6 +534,7 @@ def main() -> int:
                 product_funnel_contract,
                 product_funnel_document,
             )
+        checkpoint("publication", publication="verified" if v3_write_result is not None else "completed_without_v3_readback")
     summary = {
         "status": "ok",
         "mode": "apply" if args.apply else "dry-run",
@@ -507,9 +563,7 @@ def main() -> int:
         } if product_funnel_document is not None else None,
         "output_dir": str(run_dir),
     }
-    _write_json(run_dir / "summary.json", summary)
-    print(json.dumps(summary, ensure_ascii=False, allow_nan=False))
-    return 0
+    return summary
 
 
 if __name__ == "__main__":

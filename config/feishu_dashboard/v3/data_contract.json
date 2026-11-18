@@ -35,20 +35,20 @@
         {"key": "site", "name": "站点", "type": "text", "required": true, "source": "system"},
         {"key": "data_date", "name": "数据日期", "type": "datetime", "required": true, "source": "system"},
         {"key": "data_status", "name": "数据状态", "type": "select", "required": true, "source": "system"},
-        {"key": "ga4_sessions", "name": "官网访问次数", "type": "number", "required": true, "source": "ga4.sessions", "aggregation": "sum"},
-        {"key": "ga4_key_events", "name": "表单提交事件（GA4）", "type": "number", "required": true, "source": "ga4.keyEvents", "aggregation": "sum"},
+        {"key": "ga4_sessions", "name": "官网访问次数", "type": "number", "required": true, "source": "ga4.sessions", "aggregation": "sum", "semantic_label": "官网会话次数"},
+        {"key": "ga4_key_events", "name": "表单提交事件（GA4）", "type": "number", "required": true, "source": "ga4.keyEvents", "aggregation": "sum", "semantic_label": "GA4关键事件总数"},
         {"key": "gsc_clicks", "name": "Google自然搜索点击", "type": "number", "required": true, "source": "gsc.clicks", "aggregation": "sum"},
         {"key": "gsc_impressions", "name": "Google搜索曝光", "type": "number", "required": true, "source": "gsc.impressions", "aggregation": "sum"},
         {"key": "stored_submissions", "name": "表单入库总数", "type": "number", "required": true, "source": "inquiry.storedSubmissions", "aggregation": "sum"},
-        {"key": "accepted_inquiries", "name": "官网入库询盘", "type": "number", "required": true, "source": "inquiry.nonQuarantinedSubmissions", "aggregation": "sum"},
-        {"key": "product_page_sessions", "name": "产品页访问次数", "type": "number", "required": true, "source": "page_dimension + ga4", "aggregation": "sum"},
-        {"key": "information_page_sessions", "name": "信息页访问次数", "type": "number", "required": true, "source": "page_dimension + ga4", "aggregation": "sum"},
-        {"key": "other_page_sessions", "name": "其他页面访问次数", "type": "number", "required": true, "source": "page_dimension + ga4", "aggregation": "sum"},
-        {"key": "classified_page_sessions", "name": "已分类页面访问次数", "type": "number", "required": true, "source": "derived", "aggregation": "sum"},
+        {"key": "accepted_inquiries", "name": "官网入库询盘", "type": "number", "required": true, "source": "inquiry.nonQuarantinedSubmissions", "aggregation": "sum", "semantic_label": "非隔离表单入库数"},
+        {"key": "product_page_sessions", "name": "产品页访问次数", "type": "number", "required": true, "source": "page_dimension + ga4", "aggregation": "sum", "semantic_label": "产品落地会话次数"},
+        {"key": "information_page_sessions", "name": "信息页访问次数", "type": "number", "required": true, "source": "page_dimension + ga4", "aggregation": "sum", "semantic_label": "信息页落地会话次数"},
+        {"key": "other_page_sessions", "name": "其他页面访问次数", "type": "number", "required": true, "source": "page_dimension + ga4", "aggregation": "sum", "semantic_label": "其他落地会话次数"},
+        {"key": "classified_page_sessions", "name": "已分类页面访问次数", "type": "number", "required": true, "source": "derived", "aggregation": "sum", "semantic_label": "已分类落地会话次数"},
         {"key": "page_classification_version", "name": "页面分类版本", "type": "text", "required": true, "source": "page_dimension"},
         {"key": "product_mapping_version", "name": "产品映射版本", "type": "text", "required": true, "source": "product_mapping"},
         {"key": "information_mapping_version", "name": "信息映射版本", "type": "text", "required": true, "source": "information_mapping"},
-        {"key": "refreshed_at", "name": "数据更新时间", "type": "datetime", "required": true, "source": "system"},
+        {"key": "refreshed_at", "name": "数据更新时间", "type": "datetime", "required": true, "source": "system", "semantic_label": "事实变化时间"},
         {"key": "source_boundary_note", "name": "来源口径说明", "type": "text", "required": true, "source": "system"}
       ]
     },
@@ -68,14 +68,14 @@
         {"key": "category_l1", "name": "一级分类", "type": "select", "required": true, "source": "product_mapping"},
         {"key": "category_l2", "name": "二级分类", "type": "select", "required": false, "source": "product_mapping"},
         {"key": "category_l3", "name": "三级分类", "type": "select", "required": false, "source": "product_mapping"},
-        {"key": "ga4_sessions", "name": "官网访问次数", "type": "number", "required": true, "source": "ga4.sessions", "aggregation": "sum"},
+        {"key": "ga4_sessions", "name": "官网访问次数", "type": "number", "required": true, "source": "ga4.sessions", "aggregation": "sum", "semantic_label": "官网会话次数"},
         {"key": "gsc_clicks", "name": "Google自然搜索点击", "type": "number", "required": true, "source": "gsc.clicks", "aggregation": "sum"},
         {"key": "gsc_impressions", "name": "Google搜索曝光", "type": "number", "required": true, "source": "gsc.impressions", "aggregation": "sum"},
         {"key": "stored_submissions", "name": "表单入库总数", "type": "number", "required": true, "source": "inquiry.storedSubmissions", "aggregation": "sum"},
-        {"key": "accepted_inquiries", "name": "官网入库询盘", "type": "number", "required": true, "source": "inquiry.nonQuarantinedSubmissions", "aggregation": "sum"},
+        {"key": "accepted_inquiries", "name": "官网入库询盘", "type": "number", "required": true, "source": "inquiry.nonQuarantinedSubmissions", "aggregation": "sum", "semantic_label": "非隔离表单入库数"},
         {"key": "included_pages", "name": "当日纳入页面数", "type": "number", "required": true, "source": "page_dimension", "aggregation": "non_additive"},
         {"key": "mapping_version", "name": "产品映射版本", "type": "text", "required": true, "source": "product_mapping"},
-        {"key": "refreshed_at", "name": "数据更新时间", "type": "datetime", "required": true, "source": "system"}
+        {"key": "refreshed_at", "name": "数据更新时间", "type": "datetime", "required": true, "source": "system", "semantic_label": "事实变化时间"}
       ]
     },
     {
@@ -93,14 +93,14 @@
         {"key": "theme", "name": "信息主题", "type": "select", "required": true, "source": "information_mapping"},
         {"key": "content_type_id", "name": "内容类型ID", "type": "text", "required": true, "source": "information_mapping"},
         {"key": "content_type", "name": "内容类型", "type": "select", "required": true, "source": "information_mapping"},
-        {"key": "ga4_sessions", "name": "官网访问次数", "type": "number", "required": true, "source": "ga4.sessions", "aggregation": "sum"},
+        {"key": "ga4_sessions", "name": "官网访问次数", "type": "number", "required": true, "source": "ga4.sessions", "aggregation": "sum", "semantic_label": "官网会话次数"},
         {"key": "gsc_clicks", "name": "Google自然搜索点击", "type": "number", "required": true, "source": "gsc.clicks", "aggregation": "sum"},
         {"key": "gsc_impressions", "name": "Google搜索曝光", "type": "number", "required": true, "source": "gsc.impressions", "aggregation": "sum"},
         {"key": "stored_submissions", "name": "表单入库总数", "type": "number", "required": true, "source": "inquiry.storedSubmissions", "aggregation": "sum"},
-        {"key": "accepted_inquiries", "name": "官网入库询盘", "type": "number", "required": true, "source": "inquiry.nonQuarantinedSubmissions", "aggregation": "sum"},
+        {"key": "accepted_inquiries", "name": "官网入库询盘", "type": "number", "required": true, "source": "inquiry.nonQuarantinedSubmissions", "aggregation": "sum", "semantic_label": "非隔离表单入库数"},
         {"key": "included_pages", "name": "当日纳入页面数", "type": "number", "required": true, "source": "page_dimension", "aggregation": "non_additive"},
         {"key": "mapping_version", "name": "信息映射版本", "type": "text", "required": true, "source": "information_mapping"},
-        {"key": "refreshed_at", "name": "数据更新时间", "type": "datetime", "required": true, "source": "system"}
+        {"key": "refreshed_at", "name": "数据更新时间", "type": "datetime", "required": true, "source": "system", "semantic_label": "事实变化时间"}
       ]
     }
   ]

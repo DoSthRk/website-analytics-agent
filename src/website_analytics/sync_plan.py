@@ -131,12 +131,16 @@ def select_sync_periods(
     profile: SyncProfile,
     anchor: date,
     scope: str,
+    *,
+    v3_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Select a bounded intraday refresh set or the entire retention plan."""
     plan = build_sync_plan(profile, anchor)
     rows = plan["periods"]
     if not isinstance(rows, list):  # pragma: no cover - internal contract
         raise ValueError("sync plan periods are invalid")
+    if v3_only:
+        rows = [row for row in rows if row.get("kind") == "day" and row.get("isFinal") is True]
     if scope == "full":
         return rows
     if scope != "intraday":

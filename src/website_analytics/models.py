@@ -11,6 +11,8 @@ class InquirySourceConfig:
     kind: str
     credential_env: str
     credential_target: str | None = None
+    site_scope: str | None = None
+    site_scope_evidence: str | None = None
 
 
 @dataclass(frozen=True)
