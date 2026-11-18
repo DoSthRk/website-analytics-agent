@@ -1,7 +1,9 @@
 #!/usr/bin/python3
 import collections,zlib,gzip,grp,shutil,fcntl,pathlib,json,sqlite3,hashlib,datetime,os,re,urllib.parse,sys,tempfile,math
 sys.path.insert(0,str(pathlib.Path(__file__).resolve().parent))
-from fullsite_codec import encode_payload,decode_payload,encode_block,BLOCK_ENCODING,MAX_BLOCK_BYTES
+from fullsite_codec import encode_payload,decode_payload,encode_block,decode_block,BLOCK_ENCODING,MAX_BLOCK_BYTES
+MAX_NEW_CARRY_WINDOWS=50;MAX_NEW_CARRY_FRACTION=0.05
+CARRY_REASON='Window absent from current source inputs (cache/audit overwritten by provider retention or a failed refresh); rows copied unchanged from the last snapshot that had them. Not refreshed; do not treat as current.'
 BASE=pathlib.Path('/opt/website-analytics/shared')
 SPECS={'GA4 Daily':('ga4_daily','daily','date'),'GA4 Pages':('ga4_pages','interval','landingPagePlusQueryString'),'GSC Daily':('gsc_daily','daily','date'),'GSC Pages':('gsc_pages','interval','page'),'GSC Queries':('gsc_queries','interval','query'),'Inquiry Daily':('inquiry_daily','daily','date'),'Inquiry Pages':('inquiry_pages','interval','sourceUrl')}
 METRICS=set('sessions totalUsers activeUsers engagedSessions engagementRate screenPageViews keyEvents clicks impressions ctr position storedSubmissions quarantinedSubmissions nonQuarantinedSubmissions'.split())
@@ -183,16 +185,37 @@ def make(output,base=BASE):
    if scope!=last:begin_scope(*scope);last=scope
    row=decode_payload(payload);row.update(start=start,end=end,row_id=key.hex());append_block(row)
   flush_block();db.execute('DROP TABLE rows');db.commit()
+  published_at=stamp();carried={}
   if output.exists():
+   # Sources overwrite caches/audits in place (provider retention, failed refreshes), so a
+   # published window can vanish from inputs. Keep its last published rows, labelled, rather
+   # than freezing the whole snapshot; a large sudden loss still preserves the prior snapshot.
    with sqlite3.connect(output.as_uri()+'?mode=ro',uri=True) as prior:
-    for dataset,start,end in prior.execute('SELECT DISTINCT dataset,start,end FROM blocks'):
-     if not db.execute('SELECT 1 FROM blocks WHERE dataset=? AND start=? AND end=? LIMIT 1',(dataset,start,end)).fetchone():raise ValueError('previously published window missing; preserve prior')
+    prior_meta={k:json.loads(v) for k,v in prior.execute('SELECT key,value FROM metadata')}
+    if prior_meta.get('payload_encoding')!=BLOCK_ENCODING:raise ValueError('prior snapshot block encoding differs; preserve prior')
+    prior_sets={n:(g,json.loads(m)) for n,g,m in prior.execute('SELECT name,grain,metadata FROM datasets')}
+    known={(n,w['start'],w['end']):w for n,(g,m) in prior_sets.items() for w in m.get('coverage',{}).get('carried_forward_windows',[])}
+    prior_windows=prior.execute('SELECT DISTINCT dataset,start,end FROM blocks ORDER BY dataset,start,end').fetchall()
+    vanished=[w for w in prior_windows if not db.execute('SELECT 1 FROM blocks WHERE dataset=? AND start=? AND end=? LIMIT 1',w).fetchone()]
+    fresh=[w for w in vanished if tuple(w) not in known]
+    if len(fresh)>max(MAX_NEW_CARRY_WINDOWS,int(len(prior_windows)*MAX_NEW_CARRY_FRACTION)):raise ValueError('too many previously published windows missing; preserve prior')
+    for dataset,start,end in vanished:
+     record=known.get((dataset,start,end)) or {'start':start,'end':end,'carried_since':published_at,'from_snapshot':prior_meta.get('snapshot_id'),'last_input_publication':prior_meta.get('published_at')}
+     for index,payload in prior.execute('SELECT block_index,payload FROM blocks WHERE dataset=? AND start=? AND end=? ORDER BY block_index',(dataset,start,end)):
+      rows=decode_block(payload)
+      for row in rows:
+       if not row.get('carried_forward'):row.update(carried_forward=True,carried_forward_since=record['carried_since'],carried_forward_from_snapshot=record['from_snapshot'],carried_forward_reason=CARRY_REASON)
+      db.execute('INSERT INTO blocks VALUES(?,?,?,?,?,?)',(dataset,start,end,index,sqlite3.Binary(encode_block(rows)),len(rows)))
+     if dataset not in kinds:kinds[dataset]=prior_sets[dataset][0];columns[dataset]=set(prior_sets[dataset][1].get('columns',[]))
+     columns[dataset].update(('carried_forward','carried_forward_since','carried_forward_from_snapshot','carried_forward_reason'))
+     carried.setdefault(dataset,[]).append(record)
+   db.commit()
   for name,grain in kinds.items():
    count,lo,hi=db.execute('SELECT COALESCE(sum(row_count),0),min(start),max(end) FROM blocks WHERE dataset=?',(name,)).fetchone()
    windows=db.execute('SELECT DISTINCT start,end FROM blocks WHERE dataset=? ORDER BY start,end',(name,)).fetchall()
-   metadata={'columns':sorted(columns[name]),'coverage':{'min_date':lo,'max_date':hi,'row_count':count,'available_windows':windows,'scope_inventory':list(empty_scopes.get(name,{}).values()),'duplicate_dimension_scopes':list(duplicate_scopes.get(name,{}).values()),'source_timestamp_min_raw':min(captured.get(name,[]) or ['unknown']),'source_timestamp_max_raw':max(captured.get(name,[]) or ['unknown']),'timestamp_note':'Original producer timestamps; offsets absent in some legacy records; publication time is not source collection time.','completeness':'unknown','note':'Windows are observed cached request scopes, not proof of gap-free or provider-final data.'},'privacy':'URL query strings/fragments removed; personal-looking search dimensions redacted; rows remain distinct and must not be merged for unique users','aggregation':'No summing overlapping intervals or users. Counts retain legacy source meaning; nonQuarantinedSubmissions is not qualified leads.'}
+   metadata={'columns':sorted(columns[name]),'coverage':{'min_date':lo,'max_date':hi,'row_count':count,'available_windows':windows,'scope_inventory':list(empty_scopes.get(name,{}).values()),'duplicate_dimension_scopes':list(duplicate_scopes.get(name,{}).values()),'source_timestamp_min_raw':min(captured.get(name,[]) or ['unknown']),'source_timestamp_max_raw':max(captured.get(name,[]) or ['unknown']),'timestamp_note':'Original producer timestamps; offsets absent in some legacy records; publication time is not source collection time.','completeness':'unknown','note':'Windows are observed cached request scopes, not proof of gap-free or provider-final data.','carried_forward_windows':carried.get(name,[]),'carried_forward_note':CARRY_REASON},'privacy':'URL query strings/fragments removed; personal-looking search dimensions redacted; rows remain distinct and must not be merged for unique users','aggregation':'No summing overlapping intervals or users. Counts retain legacy source meaning; nonQuarantinedSubmissions is not qualified leads.'}
    db.execute('INSERT INTO datasets VALUES(?,?,?)',(name,grain,json.dumps(metadata,ensure_ascii=False)))
-  info={'payload_encoding':BLOCK_ENCODING,'input_signature':signature,'contract':'fullsite-data/v2','published_at':stamp(),'snapshot_id':hashlib.sha256(os.urandom(32)).hexdigest(),'source_cache_files':len(cache_seen),'source_successful_runs':len(runs),'latest_successful_sync':max((re.search(r'\d{8}T\d{6}Z',p.name).group() for p in runs if re.search(r'\d{8}T\d{6}Z',p.name)),default=None),'latest_sync_timestamp_basis':'successful saved run identifier; not a new source request','unmapped_cache_references':len(errors),'missing_source_windows':errors,'source_finality':'unknown; historical producer completeness claims are not independently verified','inquiry_day_timezone':'unknown','url_path_case_preserved':True}
+  info={'payload_encoding':BLOCK_ENCODING,'input_signature':signature,'contract':'fullsite-data/v2','published_at':published_at,'carried_forward_window_count':sum(len(v) for v in carried.values()),'snapshot_id':hashlib.sha256(os.urandom(32)).hexdigest(),'source_cache_files':len(cache_seen),'source_successful_runs':len(runs),'latest_successful_sync':max((re.search(r'\d{8}T\d{6}Z',p.name).group() for p in runs if re.search(r'\d{8}T\d{6}Z',p.name)),default=None),'latest_sync_timestamp_basis':'successful saved run identifier; not a new source request','unmapped_cache_references':len(errors),'missing_source_windows':errors,'source_finality':'unknown; historical producer completeness claims are not independently verified','inquiry_day_timezone':'unknown','url_path_case_preserved':True}
   for k,v in info.items():db.execute('INSERT INTO metadata VALUES(?,?)',(k,json.dumps(v)))
   if signature != ident(['publisher-v8-block-ambiguity',[(str(x.relative_to(base)),x.stat().st_ino,x.stat().st_size,x.stat().st_mtime_ns) for x in input_paths()]]):raise ValueError('source changed during import; preserve previous')
   db.commit();assert db.execute('PRAGMA quick_check').fetchone()[0]=='ok';db.close();os.chmod(tmp,0o440)

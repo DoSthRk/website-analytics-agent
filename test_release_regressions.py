@@ -108,11 +108,69 @@ class ReleaseRegressions(unittest.TestCase):
         self.f.write(self.f.run/'v3-daily.json',{'records':self.f.records})
         with self.assertRaisesRegex(ValueError,'missing daily key'):self.f.publish()
         self.assertEqual(before,self.f.out.read_bytes())
-    def test_source_dataset_window_disappearance_preserves_last_good(self):
-        self.f.publish();before=self.f.out.read_bytes()
+    def meta(self):
+        with sqlite3.connect(self.f.out) as db:
+            info={k:json.loads(v) for k,v in db.execute('SELECT key,value FROM metadata')}
+            sets={n:json.loads(m) for n,m in db.execute('SELECT name,metadata FROM datasets')}
+        return info,sets
+    def test_source_dataset_window_disappearance_carries_last_published_rows(self):
+        self.f.publish();first,_=self.meta()
+        original=self.f.rows('gsc_queries')
         del self.f.raw['gsc']['GSC Queries']
         self.f.write(self.f.caches['gsc'],self.f.raw['gsc'])
-        with self.assertRaisesRegex(ValueError,'previously published window'):self.f.publish()
+        self.f.publish()
+        info,sets=self.meta()
+        carried=self.f.rows('gsc_queries')
+        self.assertEqual(len(carried),len(original))
+        for old,new in zip(original,carried):
+            self.assertTrue(new['carried_forward'])
+            self.assertEqual(new['carried_forward_from_snapshot'],first['snapshot_id'])
+            self.assertEqual({k:v for k,v in new.items() if not k.startswith('carried_forward')},old)
+        self.assertEqual(info['carried_forward_window_count'],1)
+        record=sets['gsc_queries']['coverage']['carried_forward_windows'][0]
+        self.assertEqual((record['start'],record['end'],record['last_input_publication']),('2026-11-01','2026-11-01',first['published_at']))
+        self.assertEqual(sets['ga4_daily']['coverage']['carried_forward_windows'],[])
+    def test_carry_keeps_first_carry_identity_across_publications(self):
+        self.f.publish()
+        del self.f.raw['gsc']['GSC Queries'];self.f.write(self.f.caches['gsc'],self.f.raw['gsc'])
+        self.f.publish();_,sets=self.meta();first=sets['gsc_queries']['coverage']['carried_forward_windows'][0]
+        self.f.overview[0]['官网访问次数']=10;self.f.write(self.f.run/'overview.json',self.f.overview)
+        self.assertNotEqual(self.f.publish(),{'status':'unchanged'})
+        _,sets=self.meta()
+        self.assertEqual(sets['gsc_queries']['coverage']['carried_forward_windows'],[first])
+        self.assertEqual(self.f.rows('gsc_queries')[0]['carried_forward_since'],first['carried_since'])
+    def test_reappearing_window_replaces_carried_rows(self):
+        self.f.publish()
+        saved=copy.deepcopy(self.f.raw['gsc'])
+        del self.f.raw['gsc']['GSC Queries'];self.f.write(self.f.caches['gsc'],self.f.raw['gsc'])
+        self.f.publish()
+        saved['GSC Queries'][0]['clicks']=5;self.f.write(self.f.caches['gsc'],saved)
+        self.f.publish();info,sets=self.meta()
+        row=self.f.rows('gsc_queries')[0]
+        self.assertNotIn('carried_forward',row);self.assertEqual(row['clicks'],5)
+        self.assertEqual(info['carried_forward_window_count'],0)
+        self.assertEqual(sets['gsc_queries']['coverage']['carried_forward_windows'],[])
+    def test_failed_audit_status_carries_instead_of_freezing(self):
+        # Another day keeps gsc_daily present, as in production where only some days fail.
+        other={'start':'2026-10-31','end':'2026-10-31'}
+        self.f.write(self.f.base/'audits'/'other.json',{'request':{'site':'genemedi-net','date_range':other},'generated_at':'2026-11-01T01:00:00Z','source_statuses':{'sources':{'gsc':{'status':'ok'}}}})
+        digest=hashlib.sha256(json.dumps({'source':'gsc',**other},sort_keys=True,separators=(',',':')).encode()).hexdigest()
+        self.f.write(self.f.caches['gsc'].parent/(digest+'.json'),{'GSC Daily':[{'date':'2026-10-31','clicks':1,'impressions':3}]})
+        self.f.publish()
+        audit=json.loads((self.f.base/'audits'/'day.json').read_text())
+        audit['source_statuses']['sources']['gsc']={'status':'error'}
+        self.f.write(self.f.base/'audits'/'day.json',audit)
+        self.f.publish()
+        self.assertTrue(all(r['carried_forward'] for r in self.f.rows('gsc_queries')))
+        self.assertEqual({r['date']:r.get('carried_forward',False) for r in self.f.rows('gsc_daily')},{'2026-10-31':False,'2026-11-01':True})
+        self.assertNotIn('carried_forward',self.f.rows('ga4_daily')[0])
+    def test_large_sudden_window_loss_preserves_last_good(self):
+        self.f.publish();before=self.f.out.read_bytes()
+        import publish_fullsite
+        with mock.patch.object(publish_fullsite,'MAX_NEW_CARRY_WINDOWS',0),mock.patch.object(publish_fullsite,'MAX_NEW_CARRY_FRACTION',0):
+            del self.f.raw['gsc']['GSC Queries']
+            self.f.write(self.f.caches['gsc'],self.f.raw['gsc'])
+            with self.assertRaisesRegex(ValueError,'too many previously published windows'):self.f.publish()
         self.assertEqual(before,self.f.out.read_bytes())
     def test_changed_period_payload_invalidates_skip(self):
         self.f.publish()
