@@ -1,0 +1,1491 @@
+{
+ "source": "2026-11-18 URL 规则修订清单，晓妍逐条确认；只含官网公开路径与归类，不含流量数据。",
+ "decisions": [
+  {
+   "path": "/i/sci-hub-mirror-link",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/sci-hub-removing-barriers",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/mutual-aid-sci-hub",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/nejmc2607927-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/sci-hub-removing-barriers-in-science",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/truex-one-gmv-truex-elisa-u-1-96-ns",
+   "route_state": "product_route",
+   "decision": "AAV 滴度",
+   "page_class": "product_page",
+   "report_line_id": "AAV_TITRATION"
+  },
+  {
+   "path": "/i/aav-rh74-rep-cap-plasmid",
+   "route_state": "duplicate_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/nexus-sci-hub",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/aav-helper-plasmid",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/purprox-aavfull-enrichment-kit",
+   "route_state": "duplicate_route",
+   "decision": "AAV 纯化",
+   "page_class": "product_page",
+   "report_line_id": "AAV_PURIFICATION"
+  },
+  {
+   "path": "/i/lentivirus-system",
+   "route_state": "product_route",
+   "decision": "LV",
+   "page_class": "product_page",
+   "report_line_id": "LV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/blog/4-2-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/targeted-aav-gene-therapy-for-neuroblastoma-via-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/truex-uniq-gmv-truex-elisa-2-1-96",
+   "route_state": "product_route",
+   "decision": "AAV 滴度",
+   "page_class": "product_page",
+   "report_line_id": "AAV_TITRATION"
+  },
+  {
+   "path": "/i/aav-camkii-expression-vector",
+   "route_state": "product_route",
+   "decision": "AAV Expression",
+   "page_class": "product_page",
+   "report_line_id": "AAV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/blog/7-7-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/gm-tg-hg-mp0250-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gene-synthesis",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/blog/3-9-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/anti-cpt-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/sci-hub-knowledge-to-everyone",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/solidex",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/anti-dxd-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/pgmad-u6-mcs-cmv-luc",
+   "route_state": "duplicate_route",
+   "decision": "ADV",
+   "page_class": "product_page",
+   "report_line_id": "ADV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/blog/7-2-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/7-1-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/lentivirus-pspax2",
+   "route_state": "product_route",
+   "decision": "LV",
+   "page_class": "product_page",
+   "report_line_id": "LV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/anc80l65-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/sci-hub-chatgpt",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/aav-10-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-2-nlpgsgd-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/cureplasma-mycoplasma-elimination-reagent",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/i/aav-tbg-expression-vector",
+   "route_state": "product_route",
+   "decision": "AAV Expression",
+   "page_class": "product_page",
+   "report_line_id": "AAV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/anti-budesonide-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/blog/scitranslmed-aei5938-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/7-5-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/aav-syn-expression-vector",
+   "route_state": "product_route",
+   "decision": "AAV Expression",
+   "page_class": "product_page",
+   "report_line_id": "AAV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/myoaav-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/truex-uniq-gmv-truex-elisa-5-1-96",
+   "route_state": "product_route",
+   "decision": "AAV 滴度",
+   "page_class": "product_page",
+   "report_line_id": "AAV_TITRATION"
+  },
+  {
+   "path": "/i/aav-optogenetics-1",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/anti-monomethyl-auristatin-e-mmae-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/cloneasy-one-step-cloning-kit",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/i/anti-g4s-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "CAR",
+   "page_class": "product_page",
+   "report_line_id": "CAR"
+  },
+  {
+   "path": "/i/pgm-avp008",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/blog/3-8-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/4-1-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/5-2-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/gm-tg-hg-ta029-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gpc3-car-lentivirus",
+   "route_state": "product_route",
+   "decision": "LV",
+   "page_class": "product_page",
+   "report_line_id": "LV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/lentivirus-custom-packaging-1",
+   "route_state": "product_route",
+   "decision": "LV",
+   "page_class": "product_page",
+   "report_line_id": "LV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/pico-signal-western-ecl-substrate",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/i/femto-signal-western-ecl-substrate",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/i/aav-cag-expression-vector",
+   "route_state": "product_route",
+   "decision": "AAV Expression",
+   "page_class": "product_page",
+   "report_line_id": "AAV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/aav-rh-8r-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-rh43-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-rh74-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/lipogene-transfection-reagent",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/i/sci-hub-emancipation-and-democratisation-of-knowledge",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/pgm-avp012",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/cd19-car-lentivirus",
+   "route_state": "product_route",
+   "decision": "LV",
+   "page_class": "product_page",
+   "report_line_id": "LV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/pgm-avp001",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp013",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/blog/5-4-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/4-5-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/4-6-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/gm-tg-hg-mp2611-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/truex-uniq-gmv-truex-elisa-8-1-96",
+   "route_state": "product_route",
+   "decision": "AAV 滴度",
+   "page_class": "product_page",
+   "report_line_id": "AAV_TITRATION"
+  },
+  {
+   "path": "/i/anti-vhh1-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "CAR",
+   "page_class": "product_page",
+   "report_line_id": "CAR"
+  },
+  {
+   "path": "/i/pgm-avp060",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/cell-counting-kit-8",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/blog/7-3-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/aav-gfap-expression-vector",
+   "route_state": "product_route",
+   "decision": "AAV Expression",
+   "page_class": "product_page",
+   "report_line_id": "AAV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/other-websites-like-sci-hub",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/2019ncov-106",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/aav-cap-mac-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/anti-mmae-mmaf-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/pgm-avp049",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/blog/4-9-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/dual-restricted-aav-gene-delivery-via-suprachoroidal-administration-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/veterinary",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/aav-cpp-16-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-from-premade-plasmid-1",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/i/lentivirus-pmd2g",
+   "route_state": "product_route",
+   "decision": "LV",
+   "page_class": "product_page",
+   "report_line_id": "LV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/aav-3-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/pre-made-lentivirus-production-service",
+   "route_state": "product_route",
+   "decision": "LV",
+   "page_class": "product_page",
+   "report_line_id": "LV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/aav-ctnt-expression-vector",
+   "route_state": "product_route",
+   "decision": "AAV Expression",
+   "page_class": "product_page",
+   "report_line_id": "AAV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/aav-2-quadyf-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/adeno-associated-virus-aav-customized-production-service-1",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/i/pgm-avp010",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp014",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp018",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp063",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp035",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/blog/3-1-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/5-1-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/gm-tg-hg-ip0027-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t03573-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t66266-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/anti-dm1-dm4-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/anti-fmc63-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "CAR",
+   "page_class": "product_page",
+   "report_line_id": "CAR"
+  },
+  {
+   "path": "/i/anti-pbd-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/pgm-avp028",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp033",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/truex-aav-standards",
+   "route_state": "product_route",
+   "decision": "AAV 滴度",
+   "page_class": "product_page",
+   "report_line_id": "AAV_TITRATION"
+  },
+  {
+   "path": "/ja/i/purprox-aaveasy-spin-columns",
+   "route_state": "no_route",
+   "decision": "AAV 纯化",
+   "page_class": "product_page",
+   "report_line_id": "AAV_PURIFICATION"
+  },
+  {
+   "path": "/i/gm-tg-hg-t03313-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/anti-amanitin-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/pgm-avp030",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/2019ncov-010",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-018",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-050",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-110",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-169",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/adenovirus-control-prodcution",
+   "route_state": "product_route",
+   "decision": "ADV",
+   "page_class": "product_page",
+   "report_line_id": "ADV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/organelle-probe-adenovirus",
+   "route_state": "product_route",
+   "decision": "ADV",
+   "page_class": "product_page",
+   "report_line_id": "ADV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/blog/aav",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/aav-mediated-cbln1-replacement-rescues-hereditary-ataxia-caused-by-biallelic-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/blog/intravenous-gene-therapy-improves-life-span-and-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/adeno-associated-virus-aav-control-virus-production-service-1",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/i/2019ncov-112",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/aav-11-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-7-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-rh20-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/anti-calicheamicin-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/gmv-crispr-adv004",
+   "route_state": "product_route",
+   "decision": "ADV",
+   "page_class": "product_page",
+   "report_line_id": "ADV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/aav-1-x1-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-12-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-2-5-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-2-5t-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-2-shh10-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-2-thgtpad-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-3b-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-44-9-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-cap-b10-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-cy10-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-hsc-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-hu37-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-ie-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-pi2-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-rh-10r-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-rh32-33-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-rh39-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-rh8-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-13-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-9-dm-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-bb1-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-cy5-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-rh91-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/2019ncov-n002",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/aav-cmv-expression-vector",
+   "route_state": "product_route",
+   "decision": "AAV Expression",
+   "page_class": "product_page",
+   "report_line_id": "AAV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/anti-duocarmycin-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/pgm-avp050",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/blog/4-8-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/adenovirus-specific-for-suspension-cells",
+   "route_state": "product_route",
+   "decision": "ADV",
+   "page_class": "product_page",
+   "report_line_id": "ADV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/anti-eribulin-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/anti-exatecan-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/pgm-avp021",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp051",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/elsevier-vs-sci-hub",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/2019ncov-124",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-158",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-178",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-192",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-193",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-194",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/2019ncov-196",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/genegelred-nucleic-acid-gel-stain",
+   "route_state": "product_route",
+   "decision": "其他产品",
+   "page_class": "product_page",
+   "report_line_id": "OTHER_PRODUCT"
+  },
+  {
+   "path": "/i/pgm-avp016",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp034",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/sci-hub-knowledge-as-a-human-right",
+   "route_state": "product_route",
+   "decision": "sci-hub",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/pgm-avp017",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp052",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/bcma-car-lentivirus",
+   "route_state": "product_route",
+   "decision": "LV",
+   "page_class": "product_page",
+   "report_line_id": "LV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/pgm-avp002",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp006",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp011",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp023",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp024",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp025",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp031",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp032",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp054",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp055",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp056",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp061",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp064",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp067",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/blog/4-7-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/gm-tg-hg-t38950-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t71377-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t76286-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/anti-mtx-monoclonal-antibody",
+   "route_state": "product_route",
+   "decision": "Payload",
+   "page_class": "product_page",
+   "report_line_id": "PAYLOAD"
+  },
+  {
+   "path": "/i/pgm-avp003",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp019",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp020",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp027",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/pgm-avp029",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/truex-uniq-gmv-truex-elisa-6-1-96",
+   "route_state": "product_route",
+   "decision": "AAV 滴度",
+   "page_class": "product_page",
+   "report_line_id": "AAV_TITRATION"
+  },
+  {
+   "path": "/i/pgm-avp022",
+   "route_state": "product_route",
+   "decision": "AAV 光遗传",
+   "page_class": "product_page",
+   "report_line_id": "AAV_OPTOGENETICS"
+  },
+  {
+   "path": "/i/aav-u6-expression-vector",
+   "route_state": "product_route",
+   "decision": "AAV Expression",
+   "page_class": "product_page",
+   "report_line_id": "AAV_EXPRESSION_VECTOR"
+  },
+  {
+   "path": "/i/2019ncov-105",
+   "route_state": "product_route",
+   "decision": "COVID-19",
+   "page_class": "product_page",
+   "report_line_id": "COVID19"
+  },
+  {
+   "path": "/i/plasmid-dna-preparation",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/aav-spark100-vector-system",
+   "route_state": "product_route",
+   "decision": "AAV Vector",
+   "page_class": "product_page",
+   "report_line_id": "AAV_VECTOR_SYSTEM"
+  },
+  {
+   "path": "/i/gm-tg-hg-mp2610-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t10191-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t13017-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t23212-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t43115-8-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t43115-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t56365-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t59001-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t66426-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t86323-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-t87075-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/i/gm-tg-hg-ta040-ab-conjugate",
+   "route_state": "product_route",
+   "decision": "流式抗体",
+   "page_class": "product_page",
+   "report_line_id": "FLOW_ANTIBODY"
+  },
+  {
+   "path": "/blog/6-2-en",
+   "route_state": "no_route",
+   "decision": "blog",
+   "page_class": "information_page"
+  },
+  {
+   "path": "/i/truex-uniq-gmv-truex-elisa-9-1-96",
+   "route_state": "duplicate_route",
+   "decision": "AAV 滴度",
+   "page_class": "product_page",
+   "report_line_id": "AAV_TITRATION"
+  }
+ ]
+}

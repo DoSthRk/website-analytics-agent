@@ -40,6 +40,19 @@ class PageOverride:
 
 
 @dataclass(frozen=True)
+class PagePathOverride:
+    """Reviewed page class for one canonical path, applied after route resolution.
+
+    Unlike ``PageOverride`` (keyed by ``pages`` content ID), this also resolves
+    paths whose route records conflict and paths absent from the route table.
+    """
+
+    path: str
+    page_class: PageClass
+    reason: str
+
+
+@dataclass(frozen=True)
 class PageRouteAlias:
     identifier: str
     source_prefix: str
@@ -73,6 +86,7 @@ class PageClassificationConfig:
     route_aliases: tuple[PageRouteAlias, ...] = ()
     route_sources: Mapping[str, RouteSourceRule] = field(default_factory=dict)
     path_rules: tuple[PagePathRule, ...] = ()
+    path_overrides: tuple[PagePathOverride, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -102,6 +116,7 @@ class PageDimension:
     summary: Mapping[str, int]
     route_aliases: tuple[PageRouteAlias, ...] = ()
     path_rules: tuple[PagePathRule, ...] = ()
+    path_overrides: tuple[PagePathOverride, ...] = ()
 
     def classify(self, value: object) -> PageDimensionEntry:
         path = canonical_page_path(value)
@@ -119,6 +134,9 @@ class PageDimension:
         entry = self.entries.get(path)
         if entry is not None:
             return entry
+        for override in self.path_overrides:
+            if override.path == path:
+                return _override_entry(override, None)
         for rule in self.path_rules:
             if not _path_rule_matches(path, rule):
                 continue
@@ -170,6 +188,7 @@ def load_page_classification(path: str | Path, site_key: str) -> PageClassificat
             "route_aliases",
             "route_sources",
             "path_rules",
+            "path_overrides",
         },
         "root",
     )
@@ -229,6 +248,7 @@ def load_page_classification(path: str | Path, site_key: str) -> PageClassificat
         )
     route_sources = _parse_route_sources(document.get("route_sources", []))
     path_rules = _parse_path_rules(document.get("path_rules", []))
+    path_overrides = _parse_path_overrides(document.get("path_overrides", []))
     return PageClassificationConfig(
         site_key=site_key,
         version=version,
@@ -236,7 +256,35 @@ def load_page_classification(path: str | Path, site_key: str) -> PageClassificat
         route_aliases=tuple(route_aliases),
         route_sources=route_sources,
         path_rules=path_rules,
+        path_overrides=path_overrides,
     )
+
+
+def _parse_path_overrides(value: object) -> tuple[PagePathOverride, ...]:
+    if not isinstance(value, list):
+        raise PageClassificationError("page classification path_overrides must be a list")
+    overrides: list[PagePathOverride] = []
+    seen: set[str] = set()
+    for index, raw in enumerate(value):
+        context = f"path_overrides[{index}]"
+        if not isinstance(raw, Mapping):
+            raise PageClassificationError(f"{context} must be a mapping")
+        _reject_unknown(raw, {"path", "page_class", "reason"}, context)
+        path = _classification_path(_required_text(raw, "path", context), context)
+        if path in seen:
+            raise PageClassificationError("page classification path override paths must be unique")
+        page_class = _required_text(raw, "page_class", context)
+        if page_class not in _OVERRIDABLE_CLASSES:
+            raise PageClassificationError(f"{context} page_class is unsupported")
+        seen.add(path)
+        overrides.append(
+            PagePathOverride(
+                path=path,
+                page_class=page_class,  # type: ignore[arg-type]
+                reason=_required_text(raw, "reason", context),
+            )
+        )
+    return tuple(overrides)
 
 
 def _parse_route_sources(value: object) -> Mapping[str, RouteSourceRule]:
@@ -426,6 +474,13 @@ def build_page_dimension(
             overrides_applied += 1
         entries[path] = replace(entry, has_orphan_route=bool(invalid_reasons))
 
+    # Overrides replace route-table entries in place; overrides for paths absent
+    # from the route table are resolved in classify() and do not inflate counts.
+    for override in config.path_overrides:
+        base = entries.get(override.path)
+        if base is not None:
+            entries[override.path] = _override_entry(override, base)
+
     class_counts = defaultdict(int)
     for entry in entries.values():
         class_counts[entry.page_class] += 1
@@ -458,9 +513,25 @@ def build_page_dimension(
             "routeAliasRules": len(config.route_aliases),
             "routeSourceRules": len(config.route_sources),
             "pathRules": len(config.path_rules),
+            "pathOverrides": len(config.path_overrides),
         },
         route_aliases=config.route_aliases,
         path_rules=config.path_rules,
+        path_overrides=config.path_overrides,
+    )
+
+
+def _override_entry(
+    override: PagePathOverride, base: PageDimensionEntry | None
+) -> PageDimensionEntry:
+    return PageDimensionEntry(
+        canonical_path=override.path,
+        page_id=base.page_id if base is not None else None,
+        template=base.template if base is not None else "",
+        page_class=override.page_class,
+        classification_status="path_override",
+        classification_evidence=override.reason,
+        has_orphan_route=base.has_orphan_route if base is not None else False,
     )
 
 

@@ -54,7 +54,8 @@ def test_template_dimension_distinguishes_product_and_information_under_i() -> N
         "overridesApplied": 2,
         "routeAliasRules": 3,
         "routeSourceRules": 12,
-        "pathRules": 6,
+        "pathRules": 7,
+        "pathOverrides": 16,
     }
 
 

@@ -1,4 +1,4 @@
-version: "3"
+version: "4"
 site: genemedi-net
 report_lines:
   - {id: TARGET_ANTIBODY, name: TARGET AB, category_l1: TARMART, category_l2: TARGET ANTIBODY}
@@ -22,6 +22,10 @@ report_lines:
   - {id: AAV_PURIFICATION, name: AAV 纯化, category_l1: GENE THERAPY, category_l2: AAV PROCESSING, category_l3: AAV PURIFICATION}
   - {id: AAV_TITRATION, name: AAV 滴度, category_l1: GENE THERAPY, category_l2: AAV PROCESSING, category_l3: AAV TITRATION}
   - {id: PAYLOAD, name: Payload, category_l1: BIOLOGICS, category_l2: PAYLOAD}
+  - {id: AAV_OPTOGENETICS, name: AAV 光遗传, category_l1: GENE THERAPY, category_l2: AAV OPTOGENETICS}
+  - {id: FLOW_ANTIBODY, name: 流式抗体, category_l1: Immunology & Cell Therapy, category_l2: FLOW ANTIBODY}
+  - {id: CAR, name: CAR, category_l1: Immunology & Cell Therapy, category_l2: CAR}
+  - {id: COVID19, name: COVID-19, category_l1: COVID-19}
   - {id: OTHER_PRODUCT, name: 其他产品, category_l1: OTHER, category_l2: OTHER PRODUCT}
 rules:
   - id: solidex
@@ -209,6 +213,94 @@ rules:
     include_in_product_report: true
     mapping_status: approved
     reason: /g/ 产品路径归入 ORF。
+  - id: aav-titration-truex
+    priority: 61
+    match: {type: any_keyword, values: [truex-]}
+    product_line_id: AAV_TITRATION
+    report_line_id: AAV_TITRATION
+    include_in_product_report: true
+    mapping_status: approved
+    reason: TrueX 滴度、衣壳 ELISA 与标准品归入 AAV 滴度（2026-11-18 晓妍修订清单）。
+  - id: payload-detection-antibody
+    priority: 72
+    match: {type: exact_path, values: [/i/anti-cpt-monoclonal-antibody, /i/anti-dxd-monoclonal-antibody, /i/anti-budesonide-monoclonal-antibody, /i/anti-monomethyl-auristatin-e-mmae-monoclonal-antibody, /i/anti-mmae-mmaf-monoclonal-antibody, /i/anti-dm1-dm4-monoclonal-antibody, /i/anti-pbd-monoclonal-antibody, /i/anti-amanitin-monoclonal-antibody, /i/anti-calicheamicin-monoclonal-antibody, /i/anti-duocarmycin-monoclonal-antibody, /i/anti-eribulin-monoclonal-antibody, /i/anti-exatecan-monoclonal-antibody, /i/anti-mtx-monoclonal-antibody]}
+    product_line_id: PAYLOAD
+    report_line_id: PAYLOAD
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 抗 Payload（毒素、小分子）单抗逐页归入 Payload（2026-11-18 晓妍修订清单）。
+  - id: car-detection-antibody
+    priority: 73
+    match: {type: exact_path, values: [/i/anti-g4s-monoclonal-antibody, /i/anti-vhh1-monoclonal-antibody, /i/anti-fmc63-monoclonal-antibody]}
+    product_line_id: CAR
+    report_line_id: CAR
+    include_in_product_report: true
+    mapping_status: approved
+    reason: CAR 检测用抗 G4S、VHH、FMC63 单抗归入 CAR（2026-11-18 晓妍修订清单）。
+  - id: aav-vector-system-pages
+    priority: 81
+    match: {type: any_keyword, values: [-vector-system, aav-helper-plasmid]}
+    product_line_id: AAV_VECTOR_SYSTEM
+    report_line_id: AAV_VECTOR_SYSTEM
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 血清型 vector system 页与 helper 质粒归入 AAV Vector（2026-11-18 晓妍修订清单）。
+  - id: aav-vector-system-single-pages
+    priority: 82
+    match: {type: exact_path, values: [/i/plasmid-dna-preparation]}
+    product_line_id: AAV_VECTOR_SYSTEM
+    report_line_id: AAV_VECTOR_SYSTEM
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 质粒 DNA 制备服务页按晓妍确认归入 AAV Vector（2026-11-18 晓妍修订清单）。
+  - id: aav-optogenetics
+    priority: 85
+    match: {type: any_keyword, values: [/i/pgm-avp, aav-optogenetics]}
+    product_line_id: AAV_OPTOGENETICS
+    report_line_id: AAV_OPTOGENETICS
+    include_in_product_report: true
+    mapping_status: approved
+    reason: pGM-AVP 系列光遗传 AAV 与光遗传服务页归入 AAV 光遗传（2026-11-18 晓妍修订清单）。
+  - id: aav-expression-vector-pages
+    priority: 91
+    match: {type: all_keywords, values: [aav-, -expression-vector]}
+    product_line_id: AAV_EXPRESSION_VECTOR
+    report_line_id: AAV_EXPRESSION_VECTOR
+    include_in_product_report: true
+    mapping_status: approved
+    reason: AAV 启动子表达载体介绍页归入 AAV Expression（2026-11-18 晓妍修订清单）。
+  - id: lv-pages
+    priority: 101
+    match: {type: any_keyword, values: [lentivirus]}
+    product_line_id: LV_EXPRESSION_VECTOR
+    report_line_id: LV_EXPRESSION_VECTOR
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 慢病毒系统、包装质粒、CAR 慢病毒与慢病毒服务页归入 LV（2026-11-18 晓妍修订清单）。
+  - id: adv-pages
+    priority: 111
+    match: {type: any_keyword, values: [adenovirus, crispr-adv]}
+    product_line_id: ADV_EXPRESSION_VECTOR
+    report_line_id: ADV_EXPRESSION_VECTOR
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 腺病毒产品与服务页归入 ADV（2026-11-18 晓妍修订清单）。
+  - id: flow-antibody
+    priority: 175
+    match: {type: all_keywords, values: [gm-tg-hg-, -ab-conjugate]}
+    product_line_id: FLOW_ANTIBODY
+    report_line_id: FLOW_ANTIBODY
+    include_in_product_report: true
+    mapping_status: approved
+    reason: GM-Tg-hg 荧光/生物素标记抗体归入流式抗体（2026-11-18 晓妍修订清单）。
+  - id: covid19
+    priority: 205
+    match: {type: path_prefix, values: [/i/2019ncov]}
+    product_line_id: COVID19
+    report_line_id: COVID19
+    include_in_product_report: true
+    mapping_status: approved
+    reason: 2019nCoV 载体与抗原页归入 COVID-19（2026-11-18 晓妍修订清单）。
   - id: diagnostics-gmp-fallback
     priority: 900
     match: {type: path_prefix, values: [/i/gmp-]}

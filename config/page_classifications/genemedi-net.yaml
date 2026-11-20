@@ -1,4 +1,4 @@
-version: "3"
+version: "4"
 site: genemedi-net
 route_sources:
   - dbname: aav
@@ -80,6 +80,11 @@ path_rules:
     page_class: technical_page
     template: ga4-not-set
     reason: GA4 未获得落地页路径，不代表网站内容页面。
+  - id: blog-information
+    match: {type: path_prefix, value: /blog}
+    page_class: information_page
+    template: blog
+    reason: /blog 栏目是官网新博客（文章正常可访问），不在路由表中，统一归为信息页（2026-11-18 核实）。
 route_aliases:
   - id: legacy-antibody-to-i
     source_prefix: /antibody/
@@ -100,3 +105,52 @@ overrides:
   - page_id: 3111
     page_class: information_page
     reason: 模板名包含 Sidebar，但实际URL为 /about，属于公司信息页。
+path_overrides:
+  - path: /i/sci-hub-mirror-link
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/sci-hub-removing-barriers
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/mutual-aid-sci-hub
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/sci-hub-removing-barriers-in-science
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/nexus-sci-hub
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/sci-hub-knowledge-to-everyone
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/sci-hub-chatgpt
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/sci-hub-emancipation-and-democratisation-of-knowledge
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/other-websites-like-sci-hub
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/elsevier-vs-sci-hub
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/sci-hub-knowledge-as-a-human-right
+    page_class: information_page
+    reason: Sci-Hub 主题引流文章，路由走产品模板但不是产品页（2026-11-18 晓妍修订清单）。
+  - path: /i/aav-rh74-rep-cap-plasmid
+    page_class: product_page
+    reason: 路由表有重复记录；页面为 AAV-rh74 Rep-Cap 质粒产品页（2026-11-18 访问官网核实，晓妍修订清单）。
+  - path: /i/purprox-aavfull-enrichment-kit
+    page_class: product_page
+    reason: 路由表有重复记录；页面为 PurProX AAVFull 富集试剂盒产品页（2026-11-18 访问官网核实，晓妍修订清单）。
+  - path: /i/pgmad-u6-mcs-cmv-luc
+    page_class: product_page
+    reason: 路由表有重复记录；页面为腺病毒 shRNA 载体产品页（2026-11-18 访问官网核实，晓妍修订清单）。
+  - path: /i/truex-uniq-gmv-truex-elisa-9-1-96
+    page_class: product_page
+    reason: 路由表有重复记录；页面为 TrueX AAV9 滴度试剂盒产品页（2026-11-18 访问官网核实，晓妍修订清单）。
+  - path: /ja/i/purprox-aaveasy-spin-columns
+    page_class: product_page
+    reason: 日文版产品页，不在路由表中（2026-11-18 访问官网核实，晓妍修订清单）。
