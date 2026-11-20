@@ -7,10 +7,20 @@ import os
 import shutil
 import subprocess
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Protocol
+from zoneinfo import ZoneInfo
+
+# Base cells read back as "...T00:00:00.000+08:00": the registered Bases use
+# China Standard Time, which is how "YYYY-MM-DD HH:MM:SS" cells are interpreted.
+FEISHU_BASE_TIMEZONE = ZoneInfo("Asia/Shanghai")
+# One bitable v1 batch_update call accepts up to 1000 records; the body travels
+# as one argv string, which Linux caps at 128 KiB, so chunks stay well below.
+_UPDATE_BATCH_RECORDS = 500
+_UPDATE_BATCH_BYTES = 96_000
 
 
 @dataclass(frozen=True)
@@ -31,6 +41,14 @@ class RecordClient(Protocol):
     def create_records(self, table_id: str, records: Sequence[Mapping[str, Any]]) -> int: ...
 
     def update_record(self, table_id: str, record_id: str, fields: Mapping[str, Any]) -> None: ...
+
+    def update_records(
+        self,
+        table_id: str,
+        updates: Sequence[tuple[str, Mapping[str, Any]]],
+        *,
+        datetime_fields: Collection[str] = (),
+    ) -> int: ...
 
 
 _TRANSIENT_LARK_ERROR_MARKERS = (
@@ -285,6 +303,60 @@ class LarkCLIRecordClient:
         if self._update_delay_seconds:
             time.sleep(self._update_delay_seconds)
 
+    def update_records(
+        self,
+        table_id: str,
+        updates: Sequence[tuple[str, Mapping[str, Any]]],
+        *,
+        datetime_fields: Collection[str] = (),
+    ) -> int:
+        """Update rows with per-row values through bitable v1 batch_update.
+
+        ``+record-batch-update`` applies one patch to every record, so it cannot
+        carry per-row values. Updates are idempotent, so transient failures are
+        retried; callers still read every row back afterwards.
+        """
+
+        records = [
+            {"record_id": record_id, "fields": bitable_v1_fields(fields, datetime_fields)}
+            for record_id, fields in updates
+        ]
+        if len({record["record_id"] for record in records}) != len(records):
+            raise ValueError("Feishu batch update contains duplicate record IDs")
+        path = (
+            f"/open-apis/bitable/v1/apps/{self._target.base_token}"
+            f"/tables/{table_id}/records/batch_update"
+        )
+        updated = 0
+        for chunk in _update_chunks(records):
+            result = self._runner(
+                [
+                    *self._runtime,
+                    "api",
+                    "POST",
+                    path,
+                    "--as",
+                    self._target.identity,
+                    "--data",
+                    _json({"records": chunk}),
+                ]
+            )
+            data = result.get("data")
+            returned = data.get("records") if isinstance(data, Mapping) else None
+            returned_ids = (
+                [item.get("record_id") for item in returned if isinstance(item, Mapping)]
+                if isinstance(returned, list)
+                else None
+            )
+            if returned_ids is None or sorted(returned_ids) != sorted(
+                record["record_id"] for record in chunk
+            ):
+                raise RuntimeError("Feishu batch update response does not confirm every record")
+            updated += len(chunk)
+            if self._update_delay_seconds:
+                time.sleep(self._update_delay_seconds)
+        return updated
+
     def _common(self) -> list[str]:
         return [
             "--as",
@@ -348,6 +420,50 @@ class LarkCLIRecordClient:
                 raise RuntimeError(f"lark-cli failed (code={code}, message={message or 'unknown'})")
             return result
         raise RuntimeError("lark-cli retry limit exceeded")
+
+
+def bitable_v1_fields(
+    fields: Mapping[str, Any], datetime_fields: Collection[str] = ()
+) -> dict[str, Any]:
+    """Translate Base v3 cell values into the bitable v1 record shape.
+
+    Text, number, single-select and checkbox values share one shape; datetime
+    cells are "YYYY-MM-DD HH:MM:SS" in Base time and become epoch milliseconds.
+    """
+
+    output = dict(fields)
+    for name in datetime_fields:
+        value = output.get(name)
+        if value is None:
+            continue
+        if not isinstance(value, str):
+            raise ValueError(f"datetime cell must be text before conversion: {name}")
+        try:
+            moment = datetime.strptime(value, "%Y-%m-%d %H:%M:%S")
+        except ValueError as error:
+            raise ValueError(f"datetime cell has an unexpected format: {name}") from error
+        output[name] = int(moment.replace(tzinfo=FEISHU_BASE_TIMEZONE).timestamp() * 1000)
+    return output
+
+
+def _update_chunks(records: Sequence[Mapping[str, Any]]) -> list[list[Mapping[str, Any]]]:
+    chunks: list[list[Mapping[str, Any]]] = []
+    current: list[Mapping[str, Any]] = []
+    size = 0
+    for record in records:
+        record_size = len(_json(record).encode("utf-8")) + 1
+        if record_size > _UPDATE_BATCH_BYTES:
+            raise ValueError("Feishu update record is too large for one request")
+        if current and (
+            len(current) >= _UPDATE_BATCH_RECORDS or size + record_size > _UPDATE_BATCH_BYTES
+        ):
+            chunks.append(current)
+            current, size = [], 0
+        current.append(record)
+        size += record_size
+    if current:
+        chunks.append(current)
+    return chunks
 
 
 def _runtime() -> list[str]:

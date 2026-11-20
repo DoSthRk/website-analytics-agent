@@ -42,6 +42,12 @@ class FakeClient:
             for current_id, row in rows
         ]
 
+    def update_records(self, table_id, updates, *, datetime_fields=()):
+        self.datetime_fields = frozenset(datetime_fields)
+        for record_id, fields in updates:
+            self.update_record(table_id, record_id, fields)
+        return len(updates)
+
 
 def test_incremental_v3_sync_creates_updates_and_ignores_refresh_only_changes() -> None:
     document = _document()
@@ -85,6 +91,7 @@ def test_incremental_v3_sync_creates_updates_and_ignores_refresh_only_changes() 
     assert [(row[0], row[1]) for row in client.updated] == [
         ("product", "rec-product")
     ]
+    assert client.datetime_fields == {"数据日期", "数据更新时间"}
 
 
 def test_incremental_v3_sync_validates_all_tables_before_writing() -> None:

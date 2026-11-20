@@ -109,8 +109,12 @@ def sync_v3_record_sets(
     result: dict[str, dict[str, int]] = {}
     for plan in plans:
         created = client.create_records(plan.table_id, plan.creates) if plan.creates else 0
-        for record_id, fields in plan.updates:
-            client.update_record(plan.table_id, record_id, fields)
+        if plan.updates:
+            client.update_records(
+                plan.table_id,
+                plan.updates,
+                datetime_fields=_datetime_fields(plan),
+            )
         result[plan.logical_name] = {
             "desired": plan.desired,
             "existing": plan.existing,
@@ -253,3 +257,9 @@ def _cell_text(value: Any) -> str | None:
             if key in value:
                 return _cell_text(value[key])
     return str(value)
+
+
+def _datetime_fields(plan: _TablePlan) -> frozenset[str]:
+    return frozenset(
+        str(field["name"]) for field in plan.definitions if field.get("type") == "datetime"
+    )

@@ -6,6 +6,7 @@ import pytest
 from website_analytics.feishu_records import (
     FeishuTarget,
     LarkCLIRecordClient,
+    bitable_v1_fields,
     is_retryable_lark_failure,
     lark_cli_environment,
     load_feishu_target,
@@ -232,3 +233,75 @@ def test_lark_cli_environment_scopes_dedicated_proxy_to_subprocess(monkeypatch) 
     assert environment["HTTPS_PROXY"] == "http://127.0.0.1:8890"
     assert environment["http_proxy"] == "http://127.0.0.1:8890"
     assert environment["https_proxy"] == "http://127.0.0.1:8890"
+
+
+def test_bitable_v1_fields_turns_base_datetimes_into_china_epoch_millis() -> None:
+    fields = {"数据日期": "2026-11-16 00:00:00", "数据状态": "完整", "官网访问次数": 7, "备注": None}
+
+    assert bitable_v1_fields(fields, {"数据日期", "备注"}) == {
+        "数据日期": 1794758400000,
+        "数据状态": "完整",
+        "官网访问次数": 7,
+        "备注": None,
+    }
+    with pytest.raises(ValueError, match="unexpected format"):
+        bitable_v1_fields({"数据日期": "2026-11-16"}, {"数据日期"})
+
+
+def _batch_client(monkeypatch, responses):
+    monkeypatch.setattr("website_analytics.feishu_records._runtime", lambda: ["lark-cli"])
+    calls = []
+
+    def runner(command):
+        calls.append(command)
+        body = json.loads(command[command.index("--data") + 1])
+        return responses(body)
+
+    client = LarkCLIRecordClient(
+        FeishuTarget("bascnBASE", "tblO", "tblP", "bot"),
+        runner=runner,
+        update_delay_seconds=0,
+    )
+    return client, calls
+
+
+def test_update_records_sends_per_row_values_in_bounded_v1_batches(monkeypatch) -> None:
+    monkeypatch.setattr("website_analytics.feishu_records._UPDATE_BATCH_RECORDS", 2)
+    client, calls = _batch_client(
+        monkeypatch, lambda body: {"ok": True, "data": {"records": list(reversed(body["records"]))}}
+    )
+    updates = [(f"rec{index}", {"日期": "2026-11-16 08:00:00", "次数": index}) for index in range(5)]
+
+    assert client.update_records("tblP", updates, datetime_fields={"日期"}) == 5
+    assert [command[1:4] for command in calls] == [
+        ["api", "POST", "/open-apis/bitable/v1/apps/bascnBASE/tables/tblP/records/batch_update"]
+    ] * 3
+    assert calls[0][4:6] == ["--as", "bot"]
+    sent = [record for command in calls for record in json.loads(command[-1])["records"]]
+    assert [record["record_id"] for record in sent] == [f"rec{index}" for index in range(5)]
+    assert [record["fields"]["次数"] for record in sent] == list(range(5))
+    assert {record["fields"]["日期"] for record in sent} == {1794787200000}
+
+
+def test_update_records_splits_by_payload_size(monkeypatch) -> None:
+    monkeypatch.setattr("website_analytics.feishu_records._UPDATE_BATCH_BYTES", 120)
+    client, calls = _batch_client(monkeypatch, lambda body: {"ok": True, "data": {"records": body["records"]}})
+    updates = [(f"rec{index}", {"说明": "x" * 40}) for index in range(3)]
+
+    assert client.update_records("tblP", updates) == 3
+    assert [len(json.loads(command[-1])["records"]) for command in calls] == [1, 1, 1]
+
+
+def test_update_records_fails_when_response_does_not_confirm_every_row(monkeypatch) -> None:
+    client, _ = _batch_client(monkeypatch, lambda body: {"ok": True, "data": {"records": body["records"][:1]}})
+
+    with pytest.raises(RuntimeError, match="does not confirm"):
+        client.update_records("tblP", [("rec1", {"次数": 1}), ("rec2", {"次数": 2})])
+
+
+def test_update_records_rejects_duplicate_record_ids_before_calling(monkeypatch) -> None:
+    client, calls = _batch_client(monkeypatch, lambda body: pytest.fail("must not call"))
+
+    with pytest.raises(ValueError, match="duplicate record IDs"):
+        client.update_records("tblP", [("rec1", {"次数": 1}), ("rec1", {"次数": 2})])
+    assert calls == []
