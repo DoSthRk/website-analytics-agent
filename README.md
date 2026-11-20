@@ -96,6 +96,15 @@ $env:WEBSITE_ANALYTICS_NODE = '<Node executable path returned by the Codex depen
 
 ## 页面与产品映射报告
 
+复核「有流量的404」时，从清单复制 URL 列到 `paths.txt`，每行一个路径。在能读取 GA4 日缓存的环境中运行以下命令。输出保留每种原始路径的落地会话和 HTTP 跳转过程，同一分类键下的大小写变体分别核验。
+
+```sh
+PYTHONPATH=src python scripts/review_landing_urls.py --start 2026-09-21 --end 2026-11-15 \
+  --cache-dir /opt/website-analytics/shared/cache < paths.txt > landing-review.json
+```
+
+导出时仅将 `result=404` 的原始路径计入 404 表。`missing_keys`、`missing_cache_days` 和 `unverified` 分别记录缺少原始路径、缺少日缓存和未能核实最终响应的情况。
+
 当站点存在页面分类、产品映射和信息页映射配置时，`report` 会返回页面类型及业务维度汇总，`export-excel` 会在原始 GA4/GSC 工作表之外自动加入：
 
 - `Product Weekly Summary`：按已审核的三级产品分类汇总本期、上一期和变化；GA4 Sessions 与 GSC Clicks / Impressions / CTR 保持独立，绝不合并为同一种“流量”。
