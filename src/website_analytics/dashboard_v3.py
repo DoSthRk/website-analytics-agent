@@ -17,6 +17,9 @@ DATE_BOUNDARY_NOTE = (
     "GA4按属性时区统计；GSC按Pacific Time统计；"
     "询盘按网站服务器日历统计。三者是独立数据源，不直接视为转化漏斗。"
 )
+# Largest allowed shortfall of the "other pages" residual, as a share of GA4
+# daily sessions, before it is treated as a classification error.
+_LANDING_ROW_TOLERANCE = 0.03
 _PAGE_METRICS = (
     "ga4Sessions",
     "gscClicks",
@@ -65,8 +68,18 @@ def build_v3_daily_records(
     information_sessions = _number(information_type.get("ga4SessionsCurrent"))
     classified_sessions = product_sessions + information_sessions
     other_sessions = total_sessions - classified_sessions
+    boundary_note = DATE_BOUNDARY_NOTE
     if other_sessions < 0:
-        raise ValueError("classified page sessions exceed GA4 daily sessions")
+        # GA4 landing-page rows do not sum exactly to the daily total (observed
+        # within ±2.3% over 423 days). When nearly every session lands on a
+        # classified page, that rounding alone can push the residual below 0.
+        if -other_sessions > total_sessions * _LANDING_ROW_TOLERANCE:
+            raise ValueError("classified page sessions exceed GA4 daily sessions")
+        boundary_note = (
+            f"{DATE_BOUNDARY_NOTE}已分类页面会话比GA4当日总会话多"
+            f"{_whole(-other_sessions)}次（GA4逐行统计误差），其他页面记为0。"
+        )
+        other_sessions = 0
 
     overview = {
         "daily_key": daily_key,
@@ -95,7 +108,7 @@ def build_v3_daily_records(
         "product_mapping_version": product_mapping.version,
         "information_mapping_version": information_mapping.version,
         "refreshed_at": refreshed_cell,
-        "source_boundary_note": DATE_BOUNDARY_NOTE,
+        "source_boundary_note": boundary_note,
     }
 
     report_lines = _index(report.get("reportLines"), "reportLineId")

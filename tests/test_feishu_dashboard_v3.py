@@ -171,6 +171,59 @@ def test_v3_daily_records_reject_cross_date_details() -> None:
         )
 
 
+def _build_with_ga4_daily_sessions(daily_sessions: int) -> dict:
+    """Scale landing rows to 400 product + 1000 information + 100 other sessions."""
+    mapping = load_product_mapping(
+        PROJECT_ROOT / "config" / "product_mappings" / "genemedi-net.yaml",
+        "genemedi-net",
+    )
+    information_mapping = load_information_mapping(
+        PROJECT_ROOT / "config" / "information_mappings" / "genemedi-net.yaml",
+        "genemedi-net",
+    )
+    assert mapping is not None
+    assert information_mapping is not None
+    details = _details()
+    for row in details["GA4 Pages"]:
+        row["sessions"] *= 50
+    details["GA4 Daily"][0]["sessions"] = daily_sessions
+    fetch_result = _fetch_result()
+    fetch_result["totals"]["ga4"]["sessions"] = daily_sessions
+    return build_v3_daily_records(
+        site="genemedi-net",
+        data_date=date(2026, 8, 10),
+        fetch_result=fetch_result,
+        details=details,
+        product_mapping=mapping,
+        page_dimension=_page_dimension(),
+        information_mapping=information_mapping,
+    )
+
+
+def test_v3_daily_records_absorb_small_landing_row_overcount() -> None:
+    # Classified landing rows (1,400) exceed the GA4 daily total (1,380) by
+    # 1.4%, within the row-rounding seen in real data (2026-01-04: 1.5%).
+    overview = _build_with_ga4_daily_sessions(1380)["records"]["overview_daily"][0]
+
+    assert overview["ga4_sessions"] == 1380
+    assert overview["classified_page_sessions"] == 1400
+    assert overview["other_page_sessions"] == 0
+    assert "已分类页面会话比GA4当日总会话多20次" in overview["source_boundary_note"]
+
+
+def test_v3_daily_records_keep_standard_note_when_residual_is_positive() -> None:
+    overview = _build_with_ga4_daily_sessions(1500)["records"]["overview_daily"][0]
+
+    assert overview["other_page_sessions"] == 100
+    assert "其他页面记为0" not in overview["source_boundary_note"]
+
+
+def test_v3_daily_records_reject_large_classified_excess() -> None:
+    # 100 sessions over a 1,300 total is 7.7%: a classification error, not rounding.
+    with pytest.raises(ValueError, match="exceed GA4 daily sessions"):
+        _build_with_ga4_daily_sessions(1300)
+
+
 def _page_dimension():
     return build_page_dimension(
         PageClassificationConfig(
