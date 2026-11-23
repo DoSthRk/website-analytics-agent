@@ -536,8 +536,10 @@ def _change_rows(site, cells, versions) -> list[dict[str, Any]]:
     if not complete:
         return []
     latest = max(complete, key=lambda period: period.start)
-    items = [(quantity.key, quantity.label, "" if quantity.alert else BOT_NOTE) for quantity in PRODUCT_METRICS.quantities]
-    items += [(ratio.key, ratio.label, ratio.note) for ratio in PRODUCT_METRICS.ratios]
+    # Counts and ratios share one number column here, so ratios are stored in
+    # percent points and their item name says so.
+    items = [(quantity.key, quantity.label, "" if quantity.alert else BOT_NOTE, 1) for quantity in PRODUCT_METRICS.quantities]
+    items += [(ratio.key, ratio.label, ratio.note, 100) for ratio in PRODUCT_METRICS.ratios]
     order = {"impressions": 1, "click_rate": 2, "clicks": 3, "arrival_ratio": 4, "landing_sessions": 5,
              "engaged_rate": 6, "engaged_sessions": 7, "inquiry_ratio": 8, "accepted_inquiries": 9}
     rows: list[dict[str, Any]] = []
@@ -548,7 +550,7 @@ def _change_rows(site, cells, versions) -> list[dict[str, Any]]:
         for mode in MODES[WEEK]:
             base = _baseline(series, index, mode, PRODUCT_METRICS)
             changes, anomalies, volume_ok = _assess(cell, current, base, PRODUCT_METRICS)
-            for key, label, note in items:
+            for key, label, note, scale in items:
                 rows.append({
                     "change_key": f"{site}|{cell.scope.identifier}|{mode.name}|{key}",
                     "site": site,
@@ -562,9 +564,9 @@ def _change_rows(site, cells, versions) -> list[dict[str, Any]]:
                     "category_l2": cell.scope.category_l2,
                     "comparison_mode": mode.name,
                     "item_order": order[key],
-                    "item": label,
-                    "current": _round(current[key]),
-                    "baseline": _round(base.values.get(key)),
+                    "item": label if scale == 1 else f"{label}（%）",
+                    "current": _scaled(current[key], scale),
+                    "baseline": _scaled(base.values.get(key), scale),
                     "change": _round(changes[key]),
                     "is_anomaly": label in anomalies,
                     "alert_enabled": key in PRODUCT_METRICS.alerting(),
@@ -623,6 +625,10 @@ def _candidates(cells, volume_key: str, engaged_key: str | None, *, click_guard:
                 "already_excluded": bool(cell.excluded_reason),
             })
     return found
+
+
+def _scaled(value: float | None, scale: int) -> float | int | None:
+    return None if value is None else _round(value * scale)
 
 
 def _round(value: float | None) -> float | int | None:

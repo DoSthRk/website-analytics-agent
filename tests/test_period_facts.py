@@ -208,7 +208,8 @@ def test_change_table_has_latest_complete_week_in_long_form():
     assert len({row["change_key"] for row in rows}) == len(rows)
     assert all("2025-W" not in row["change_key"] for row in rows)
     first = sorted((row for row in rows if row["scope_id"] == "A" and row["comparison_mode"] == "前8周均值"), key=lambda r: r["item_order"])
-    assert [row["item"] for row in first][:3] == ["Google 搜索曝光", "搜索点击率", "Google 自然搜索点击"]
+    assert [row["item"] for row in first][:3] == ["Google 搜索曝光", "搜索点击率（%）", "Google 自然搜索点击"]
+    assert first[1]["current"] == pytest.approx(10.0)  # 10 clicks / 100 impressions, in percent points
 
 
 def test_site_table_and_candidates_flag_bot_like_weeks():
