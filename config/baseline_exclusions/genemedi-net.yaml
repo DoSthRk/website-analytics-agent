@@ -1,0 +1,14 @@
+# Periods kept out of every history baseline (rolling averages and year-over-year).
+# Their own values are still shown as recorded. A period is excluded when it
+# contains any day of an entry. Entries are added only after human review of the
+# candidates printed by scripts/build_period_facts.py; nothing is excluded
+# automatically. scope: all, or a list of scope ids (ALL_PRODUCTS, SITE,
+# L1:<l1>, L2:<l1>/<l2>, or a report line id).
+version: "1"
+site: genemedi-net
+exclusions:
+  - start: 2026-08-31
+    end: 2026-09-05
+    scope: all
+    reason: 疑似爬虫流量，集中访问 /i/GM-Tg-hg-T…-Ab 形式的地址
+    approved_on: 2026-11-23
