@@ -111,6 +111,11 @@ def _arguments() -> argparse.Namespace:
         help="Write only V3 daily tables and leave legacy V2 tables unchanged",
     )
     parser.add_argument(
+        "--final-days-only",
+        action="store_true",
+        help="With --v3-only, fetch only the final days it writes instead of every planned window",
+    )
+    parser.add_argument(
         "--daily-facts-dir",
         type=Path,
         help="Save every finalized day written to Feishu here (needs the V3 and funnel targets)",
@@ -243,6 +248,8 @@ def main() -> int:
         )
     if args.v3_only and args.v3_contract is None:
         raise ValueError("--v3-only requires --v3-contract and --v3-target")
+    if args.final_days_only and not args.v3_only:
+        raise ValueError("--final-days-only requires --v3-only")
     if args.daily_facts_dir is not None and (args.v3_contract is None or args.product_funnel_contract is None):
         raise ValueError("--daily-facts-dir requires the V3 and product funnel targets")
     if args.period_target is not None and (args.daily_facts_dir is None or args.baseline_exclusions is None):
@@ -351,6 +358,13 @@ def _execute(args: argparse.Namespace, run_dir: Path, batch: str,
         if not args.v3_only:
             previous = previous_analytics_period(period)
             required_by_key[period_key(profile.site, previous)] = previous
+    if args.v3_only and not args.final_days_only:
+        # Writes stay limited to final days, but keep refreshing every planned
+        # window (and its comparison window) in the source cache: the full-site
+        # publisher builds its query snapshot from those cached windows.
+        for row in select_sync_periods(profile, anchor, args.scope):
+            for period in (_period(row), previous_analytics_period(_period(row))):
+                required_by_key.setdefault(period_key(profile.site, period), period)
 
     fetched: dict[str, dict[str, Any]] = {}
     details: dict[str, dict[str, list[dict[str, Any]]]] = {}

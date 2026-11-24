@@ -251,9 +251,10 @@ GA4/GSC 与飞书分别使用各自明确的代理环境变量。
 
 ## V3 第一批本地优化与兼容性
 
-V3-only 在选期、抓取和构建阶段只处理已最终化的单日，不抓比较期或构建 V2。
-配置延迟仍是 finality 估计，不是实时来源水位。默认 profile 在 2026-09-30
-full 只需 11 个日区间，intraday 只需 2 个；未加 --v3-only 的旧规划保持原行为。
+V3-only 在构建和写入阶段只处理已最终化的单日，不构建 V2。抓取默认仍覆盖完整规划
+（各窗口及其比较期），因为全站查询快照从这些缓存窗口发布；加 `--final-days-only`
+才只抓要写的最终日（默认 profile 在 2026-09-30 full 11 个、intraday 2 个日区间）。
+配置延迟仍是 finality 估计，不是实时来源水位。未加 --v3-only 的旧规划保持原行为。
 
 每次执行在输出目录留下 `latest-run-status.json`，批次目录留下
 `run-status.json` 与成功的 `summary.json`。状态包含 started/finished、阶段、

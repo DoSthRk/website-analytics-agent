@@ -23,7 +23,7 @@ def runner_module():
     return module
 
 
-def prepare_runner(monkeypatch, tmp_path, scope='full', apply=False):
+def prepare_runner(monkeypatch, tmp_path, scope='full', apply=False, final_days_only=True):
     runner = runner_module()
     source = InquirySourceConfig('legacy_contacts_mysql', 'WEBSITE_ANALYTICS_TEST_DSN',
                                  site_scope='dedicated_database', site_scope_evidence='synthetic fixture only')
@@ -37,15 +37,16 @@ def prepare_runner(monkeypatch, tmp_path, scope='full', apply=False):
     fetched = []
     details = {}
     def fetch(site, config, period, cache, audit):
-        assert period.kind == 'day' and period.start == period.end
-        fetched.append(period.start.isoformat())
+        if final_days_only:
+            assert period.kind == 'day' and period.start == period.end
+        fetched.append(period.start.isoformat() if final_days_only else (period.kind, period.start, period.end))
         rows = _details()
         for key in ('GA4 Daily', 'GSC Daily', 'Inquiry Daily'):
             for row in rows.get(key, []): row['date'] = period.start.isoformat()
-        details[period.start] = rows
+        details[(period.kind, period.start, period.end)] = rows
         return _fetch_result()
     monkeypatch.setattr(runner, '_fetch', fetch)
-    monkeypatch.setattr(runner, 'load_period_details', lambda cache, site, period: details[period.start])
+    monkeypatch.setattr(runner, 'load_period_details', lambda cache, site, period: details[(period.kind, period.start, period.end)])
     monkeypatch.setattr(runner, 'sync_record_sets', lambda *a: pytest.fail('V3-only wrote V2'))
     monkeypatch.setattr(runner, 'LarkCLIRecordClient', lambda _: pytest.fail('dry-run created external client'))
     argv = ['run_analytics_sync.py', '--scope', scope, '--anchor', '2026-09-30',
@@ -54,6 +55,7 @@ def prepare_runner(monkeypatch, tmp_path, scope='full', apply=False):
             '--v3-contract', 'config/feishu_dashboard/v3/data_contract.json',
             '--v3-target', 'config/feishu_dashboard/v3/sync_target.json']
     if apply: argv.append('--apply')
+    if final_days_only: argv.append('--final-days-only')
     monkeypatch.setattr(sys, 'argv', argv)
     return runner, fetched
 
@@ -77,6 +79,31 @@ def test_v3_only_fetches_exact_final_days_and_does_not_build_or_write_v2(monkeyp
     # The deployed full-site publisher reads run time from this token.
     assert re.search(r'\d{8}T\d{6}Z', run.name)
     assert run.name.startswith(f'{scope}-')
+
+
+@pytest.mark.parametrize('scope', ['full', 'intraday'])
+def test_v3_only_still_refreshes_every_planned_window_but_writes_final_days(monkeypatch,tmp_path,capsys,scope):
+    runner, fetched = prepare_runner(monkeypatch,tmp_path,scope,final_days_only=False)
+    assert runner.main() == 0
+    result = json.loads(capsys.readouterr().out)
+    profile = load_sync_profile(Path('config/sync_profiles/genemedi-net.json'))
+    planned = set()
+    for row in select_sync_periods(profile, date(2026, 9, 30), scope):
+        period = runner._period(row)
+        for item in (period, runner.previous_analytics_period(period)):
+            planned.add((item.kind, item.start, item.end))
+    assert set(fetched) == planned and len(fetched) == len(planned) == result['fetched_periods']
+    finals = select_sync_periods(profile, date(2026, 9, 30), scope, v3_only=True)
+    assert result['feishu_v3']['date_range']['days'] == len(finals)
+    assert result['run_status']['coverage']['complete_days'] == len(finals)
+    assert result['overview_records'] == result['product_records'] == 0
+
+
+def test_final_days_only_requires_v3_only(monkeypatch,tmp_path):
+    runner, _ = prepare_runner(monkeypatch,tmp_path)
+    sys.argv.remove('--v3-only')
+    with pytest.raises(ValueError, match='requires --v3-only'):
+        runner.main()
 
 
 def test_source_failure_reports_stage_without_secrets_or_false_zeros(monkeypatch,tmp_path,capsys):
