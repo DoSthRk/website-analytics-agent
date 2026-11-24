@@ -13,6 +13,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from website_analytics.config import load_sites, require_site
+from website_analytics.daily_facts_store import save_days
 from website_analytics.adapters.page_dimension import create_page_dimension_adapter
 from website_analytics.dashboard_sync import build_dashboard_records, load_period_details
 from website_analytics.dashboard_v3 import build_v3_daily_records
@@ -41,6 +42,7 @@ from website_analytics.feishu_v3_sync import (
 )
 from website_analytics.information_mapping import load_information_mapping
 from website_analytics.periods import AnalyticsPeriod, period_key, previous_analytics_period
+from website_analytics.period_facts_job import refresh_period_tables
 from website_analytics.page_classification import (
     build_page_dimension,
     load_page_classification,
@@ -107,6 +109,21 @@ def _arguments() -> argparse.Namespace:
         "--v3-only",
         action="store_true",
         help="Write only V3 daily tables and leave legacy V2 tables unchanged",
+    )
+    parser.add_argument(
+        "--daily-facts-dir",
+        type=Path,
+        help="Save every finalized day written to Feishu here (needs the V3 and funnel targets)",
+    )
+    parser.add_argument(
+        "--period-target",
+        type=Path,
+        help="Rebuild the weekly/monthly period tables from --daily-facts-dir after a full sync",
+    )
+    parser.add_argument(
+        "--baseline-exclusions",
+        type=Path,
+        help="Reviewed baseline exclusion list for the period tables",
     )
     parser.add_argument("--apply", action="store_true", help="Write aggregate rows to Feishu")
     return parser.parse_args()
@@ -226,6 +243,10 @@ def main() -> int:
         )
     if args.v3_only and args.v3_contract is None:
         raise ValueError("--v3-only requires --v3-contract and --v3-target")
+    if args.daily_facts_dir is not None and (args.v3_contract is None or args.product_funnel_contract is None):
+        raise ValueError("--daily-facts-dir requires the V3 and product funnel targets")
+    if args.period_target is not None and (args.daily_facts_dir is None or args.baseline_exclusions is None):
+        raise ValueError("--period-target requires --daily-facts-dir and --baseline-exclusions")
     generated_at = datetime.now(timezone.utc)
     # The full-site publisher orders runs by the first ``\d{8}T\d{6}Z`` in the
     # directory name; keep that token intact and make it unique with a suffix.
@@ -540,6 +561,35 @@ def _execute(args: argparse.Namespace, run_dir: Path, batch: str,
                 product_funnel_document,
             )
         checkpoint("publication", publication="verified" if v3_write_result is not None else "completed_without_v3_readback")
+    stored_days: list[str] = []
+    period_result: dict[str, Any] | None = None
+    if args.apply and args.daily_facts_dir is not None and v3_document is not None and product_funnel_document is not None:
+        # Only days that were just written and read back reach the store.
+        stored_days = save_days(
+            args.daily_facts_dir,
+            {
+                "overview_daily": v3_document["records"]["overview_daily"],
+                "product_funnel_daily": product_funnel_document["records"]["product_funnel_daily"],
+            },
+        )
+        if args.period_target is not None and args.scope == "full":
+            checkpoint("period_tables", period_tables="in_progress")
+            try:
+                period_result = {"status": "ok", **refresh_period_tables(
+                    site=profile.site,
+                    mapping=mapping,
+                    store=args.daily_facts_dir,
+                    exclusions=args.baseline_exclusions,
+                    target=args.period_target,
+                    client_factory=lambda target: LarkCLIRecordClient(target.record_client_target()),
+                    apply=True,
+                )}
+            except Exception as error:  # the daily tables are already written and verified
+                period_result = {"status": "failed", "error_type": type(error).__name__}
+                error_path = run_dir / "period-tables-error.txt"
+                error_path.write_text(f"{type(error).__name__}: {str(error)[:2000]}\n", encoding="utf-8")
+                error_path.chmod(0o600)
+            checkpoint("period_tables", period_tables=period_result["status"])
     summary = {
         "status": "ok",
         "mode": "apply" if args.apply else "dry-run",
@@ -566,6 +616,8 @@ def _execute(args: argparse.Namespace, run_dir: Path, batch: str,
             ],
             "write_result": product_funnel_write_result,
         } if product_funnel_document is not None else None,
+        "daily_facts_saved": len(stored_days),
+        "period_tables": period_result,
         "output_dir": str(run_dir),
     }
     return summary

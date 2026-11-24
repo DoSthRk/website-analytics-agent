@@ -193,3 +193,38 @@ def test_load_period_target(tmp_path):
     path.write_text(json.dumps({"version": "1", "base_token": "b", "identity": "bot", "tables": {"site_period": "tblS"}}), encoding="utf-8")
     with pytest.raises(ValueError, match="tables differ"):
         load_period_target(path)
+
+
+def test_refresh_period_tables_from_store_is_idempotent(tmp_path):
+    from website_analytics.daily_facts_store import save_days
+    from website_analytics.period_facts_job import refresh_period_tables
+
+    days = [date(2025, 7, 14) + timedelta(days=offset) for offset in range(70)]
+    records = {
+        "overview_daily": [
+            {"data_date": d.isoformat(), "page_classification_version": "4", "ga4_sessions": 100, "product_page_sessions": 60,
+             "information_page_sessions": 30, "other_page_sessions": 10, "gsc_clicks": 30, "gsc_impressions": 300, "accepted_inquiries": 3}
+            for d in days
+        ],
+        "product_funnel_daily": [
+            {"data_date": d.isoformat(), "product_line_id": line, "mapping_version": "4", "gsc_impressions": 100, "gsc_clicks": 10,
+             "gsc_position_impression_sum": 500, "ga4_product_landing_sessions_all_channels": 20,
+             "ga4_product_landing_engaged_sessions_all_channels": 10, "db_accepted_inquiries": 1}
+            for d in days for line in ("A", "B", "C")
+        ],
+    }
+    store = tmp_path / "store"
+    save_days(store, records)
+    target = tmp_path / "target.json"
+    target.write_text(json.dumps({"version": "1", "base_token": "b", "identity": "bot", "tables": dict(TARGET.tables)}), encoding="utf-8")
+    exclusions = tmp_path / "exclusions.yaml"
+    exclusions.write_text("site: genemedi-net\nexclusions: []\n", encoding="utf-8")
+    client = FakeFeishu()
+    kwargs = dict(site="genemedi-net", mapping=MAPPING, store=store, exclusions=exclusions, target=target,
+                  client_factory=lambda _: client)
+
+    first = refresh_period_tables(apply=True, **kwargs)
+    assert first["last_final"] == "2025-09-21"
+    assert first["write_result"]["site_period"]["verified"] > 0
+    second = refresh_period_tables(apply=False, **kwargs)
+    assert all(counts["create"] == counts["update"] == 0 for counts in second["plan"].values())

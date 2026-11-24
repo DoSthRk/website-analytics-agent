@@ -160,3 +160,56 @@ def test_fetch_failure_retains_only_safe_source_health(monkeypatch,tmp_path):
     assert err.value.source_statuses=={'ga4':{'status':'ok','error_type':None},
                                       'inquiry':{'status':'error','error_type':'InquiryScopeError'}}
     assert 'never-log-this' not in str(err.value)
+
+
+def _with_period_step(monkeypatch, tmp_path, scope, refresh):
+    runner, fetched = prepare_runner(monkeypatch, tmp_path, scope, apply=True)
+    monkeypatch.setattr(runner, 'LarkCLIRecordClient', lambda _: object())
+    monkeypatch.setattr(runner, 'sync_v3_record_sets', lambda *a: {'overview_daily': {'verified': 1}})
+    monkeypatch.setattr(runner, 'sync_product_funnel_record_sets', lambda *a: {'product_funnel_daily': {'verified': 1}})
+    monkeypatch.setattr(runner, 'refresh_period_tables', refresh)
+    sys.argv += ['--product-funnel-contract', 'config/product_funnel/v1/data_contract.json',
+                 '--product-funnel-target', 'config/product_funnel/v1/sync_target.json',
+                 '--daily-facts-dir', str(tmp_path / 'facts'),
+                 '--period-target', str(tmp_path / 'period-target.json'),
+                 '--baseline-exclusions', 'config/baseline_exclusions/genemedi-net.yaml']
+    return runner, fetched
+
+
+@pytest.mark.parametrize('scope', ['full', 'intraday'])
+def test_written_days_reach_the_store_and_full_runs_refresh_period_tables(monkeypatch, tmp_path, capsys, scope):
+    calls = []
+    def refresh(**kwargs):
+        calls.append(kwargs)
+        return {'last_final': '2026-09-29', 'write_result': {}}
+    runner, fetched = _with_period_step(monkeypatch, tmp_path, scope, refresh)
+    assert runner.main() == 0
+    result = json.loads(capsys.readouterr().out)
+    stored = sorted(path.stem for path in (tmp_path / 'facts').glob('*.json'))
+    assert stored == sorted(fetched) and result['daily_facts_saved'] == len(fetched)
+    if scope == 'full':
+        assert len(calls) == 1 and calls[0]['apply'] is True and calls[0]['store'] == tmp_path / 'facts'
+        assert result['period_tables']['status'] == 'ok'
+        assert result['run_status']['period_tables'] == 'ok'
+    else:
+        assert calls == [] and result['period_tables'] is None
+
+
+def test_period_failure_keeps_the_daily_sync_successful(monkeypatch, tmp_path, capsys):
+    def refresh(**kwargs):
+        raise RuntimeError('period-detail')
+    runner, _ = _with_period_step(monkeypatch, tmp_path, 'full', refresh)
+    assert runner.main() == 0
+    out = capsys.readouterr().out
+    result = json.loads(out)
+    assert result['period_tables'] == {'status': 'failed', 'error_type': 'RuntimeError'}
+    assert result['run_status']['status'] == 'ok' and result['run_status']['period_tables'] == 'failed'
+    assert 'period-detail' not in out
+    assert 'period-detail' in (Path(result['output_dir']) / 'period-tables-error.txt').read_text()
+
+
+def test_period_target_requires_store_and_exclusions(monkeypatch, tmp_path):
+    runner, _ = prepare_runner(monkeypatch, tmp_path)
+    sys.argv += ['--period-target', 'x.json']
+    with pytest.raises(ValueError, match='--period-target requires'):
+        runner.main()
