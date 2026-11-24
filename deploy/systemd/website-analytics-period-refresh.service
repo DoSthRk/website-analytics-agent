@@ -1,0 +1,31 @@
+[Unit]
+Description=Refresh the Feishu weekly/monthly period tables from finalized daily facts
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=websiteanalytics
+Group=websiteanalytics
+WorkingDirectory=/opt/website-analytics/period-refresh/current
+Environment=HOME=/var/lib/website-analytics
+Environment=PATH=/opt/website-analytics/venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=LARKSUITE_CLI_NO_UPDATE_NOTIFIER=1
+Environment=LARKSUITE_CLI_NO_SKILLS_NOTIFIER=1
+Nice=10
+TimeoutStartSec=45min
+# Waits up to 20 minutes for a running sync to release the lock; never runs alongside it.
+ExecStart=/usr/bin/flock -w 1200 /opt/website-analytics/shared/sync.lock \
+  /opt/website-analytics/venv/bin/python -I -B /opt/website-analytics/period-refresh/current/scripts/run_period_refresh.py \
+  --site-config /opt/website-analytics/shared/period-facts/sites.yaml \
+  --env-file /opt/website-analytics/shared/analytics.env \
+  --mapping /opt/website-analytics/period-refresh/current/config/product_mappings/genemedi-net.yaml \
+  --page-classification /opt/website-analytics/period-refresh/current/config/page_classifications/genemedi-net.yaml \
+  --information-mapping /opt/website-analytics/period-refresh/current/config/information_mappings/genemedi-net.yaml \
+  --cache-dir /opt/website-analytics/shared/cache \
+  --audit-dir /opt/website-analytics/shared/audits \
+  --v3-target /opt/website-analytics/current/config/feishu_dashboard/v3/sync_target.json \
+  --store /opt/website-analytics/shared/daily-facts \
+  --period-target /opt/website-analytics/shared/period-facts/sync_target.json \
+  --exclusions /opt/website-analytics/period-refresh/current/config/baseline_exclusions/genemedi-net.yaml \
+  --apply
