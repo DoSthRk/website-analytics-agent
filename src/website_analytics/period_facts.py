@@ -30,7 +30,7 @@ from __future__ import annotations
 import statistics
 from collections import defaultdict
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -245,6 +245,17 @@ def product_scopes(mapping: ProductMapping) -> list[Scope]:
         scopes.append(
             Scope(line.identifier, line.name, "末级产品", line.category_l1, line.category_l2, frozenset({line.identifier}))
         )
+    # The dashboard filters on 范围名称, so a group named like a leaf (an L1
+    # with one product of the same name) would double every value it shows.
+    leaf_names = {line.name for line in leaves}
+    scopes = [
+        replace(scope, name=f"{scope.name}（{scope.level}）")
+        if scope.level in ("一级分类", "二级分类") and scope.name in leaf_names else scope
+        for scope in scopes
+    ]
+    names = [scope.name for scope in scopes]
+    if len(set(names)) != len(names):
+        raise ValueError("product scope names must be unique for the dashboard filter")
     return scopes
 
 
@@ -564,7 +575,8 @@ def _change_rows(site, cells, versions) -> list[dict[str, Any]]:
                     "category_l2": cell.scope.category_l2,
                     "comparison_mode": mode.name,
                     "item_order": order[key],
-                    "item": label if scale == 1 else f"{label}（%）",
+                    # The order prefix keeps the dashboard bar chart in funnel order.
+                    "item": f"{order[key]}. " + (label if scale == 1 else f"{label}（%）"),
                     "current": _scaled(current[key], scale),
                     "baseline": _scaled(base.values.get(key), scale),
                     "change": _round(changes[key]),

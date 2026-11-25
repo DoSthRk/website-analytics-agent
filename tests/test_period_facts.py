@@ -106,6 +106,19 @@ def test_scopes_keep_only_l2_groups_with_several_products():
     assert scopes["L2:X/P"].members == {"A", "B"}
 
 
+def test_group_named_like_a_leaf_gets_a_distinct_dashboard_name():
+    mapping = ProductMapping(
+        site_key="genemedi-net", version="4",
+        report_lines=(ReportLine("A", "Alpha", "X", "P"), ReportLine("COVID19", "COVID-19", "COVID-19")),
+        rules=(),
+    )
+    names = {scope.identifier: scope.name for scope in product_scopes(mapping)}
+
+    assert names["L1:COVID-19"] == "COVID-19（一级分类）"
+    assert names["COVID19"] == "COVID-19"
+    assert names["L1:X"] == "X"
+
+
 def test_ratios_are_sum_over_sum_not_average_of_daily_ratios():
     days = _days(1)
     # Day 1: 90 clicks / 100 impressions (90%); other days 10 / 100.
@@ -208,7 +221,7 @@ def test_change_table_has_latest_complete_week_in_long_form():
     assert len({row["change_key"] for row in rows}) == len(rows)
     assert all("2025-W" not in row["change_key"] for row in rows)
     first = sorted((row for row in rows if row["scope_id"] == "A" and row["comparison_mode"] == "前8周均值"), key=lambda r: r["item_order"])
-    assert [row["item"] for row in first][:3] == ["Google 搜索曝光", "搜索点击率（%）", "Google 自然搜索点击"]
+    assert [row["item"] for row in first][:3] == ["1. Google 搜索曝光", "2. 搜索点击率（%）", "3. Google 自然搜索点击"]
     assert first[1]["current"] == pytest.approx(10.0)  # 10 clicks / 100 impressions, in percent points
 
 
@@ -296,7 +309,7 @@ def test_session_counts_are_shown_but_never_alert():
     assert site["change_sessions"] == pytest.approx(9.0)
     assert site["is_anomaly"] is False
 
-    change = {row["item"]: row for row in build.records["product_change"] if row["scope_id"] == "A" and row["comparison_mode"] == "前8周均值"}
+    change = {row["item"].split(". ", 1)[1]: row for row in build.records["product_change"] if row["scope_id"] == "A" and row["comparison_mode"] == "前8周均值"}
     assert change["产品落地会话（全部渠道）"]["alert_enabled"] is False
     assert "受爬虫流量影响" in change["产品落地会话（全部渠道）"]["note"]
     assert change["产品落地有效会话"]["alert_enabled"] is True
