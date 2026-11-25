@@ -21,12 +21,19 @@ def test_manifest_matches_the_period_contract():
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     _module().validate_manifest(manifest, period_contract())
     blocks = manifest["dashboards"][0]["blocks"]
-    assert [block["type"] for block in blocks].count("line") == 9
+    trends = [block for block in blocks if block["type"] == "line" and not block["name"].startswith("同比·")]
+    year_over_year = [block for block in blocks if block["name"].startswith("同比·")]
+    assert len(trends) == 9 and len(year_over_year) == 3
     # Every trend chart pairs a value with its own baseline column.
-    for block in blocks:
-        if block["type"] == "line":
-            value, baseline = (series["field_name"] for series in block["data_config"]["series"])
-            assert baseline == f"基准·{value}"
+    for block in trends:
+        value, baseline = (series["field_name"] for series in block["data_config"]["series"])
+        assert baseline == f"基准·{value}"
+    # Year-over-year charts put the week/month number on the x-axis and draw one line per year.
+    for block in year_over_year:
+        config = block["data_config"]
+        assert block["type"] == "line" and len(config["series"]) == 1
+        assert [group["field_name"] for group in config["group_by"]] == ["期序号", "年份"]
+        assert config["series"][0]["field_name"] in block["name"]
 
 
 @pytest.mark.parametrize("mutate,message", [

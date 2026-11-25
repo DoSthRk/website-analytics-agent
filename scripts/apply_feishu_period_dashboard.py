@@ -3,7 +3,8 @@
 Every chart field is checked against the period-table contract first. Without
 --apply only lark-cli dry runs are made. An existing dashboard of the same
 name is refused unless --reuse-existing, which keeps blocks whose name and
-type already match so an interrupted apply can resume. Dashboard filters are
+type already match so an interrupted apply can resume or new blocks can be
+added; --update-block rewrites a kept block from the manifest. Dashboard filters are
 not available through the API; the manifest lists them for setup in the UI.
 """
 
@@ -31,7 +32,12 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--result", type=Path)
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--reuse-existing", action="store_true")
-    return parser.parse_args()
+    parser.add_argument("--update-block", action="append", default=[], metavar="NAME",
+                        help="With --reuse-existing, overwrite this existing block's data_config from the manifest")
+    args = parser.parse_args()
+    if args.update_block and not args.reuse_existing:
+        parser.error("--update-block requires --reuse-existing")
+    return args
 
 
 def validate_manifest(manifest: dict[str, Any], contract: dict[str, Any]) -> None:
@@ -104,6 +110,11 @@ def main() -> int:
     items = _data(listed).get("items") or _data(listed).get("dashboards") or []
     existing = {str(item["name"]): str(item["dashboard_id"]) for item in items if isinstance(item, dict) and item.get("dashboard_id")}
 
+    manifest_names = {block["name"] for dashboard in manifest["dashboards"] for block in dashboard["blocks"]}
+    unknown = sorted(set(args.update_block) - manifest_names)
+    if unknown:
+        raise SystemExit(f"--update-block names not in the manifest: {unknown}")
+
     report: list[dict[str, Any]] = []
     for index, dashboard in enumerate(manifest["dashboards"]):
         name = dashboard["name"]
@@ -131,7 +142,20 @@ def main() -> int:
             if live is not None:
                 if (live.get("block_type") or live.get("type")) != block["type"]:
                     raise SystemExit(f"live block {block['name']!r} has another type")
-                entry["blocks"].append({"name": block["name"], "block_id": live.get("block_id"), "reused": True})
+                updated = block["name"] in args.update_block
+                if updated:
+                    update = [
+                        *runtime, "base", "+dashboard-block-update", *common, "--dashboard-id", dashboard_id,
+                        "--block-id", str(live.get("block_id")),
+                        "--data-config", json.dumps(block["data_config"], ensure_ascii=False, separators=(",", ":")),
+                    ]
+                    if args.apply:
+                        run_lark(update)
+                        time.sleep(1.25)
+                    else:
+                        run_lark([*update, "--dry-run"], dry_run=True)
+                entry["blocks"].append({"name": block["name"], "block_id": live.get("block_id"), "reused": True,
+                                        "updated": updated})
                 continue
             command = [
                 *runtime, "base", "+dashboard-block-create", *common, "--dashboard-id", dashboard_id,
@@ -154,7 +178,8 @@ def main() -> int:
         "mode": "apply" if args.apply else "dry_run",
         "dashboards": [
             {"name": item["name"], "dashboard_id": item["dashboard_id"], "blocks": len(item["blocks"]),
-             "reused": sum(1 for block in item["blocks"] if block.get("reused"))}
+             "reused": sum(1 for block in item["blocks"] if block.get("reused")),
+             "updated": [block["name"] for block in item["blocks"] if block.get("updated")]}
             for item in report
         ],
         "ui_filters_to_set": [ui["field"] for dashboard in manifest["dashboards"] for ui in dashboard.get("ui_filters", [])],
