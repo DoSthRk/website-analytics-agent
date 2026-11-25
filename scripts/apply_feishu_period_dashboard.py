@@ -4,7 +4,8 @@ Every chart field is checked against the period-table contract first. Without
 --apply only lark-cli dry runs are made. An existing dashboard of the same
 name is refused unless --reuse-existing, which keeps blocks whose name and
 type already match so an interrupted apply can resume or new blocks can be
-added; --update-block rewrites a kept block from the manifest. Dashboard filters are
+added; --update-block rewrites a kept block from the manifest, and a block
+found under one of its previous_names is renamed. Dashboard filters are
 not available through the API; the manifest lists them for setup in the UI.
 """
 
@@ -47,8 +48,16 @@ def validate_manifest(manifest: dict[str, Any], contract: dict[str, Any]) -> Non
         fields[table["display_name"]] = {field["name"]: field for field in table["fields"]}
     for dashboard in manifest["dashboards"]:
         names = [block["name"] for block in dashboard["blocks"]]
+        names += [old for block in dashboard["blocks"] for old in block.get("previous_names", [])]
         if len(set(names)) != len(names):
             raise ValueError(f"duplicate block names in {dashboard['name']}")
+        layout = dashboard.get("layout")
+        if layout is not None:
+            placed = [name for row in layout["rows"] for name, _ in row]
+            if sorted(placed) != sorted(block["name"] for block in dashboard["blocks"]):
+                raise ValueError(f"layout of {dashboard['name']} must place every block exactly once")
+            if any(sum(width for _, width in row) != layout["columns"] for row in layout["rows"]):
+                raise ValueError(f"every layout row of {dashboard['name']} must fill {layout['columns']} columns")
         for block in dashboard["blocks"]:
             config = block["data_config"]
             if block["type"] == "text":
@@ -139,23 +148,33 @@ def main() -> int:
         entry: dict[str, Any] = {"name": name, "dashboard_id": dashboard_id, "blocks": []}
         for block in dashboard["blocks"]:
             live = reused_blocks.get(block["name"])
+            renamed_from = None
+            if live is None:
+                for old in block.get("previous_names", []):
+                    if old in reused_blocks:
+                        live, renamed_from = reused_blocks[old], old
+                        break
             if live is not None:
                 if (live.get("block_type") or live.get("type")) != block["type"]:
                     raise SystemExit(f"live block {block['name']!r} has another type")
                 updated = block["name"] in args.update_block
-                if updated:
+                if updated or renamed_from:
                     update = [
                         *runtime, "base", "+dashboard-block-update", *common, "--dashboard-id", dashboard_id,
                         "--block-id", str(live.get("block_id")),
-                        "--data-config", json.dumps(block["data_config"], ensure_ascii=False, separators=(",", ":")),
                     ]
+                    if renamed_from:
+                        update += ["--name", block["name"]]
+                    if updated:
+                        update += ["--data-config",
+                                   json.dumps(block["data_config"], ensure_ascii=False, separators=(",", ":"))]
                     if args.apply:
                         run_lark(update)
                         time.sleep(1.25)
                     else:
                         run_lark([*update, "--dry-run"], dry_run=True)
                 entry["blocks"].append({"name": block["name"], "block_id": live.get("block_id"), "reused": True,
-                                        "updated": updated})
+                                        "updated": updated, "renamed_from": renamed_from})
                 continue
             command = [
                 *runtime, "base", "+dashboard-block-create", *common, "--dashboard-id", dashboard_id,
@@ -169,9 +188,9 @@ def main() -> int:
                 run_lark([*command, "--dry-run"], dry_run=True)
                 block_id = None
             entry["blocks"].append({"name": block["name"], "block_id": block_id})
-        arrange = [*runtime, "base", "+dashboard-arrange", *common, "--dashboard-id", dashboard_id]
-        if args.apply:
-            run_lark(arrange)
+        # Auto-arrange is only for a fresh dashboard: it would scramble a layout someone set by hand.
+        if args.apply and not reused_blocks:
+            run_lark([*runtime, "base", "+dashboard-arrange", *common, "--dashboard-id", dashboard_id])
         report.append(entry)
 
     summary = {
@@ -179,7 +198,8 @@ def main() -> int:
         "dashboards": [
             {"name": item["name"], "dashboard_id": item["dashboard_id"], "blocks": len(item["blocks"]),
              "reused": sum(1 for block in item["blocks"] if block.get("reused")),
-             "updated": [block["name"] for block in item["blocks"] if block.get("updated")]}
+             "updated": [block["name"] for block in item["blocks"] if block.get("updated")],
+             "renamed": sum(1 for block in item["blocks"] if block.get("renamed_from"))}
             for item in report
         ],
         "ui_filters_to_set": [ui["field"] for dashboard in manifest["dashboards"] for ui in dashboard.get("ui_filters", [])],
