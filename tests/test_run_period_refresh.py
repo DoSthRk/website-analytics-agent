@@ -82,3 +82,10 @@ def test_mismatches_stop_before_saving(monkeypatch, tmp_path):
     with pytest.raises(SystemExit, match="mismatches"):
         module.main()
     assert not (tmp_path / "store").exists() and "refresh" not in seen
+
+
+def test_alert_config_and_state_go_together(monkeypatch, tmp_path):
+    module, _ = _prepare(monkeypatch, tmp_path, apply=True)
+    monkeypatch.setattr(sys, "argv", [*sys.argv, "--alert-config", "c.json"])
+    with pytest.raises(SystemExit):
+        module.main()

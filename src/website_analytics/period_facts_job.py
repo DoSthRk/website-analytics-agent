@@ -30,8 +30,13 @@ def refresh_period_tables(
     target: Path,
     client_factory: Callable[[PeriodTarget], RecordClient],
     apply: bool,
+    after_write: Callable[[dict[str, list[dict[str, Any]]]], dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Full rebuild from every stored day; only changed rows reach Feishu."""
+    """Full rebuild from every stored day; only changed rows reach Feishu.
+
+    ``after_write`` runs only once every row was written and read back. Its
+    failure is reported in the result and does not undo or fail the write.
+    """
     records = load_days(store)
     if not records["overview_daily"]:
         raise ValueError("daily facts store is empty")
@@ -55,6 +60,11 @@ def refresh_period_tables(
     }
     if apply:
         result["write_result"] = apply_period_plans(client, plans)
+        if after_write is not None:
+            try:
+                result["alert"] = after_write(build.records)
+            except Exception as error:  # noqa: BLE001 - reported, retried by the next run
+                result["alert"] = {"status": "failed", "error": str(error)[:500]}
     else:
         result["plan"] = {plan.logical_name: plan.counts() for plan in plans}
     return result

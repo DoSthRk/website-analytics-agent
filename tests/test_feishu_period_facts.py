@@ -223,8 +223,17 @@ def test_refresh_period_tables_from_store_is_idempotent(tmp_path):
     kwargs = dict(site="genemedi-net", mapping=MAPPING, store=store, exclusions=exclusions, target=target,
                   client_factory=lambda _: client)
 
-    first = refresh_period_tables(apply=True, **kwargs)
+    seen = {}
+    first = refresh_period_tables(apply=True, after_write=lambda rows: seen.setdefault("rows", rows) and {"status": "sent"}, **kwargs)
     assert first["last_final"] == "2025-09-21"
     assert first["write_result"]["site_period"]["verified"] > 0
-    second = refresh_period_tables(apply=False, **kwargs)
+    assert first["alert"] == {"status": "sent"} and seen["rows"]["product_change"]
+    second = refresh_period_tables(apply=False, after_write=lambda rows: 1 / 0, **kwargs)
     assert all(counts["create"] == counts["update"] == 0 for counts in second["plan"].values())
+    assert "alert" not in second  # a dry run never alerts
+
+    def broken(rows):
+        raise RuntimeError("bot is not in the group")
+
+    third = refresh_period_tables(apply=True, after_write=broken, **kwargs)
+    assert third["alert"] == {"status": "failed", "error": "bot is not in the group"}

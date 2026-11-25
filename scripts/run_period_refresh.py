@@ -4,6 +4,8 @@
 2. Recompute the last ``--days-back`` days up to that day from the sync's
    cache, with the current rules, and save them to the daily-facts store.
 3. Rebuild every period row from the store and write only changed rows.
+4. With --alert-config, send the weekly anomaly digest to the ops group once
+   per complete week, after the write was read back.
 
 Without --apply step 3 only reports the plan, and nothing is saved.
 """
@@ -29,6 +31,8 @@ from website_analytics.feishu_v3_sync import load_feishu_v3_target  # noqa: E402
 from website_analytics.history_recompute import RuleSet, recompute_days  # noqa: E402
 from website_analytics.information_mapping import load_information_mapping  # noqa: E402
 from website_analytics.page_classification import build_page_dimension, load_page_classification  # noqa: E402
+from website_analytics.feishu_tables import lark_runtime, run_lark  # noqa: E402
+from website_analytics.period_alerts import load_alert_config, send_weekly_alert  # noqa: E402
 from website_analytics.period_facts_job import refresh_period_tables  # noqa: E402
 from website_analytics.product_mapping import load_product_mapping  # noqa: E402
 
@@ -48,8 +52,13 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--period-target", type=Path, required=True)
     parser.add_argument("--exclusions", type=Path, required=True)
     parser.add_argument("--days-back", type=int, default=14)
+    parser.add_argument("--alert-config", type=Path, help="server-only JSON with chat_id and dashboard_url")
+    parser.add_argument("--alert-state", type=Path, help="JSON remembering the last week sent")
     parser.add_argument("--apply", action="store_true")
-    return parser.parse_args()
+    args = parser.parse_args()
+    if (args.alert_config is None) != (args.alert_state is None):
+        parser.error("--alert-config and --alert-state go together")
+    return args
 
 
 def _load_env(path: Path) -> None:
@@ -109,6 +118,16 @@ def main() -> int:
             "overview_daily": recomputed["records"]["overview_daily"],
             "product_funnel_daily": recomputed["records"]["product_funnel_daily"],
         }))
+    after_write = None
+    if args.alert_config is not None:
+        alert_config = load_alert_config(args.alert_config)
+
+        def after_write(records):
+            return send_weekly_alert(
+                site=site.site_key, change_rows=records["product_change"], config=alert_config,
+                state_path=args.alert_state, send=run_lark, runtime=lark_runtime(), apply=True,
+            )
+
     summary["period_tables"] = refresh_period_tables(
         site=site.site_key,
         mapping=mapping,
@@ -117,6 +136,7 @@ def main() -> int:
         target=args.period_target,
         client_factory=lambda target: LarkCLIRecordClient(target.record_client_target()),
         apply=args.apply,
+        after_write=after_write,
     )
     print(json.dumps(summary, ensure_ascii=False))
     return 0
