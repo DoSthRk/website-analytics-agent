@@ -1,0 +1,12 @@
+# Suspected crawler sessions on product landing pages (see website_analytics.crawler_traffic).
+# A fingerprint (channel x country x city x screen resolution x browser x OS) is
+# suspected crawler traffic on a day when, over the trailing window ending that
+# day, it has at least min_sessions sessions and engaged sessions are at most
+# max_engaged_rate of them. Checked on 2025-07..2026-11: results barely move
+# between 20/10% and 50/2%, and Cloudflare traced the largest group to cloud
+# networks. It is a lower bound: small scattered crawlers stay in.
+site: genemedi-net
+version: "2026-11-26.1"
+window_days: 28
+min_sessions: 30
+max_engaged_rate: 0.05

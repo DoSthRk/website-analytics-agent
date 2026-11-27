@@ -47,9 +47,17 @@ def _prepare(monkeypatch, tmp_path, apply, mismatches=()):
 
     monkeypatch.setattr(module, "recompute_days", recompute)
     monkeypatch.setattr(module, "refresh_period_tables", lambda **kwargs: seen.setdefault("refresh", kwargs) and {"ok": True})
+    monkeypatch.setattr(module, "ga4_adapter", lambda: "ga4")
+
+    def fetch(adapter, site, days, mapping, dimension):
+        seen["fetched"] = days
+        return {day.isoformat(): {"data_date": day.isoformat(), "fingerprints": [], "product": []} for day in days}
+
+    monkeypatch.setattr(module, "fetch_fingerprints", fetch)
     argv = ["run_period_refresh.py", "--site-config", "s", "--env-file", str(env), "--mapping", "m",
             "--page-classification", "p", "--information-mapping", "i", "--cache-dir", "c", "--audit-dir", "a",
-            "--v3-target", "v", "--store", str(tmp_path / "store"), "--period-target", "t", "--exclusions", "e"]
+            "--v3-target", "v", "--store", str(tmp_path / "store"), "--period-target", "t", "--exclusions", "e",
+            "--crawler-store", str(tmp_path / "fingerprints"), "--crawler-rule", "r"]
     if apply:
         argv.append("--apply")
     monkeypatch.setattr(sys, "argv", argv)
@@ -65,7 +73,8 @@ def test_apply_recomputes_fourteen_days_to_latest_final_and_saves_them(monkeypat
     assert seen["days"][0] == date(2026, 11, 8) and seen["days"][-1] == date(2026, 11, 21) and len(seen["days"]) == 14
     assert summary["saved_days"] == 14
     assert len(list((tmp_path / "store").glob("*.json"))) == 14
-    assert seen["refresh"]["apply"] is True
+    assert seen["fetched"] == seen["days"] and len(list((tmp_path / "fingerprints").glob("*.json"))) == 14
+    assert seen["refresh"]["apply"] is True and seen["refresh"]["crawler_extra"] is None
 
 
 def test_dry_run_saves_nothing(monkeypatch, tmp_path, capsys):
@@ -73,8 +82,8 @@ def test_dry_run_saves_nothing(monkeypatch, tmp_path, capsys):
     assert module.main() == 0
     summary = json.loads(capsys.readouterr().out)
     assert "saved_days" not in summary
-    assert not (tmp_path / "store").exists()
-    assert seen["refresh"]["apply"] is False
+    assert not (tmp_path / "store").exists() and not (tmp_path / "fingerprints").exists()
+    assert seen["refresh"]["apply"] is False and len(seen["refresh"]["crawler_extra"]) == 14
 
 
 def test_mismatches_stop_before_saving(monkeypatch, tmp_path):

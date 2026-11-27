@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from datetime import date, datetime, timedelta
 
 import pytest
@@ -61,7 +62,7 @@ def _records(weeks=10):
     ]
     build = build_period_facts(
         site="genemedi-net", mapping=MAPPING, funnel_daily=funnel, overview_daily=overview,
-        last_final=days[-1] - timedelta(days=1), grains=(WEEK, MONTH),
+        last_final=days[-1] - timedelta(days=1), grains=(WEEK, MONTH), crawler={day: {"A": 2} for day in days},
     )
     return build.records
 
@@ -219,15 +220,26 @@ def test_refresh_period_tables_from_store_is_idempotent(tmp_path):
     target.write_text(json.dumps({"version": "1", "base_token": "b", "identity": "bot", "tables": dict(TARGET.tables)}), encoding="utf-8")
     exclusions = tmp_path / "exclusions.yaml"
     exclusions.write_text("site: genemedi-net\nexclusions: []\n", encoding="utf-8")
+    crawler_store = tmp_path / "fingerprints"
+    crawler_store.mkdir()
+    for d in days:
+        (crawler_store / f"{d.isoformat()}.json").write_text(json.dumps({
+            "data_date": d.isoformat(), "mapping_version": "4",
+            "fingerprints": [["Direct", "SG", "SG", "1280x1200", "Chrome", "Windows", 40, 0]],
+            "product": [["A", "Direct", "SG", "SG", "1280x1200", "Chrome", "Windows", 5, 0]]}), encoding="utf-8")
     client = FakeFeishu()
     kwargs = dict(site="genemedi-net", mapping=MAPPING, store=store, exclusions=exclusions, target=target,
-                  client_factory=lambda _: client)
+                  client_factory=lambda _: client, crawler_store=crawler_store,
+                  crawler_rule=Path("config/crawler_rules/genemedi-net.yaml"))
 
     seen = {}
     first = refresh_period_tables(apply=True, after_write=lambda rows: seen.setdefault("rows", rows) and {"status": "sent"}, **kwargs)
     assert first["last_final"] == "2025-09-21"
     assert first["write_result"]["site_period"]["verified"] > 0
     assert first["alert"] == {"status": "sent"} and seen["rows"]["product_change"]
+    week = next(row for row in seen["rows"]["product_period"]
+                if row["scope_id"] == "A" and row["grain"] == "周" and row["period"] == "2025-W30")
+    assert week["landing_sessions"] == 140 and week["clean_landing_sessions"] == 105
     second = refresh_period_tables(apply=False, after_write=lambda rows: 1 / 0, **kwargs)
     assert all(counts["create"] == counts["update"] == 0 for counts in second["plan"].values())
     assert "alert" not in second  # a dry run never alerts

@@ -1,3 +1,4 @@
+import re
 from datetime import date, timedelta
 
 import pytest
@@ -65,7 +66,8 @@ def _days(weeks, start=FIRST):
     return [start + timedelta(days=offset) for offset in range(weeks * 7)]
 
 
-def _build(days, *, funnel_override=None, overview_override=None, exclusions=(), last_final=None, grains=(WEEK,)):
+def _build(days, *, funnel_override=None, overview_override=None, exclusions=(), last_final=None, grains=(WEEK,),
+           crawler=None):
     funnel_override = funnel_override or (lambda day, line: {})
     overview_override = overview_override or (lambda day: {})
     funnel = [_funnel(day, line, **funnel_override(day, line)) for day in days for line in ("A", "B", "C")]
@@ -76,6 +78,7 @@ def _build(days, *, funnel_override=None, overview_override=None, exclusions=(),
         funnel_daily=funnel,
         overview_daily=overview,
         last_final=last_final or days[-1],
+        crawler={day: (crawler(day) if crawler else {}) for day in days},
         exclusions=exclusions,
         grains=grains,
     )
@@ -216,7 +219,7 @@ def test_change_table_has_latest_complete_week_in_long_form():
     build = _build(_days(10), last_final=_days(10)[-1] - timedelta(days=1))
     rows = build.records["product_change"]
 
-    assert len(rows) == 7 * 3 * 9
+    assert len(rows) == 7 * 3 * 10
     assert {row["period"] for row in rows} == {"2025-W37"}
     assert len({row["change_key"] for row in rows}) == len(rows)
     assert all("2025-W" not in row["change_key"] for row in rows)
@@ -263,6 +266,7 @@ def test_mixed_mapping_versions_are_rejected():
             funnel_daily=funnel,
             overview_daily=[_overview(day) for day in days],
             last_final=days[-1],
+            crawler={day: {} for day in days},
         )
 
 
@@ -309,9 +313,11 @@ def test_session_counts_are_shown_but_never_alert():
     assert site["change_sessions"] == pytest.approx(9.0)
     assert site["is_anomaly"] is False
 
-    change = {row["item"].split(". ", 1)[1]: row for row in build.records["product_change"] if row["scope_id"] == "A" and row["comparison_mode"] == "前8周均值"}
+    change = {re.sub(r"^(\d+\. |参考 · )", "", row["item"]): row for row in build.records["product_change"]
+              if row["scope_id"] == "A" and row["comparison_mode"] == "前8周均值"}
     assert change["产品落地会话（全部渠道）"]["alert_enabled"] is False
-    assert "受爬虫流量影响" in change["产品落地会话（全部渠道）"]["note"]
+    assert "含爬虫" in change["产品落地会话（全部渠道）"]["note"]
+    assert change["产品落地会话（剔除疑似爬虫）"]["alert_enabled"] is False
     assert change["产品落地有效会话"]["alert_enabled"] is True
 
 
@@ -336,3 +342,36 @@ def test_ratio_alert_needs_numerator_volume_too():
 
     assert row["change_click_rate"] == pytest.approx(1.0)
     assert row["is_anomaly"] is False
+
+
+def test_crawler_sessions_are_removed_and_the_session_ratios_use_the_clean_count():
+    days = _days(9)
+    last = set(days[-7:])
+    # In the last week 15 of A's 20 daily landing sessions are crawlers; the
+    # estimate can exceed the landing count (B), which is capped at zero.
+    build = _build(days, crawler=lambda day: {"A": 15, "B": 25} if day in last else {})
+    a = _row(build, "2025-W37", "A", "前8周均值")
+    assert a["landing_sessions"] == 140 and a["clean_landing_sessions"] == 35
+    assert a["baseline_clean_landing_sessions"] == 140
+    assert a["arrival_ratio"] == pytest.approx(35 / 70)
+    assert a["engaged_rate"] == pytest.approx(70 / 35)
+    assert a["is_anomaly"] is False  # the cleaned count and its ratios do not alert yet
+    assert _row(build, "2025-W37", "B", "前8周均值")["clean_landing_sessions"] == 0
+
+    change = sorted((row for row in build.records["product_change"]
+                     if row["scope_id"] == "A" and row["comparison_mode"] == "前8周均值"), key=lambda r: r["item_order"])
+    assert [row["item"] for row in change][4] == "5. 产品落地会话（剔除疑似爬虫）"
+    assert change[-1]["item"] == "参考 · 产品落地会话（全部渠道）" and change[-1]["item_order"] == 10
+
+
+def test_every_day_needs_a_crawler_estimate():
+    days = _days(2)
+    funnel = [_funnel(day, line) for day in days for line in ("A", "B", "C")]
+    with pytest.raises(ValueError, match="no crawler estimate for 13 days"):
+        build_period_facts(site="genemedi-net", mapping=MAPPING, funnel_daily=funnel,
+                           overview_daily=[_overview(day) for day in days], last_final=days[-1],
+                           crawler={days[0]: {}})
+    with pytest.raises(ValueError, match="unknown product lines"):
+        build_period_facts(site="genemedi-net", mapping=MAPPING, funnel_daily=funnel,
+                           overview_daily=[_overview(day) for day in days], last_final=days[-1],
+                           crawler={day: {"Z": 1} for day in days})

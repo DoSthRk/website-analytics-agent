@@ -2,7 +2,9 @@
 
 Dry-run by default: lists the Base's tables and runs +table-create with
 --dry-run. With --apply it creates missing tables, checks the field types of
-tables that already exist, and writes the period sync target.
+tables that already exist, and writes the period sync target. With
+--add-missing-fields, contract fields an existing table lacks are created
+(fields are only ever added; any other difference still stops the run).
 """
 
 from __future__ import annotations
@@ -40,6 +42,7 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--target", type=Path, required=True, help="Where to write the period sync target")
     parser.add_argument("--identity", choices=("user", "bot"), default="bot")
     parser.add_argument("--sync-identity", choices=("user", "bot"), default="bot")
+    parser.add_argument("--add-missing-fields", action="store_true")
     parser.add_argument("--apply", action="store_true")
     return parser.parse_args()
 
@@ -63,11 +66,22 @@ def main() -> int:
         table_id = existing.get(name)
         if table_id:
             actual = field_types(run_lark([*runtime, "base", "+field-list", *common, "--table-id", table_id, "--limit", "200"]))
-            if actual != expected:
-                missing = sorted(set(expected) - set(actual))
-                extra = sorted(set(actual) - set(expected))
-                raise SystemExit(f"existing table {name} differs from the contract: missing {missing}, extra {extra}")
-            report.append({"table": name, "action": "reuse", "fields": len(definitions)})
+            missing = [item for item in definitions if str(item["name"]) not in actual]
+            extra = sorted(set(actual) - set(expected))
+            retyped = sorted(key for key in set(actual) & set(expected) if actual[key] != expected[key])
+            if extra or retyped or (missing and not args.add_missing_fields):
+                raise SystemExit(f"existing table {name} differs from the contract: missing "
+                                 f"{[item['name'] for item in missing]}, extra {extra}, other type {retyped}")
+            for item in missing:
+                command = [*runtime, "base", "+field-create", *common, "--table-id", table_id,
+                           "--json", json.dumps(item, ensure_ascii=False, separators=(",", ":"))]
+                if not args.apply:
+                    command.append("--dry-run")
+                run_lark(command, dry_run=not args.apply)
+                if args.apply:
+                    time.sleep(1.25)
+            report.append({"table": name, "action": "reuse", "fields": len(definitions),
+                           "added_fields": [item["name"] for item in missing]})
         else:
             command = [*runtime, "base", "+table-create", *common, "--name", name,
                        "--fields", json.dumps(definitions, ensure_ascii=False, separators=(",", ":"))]

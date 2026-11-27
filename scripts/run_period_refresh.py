@@ -3,11 +3,15 @@
 1. Read the latest finalized day from the V3 overview table in Feishu.
 2. Recompute the last ``--days-back`` days up to that day from the sync's
    cache, with the current rules, and save them to the daily-facts store.
-3. Rebuild every period row from the store and write only changed rows.
-4. With --alert-config, send the weekly anomaly digest to the ops group once
+3. Fetch the GA4 crawler fingerprint report for the same days (read-only) and
+   save it to the fingerprint store.
+4. Rebuild every period row from the store and write only changed rows; the
+   cleaned product landing sessions come from the crawler rule.
+5. With --alert-config, send the weekly anomaly digest to the ops group once
    per complete week, after the write was read back.
 
-Without --apply step 3 only reports the plan, and nothing is saved.
+Without --apply step 4 only reports the plan, and nothing is saved. GA4 needs
+GOOGLE_APPLICATION_CREDENTIALS and, on the server, the HTTP(S)_PROXY settings.
 """
 
 from __future__ import annotations
@@ -16,7 +20,8 @@ import argparse
 import json
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -24,6 +29,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from website_analytics.adapters.page_dimension import create_page_dimension_adapter  # noqa: E402
 from website_analytics.config import load_sites, require_site  # noqa: E402
+from website_analytics.crawler_traffic import REPORT_DIMENSIONS, fingerprint_days, save_fingerprint_days  # noqa: E402
 from website_analytics.daily_facts_store import save_days  # noqa: E402
 from website_analytics.feishu_records import LarkCLIRecordClient  # noqa: E402
 from website_analytics.feishu_v3 import load_json_object  # noqa: E402
@@ -34,6 +40,7 @@ from website_analytics.page_classification import build_page_dimension, load_pag
 from website_analytics.feishu_tables import lark_runtime, run_lark  # noqa: E402
 from website_analytics.period_alerts import load_alert_config, send_weekly_alert  # noqa: E402
 from website_analytics.period_facts_job import refresh_period_tables  # noqa: E402
+from website_analytics.models import DateRange  # noqa: E402
 from website_analytics.product_mapping import load_product_mapping  # noqa: E402
 
 
@@ -51,6 +58,8 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--store", type=Path, required=True)
     parser.add_argument("--period-target", type=Path, required=True)
     parser.add_argument("--exclusions", type=Path, required=True)
+    parser.add_argument("--crawler-store", type=Path, required=True, help="GA4 fingerprint days, one JSON per day")
+    parser.add_argument("--crawler-rule", type=Path, required=True)
     parser.add_argument("--days-back", type=int, default=14)
     parser.add_argument("--alert-config", type=Path, help="server-only JSON with chat_id and dashboard_url")
     parser.add_argument("--alert-state", type=Path, help="JSON remembering the last week sent")
@@ -78,6 +87,25 @@ def latest_final_day(client, v3_target_path: Path) -> date:
     if not days:
         raise ValueError("V3 overview table has no finalized days")
     return max(date.fromisoformat(day) for day in days)
+
+
+def ga4_adapter():
+    """Read-only GA4 client over REST, which follows the server's explicit proxy."""
+    import google.auth
+    from google.analytics.data_v1beta import BetaAnalyticsDataClient
+
+    from website_analytics.adapters.ga4 import GA4Adapter
+
+    credentials, _ = google.auth.default(scopes=("https://www.googleapis.com/auth/analytics.readonly",))
+    return GA4Adapter(BetaAnalyticsDataClient(credentials=credentials, transport="rest"))
+
+
+def fetch_fingerprints(adapter, site, days, mapping, dimension) -> dict:
+    rows = adapter.report(site, DateRange(days[0], days[-1]), REPORT_DIMENSIONS)
+    metadata = dict(getattr(adapter, "last_response_metadata", {}) or {})
+    if metadata.get("sampled"):
+        raise SystemExit("GA4 sampled the crawler fingerprint report; not using it")
+    return fingerprint_days(rows, days=days, mapping=mapping, page_dimension=dimension, ga4_metadata=metadata)
 
 
 def main() -> int:
@@ -113,11 +141,15 @@ def main() -> int:
         "recomputed_days": len(recomputed["completed_days"]),
         "skipped_days": [item["data_date"] for item in recomputed["skipped_days"]],
     }
+    fingerprints = fetch_fingerprints(ga4_adapter(), site, days, mapping, dimension)
+    summary["fingerprint_days"] = len(fingerprints)
     if args.apply and recomputed["completed_days"]:
         summary["saved_days"] = len(save_days(args.store, {
             "overview_daily": recomputed["records"]["overview_daily"],
             "product_funnel_daily": recomputed["records"]["product_funnel_daily"],
         }))
+    if args.apply:
+        save_fingerprint_days(args.crawler_store, fingerprints, datetime.now(ZoneInfo("Asia/Shanghai")).replace(tzinfo=None))
     after_write = None
     if args.alert_config is not None:
         alert_config = load_alert_config(args.alert_config)
@@ -133,6 +165,9 @@ def main() -> int:
         mapping=mapping,
         store=args.store,
         exclusions=args.exclusions,
+        crawler_store=args.crawler_store,
+        crawler_rule=args.crawler_rule,
+        crawler_extra=None if args.apply else fingerprints,
         target=args.period_target,
         client_factory=lambda target: LarkCLIRecordClient(target.record_client_target()),
         apply=args.apply,

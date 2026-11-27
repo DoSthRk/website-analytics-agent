@@ -71,6 +71,10 @@ class GA4Adapter:
         """Return GA4 metrics grouped by landing page and query string."""
         return self._run(site, date_range, _PAGE_DIMENSIONS)
 
+    def report(self, site: SiteConfig, date_range: DateRange, dimensions: Sequence[str]) -> list[AnalyticsRow]:
+        """Rows grouped by any GA4 dimensions, e.g. the crawler fingerprint report."""
+        return self._run(site, date_range, tuple(dimensions))
+
     def aggregate(self, site: SiteConfig, date_range: DateRange) -> list[AnalyticsRow]:
         """Return one interval-level GA4 row without a grouping dimension.
 

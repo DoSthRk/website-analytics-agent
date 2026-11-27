@@ -72,6 +72,7 @@ class Quantity:
     source: str
     min_volume: float
     alert: bool = True
+    note: str = ""
 
 
 @dataclass(frozen=True)
@@ -101,20 +102,29 @@ class MetricSet:
 # while engaged sessions, Search Console and stored inquiries stay stable.
 # Session-based items are shown with baselines but never raise an anomaly.
 BOT_NOTE = "受爬虫流量影响，仅展示，不触发异常提醒"
+# Product landing sessions minus suspected crawler sessions (crawler_traffic).
+# The two session ratios use this cleaned count. They do not alert while the
+# cleaned series is being watched; small scattered crawlers are still in it.
+CLEAN_SOURCE = "ga4_product_landing_clean_sessions"
+CLEAN_NOTE = "已剔除疑似爬虫（近28天同一访问指纹≥30次会话且有效会话≤5%），是下限估计；观察期内不触发异常提醒"
 
 
 PRODUCT_METRICS = MetricSet(
     quantities=(
         Quantity("impressions", "Google 搜索曝光", "gsc_impressions", 500),
         Quantity("clicks", "Google 自然搜索点击", "gsc_clicks", 20),
-        Quantity("landing_sessions", "产品落地会话（全部渠道）", "ga4_product_landing_sessions_all_channels", 20, alert=False),
+        Quantity("landing_sessions", "产品落地会话（全部渠道）", "ga4_product_landing_sessions_all_channels", 20, alert=False,
+                 note="含爬虫流量，仅作参考，不触发异常提醒"),
+        Quantity("clean_landing_sessions", "产品落地会话（剔除疑似爬虫）", CLEAN_SOURCE, 20, alert=False, note=CLEAN_NOTE),
         Quantity("engaged_sessions", "产品落地有效会话", "ga4_product_landing_engaged_sessions_all_channels", 20),
         Quantity("accepted_inquiries", "官网表单入库数（非隔离）", "db_accepted_inquiries", 5),
     ),
     ratios=(
         Ratio("click_rate", "搜索点击率", "clicks", "impressions"),
-        Ratio("arrival_ratio", "到站转化率（规模对照）", "landing_sessions", "clicks", "跨来源规模对照，可能大于100%，不是严格转化率；" + BOT_NOTE, alert=False),
-        Ratio("engaged_rate", "有效会话率", "engaged_sessions", "landing_sessions", "可用来判断爬虫多少；" + BOT_NOTE, alert=False),
+        Ratio("arrival_ratio", "到站转化率（规模对照）", "clean_landing_sessions", "clicks",
+              "剔除疑似爬虫后的落地会话 ÷ 搜索点击；跨来源规模对照，可能大于100%，不是严格转化率；观察期内不触发异常提醒", alert=False),
+        Ratio("engaged_rate", "有效会话率", "engaged_sessions", "clean_landing_sessions",
+              "有效会话 ÷ 剔除疑似爬虫后的落地会话；观察期内不触发异常提醒", alert=False),
         Ratio("inquiry_ratio", "询盘转化率（规模对照）", "accepted_inquiries", "engaged_sessions", "跨来源规模对照，不能证明询盘来自这些会话"),
     ),
     hidden_sums=(("position_weight", "gsc_position_impression_sum"),),
@@ -297,10 +307,13 @@ def build_period_facts(
     funnel_daily: Sequence[Mapping[str, Any]],
     overview_daily: Sequence[Mapping[str, Any]],
     last_final: date,
+    crawler: Mapping[date, Mapping[str, float]],
     exclusions: Sequence[Exclusion] = (),
     grains: Sequence[str] = (WEEK, MONTH),
 ) -> PeriodBuild:
-    funnel_by_day = _funnel_by_day(funnel_daily, mapping, last_final)
+    """``crawler`` holds suspected crawler sessions per day and report line
+    (``crawler_traffic.crawler_sessions``); every day up to ``last_final`` needs one."""
+    funnel_by_day = _with_clean_sessions(_funnel_by_day(funnel_daily, mapping, last_final), crawler)
     overview_by_day = _overview_by_day(overview_daily, last_final)
     if set(funnel_by_day) != set(overview_by_day):
         raise ValueError("funnel and overview daily facts cover different days")
@@ -352,6 +365,27 @@ def _funnel_by_day(rows: Iterable[Mapping[str, Any]], mapping: ProductMapping, l
         if set(lines) != expected:
             raise ValueError(f"funnel day {day} does not cover every product line")
     return dict(by_day)
+
+
+def _with_clean_sessions(
+    by_day: dict[date, dict[str, Mapping[str, Any]]], crawler: Mapping[date, Mapping[str, float]],
+) -> dict[date, dict[str, Mapping[str, Any]]]:
+    missing = sorted(day for day in by_day if day not in crawler)
+    if missing:
+        raise ValueError(f"no crawler estimate for {len(missing)} days, first {missing[0]}")
+    result: dict[date, dict[str, Mapping[str, Any]]] = {}
+    for day, lines in by_day.items():
+        unknown = set(crawler[day]) - set(lines)
+        if unknown:
+            raise ValueError(f"crawler estimate for {day} has unknown product lines: {sorted(unknown)}")
+        result[day] = {}
+        for line, row in lines.items():
+            landing = _number(row.get("ga4_product_landing_sessions_all_channels"))
+            # The fingerprint report can count a session or two more than the
+            # landing-page report; never let the cleaned count go below zero.
+            suspected = min(float(crawler[day].get(line, 0.0)), landing)
+            result[day][line] = {**row, CLEAN_SOURCE: landing - suspected}
+    return result
 
 
 def _overview_by_day(rows: Iterable[Mapping[str, Any]], last_final: date) -> dict[date, Mapping[str, Any]]:
@@ -549,10 +583,14 @@ def _change_rows(site, cells, versions) -> list[dict[str, Any]]:
     latest = max(complete, key=lambda period: period.start)
     # Counts and ratios share one number column here, so ratios are stored in
     # percent points and their item name says so.
-    items = [(quantity.key, quantity.label, "" if quantity.alert else BOT_NOTE, 1) for quantity in PRODUCT_METRICS.quantities]
+    items = [(quantity.key, quantity.label, quantity.note or ("" if quantity.alert else BOT_NOTE), 1)
+             for quantity in PRODUCT_METRICS.quantities]
     items += [(ratio.key, ratio.label, ratio.note, 100) for ratio in PRODUCT_METRICS.ratios]
-    order = {"impressions": 1, "click_rate": 2, "clicks": 3, "arrival_ratio": 4, "landing_sessions": 5,
-             "engaged_rate": 6, "engaged_sessions": 7, "inquiry_ratio": 8, "accepted_inquiries": 9}
+    # Funnel steps 1-9; the all-channel landing count (crawlers included) is
+    # kept as a reference after them. Its prefix sorts after the digits.
+    order = {"impressions": 1, "click_rate": 2, "clicks": 3, "arrival_ratio": 4, "clean_landing_sessions": 5,
+             "engaged_rate": 6, "engaged_sessions": 7, "inquiry_ratio": 8, "accepted_inquiries": 9, "landing_sessions": 10}
+    prefix = {key: f"{number}. " for key, number in order.items()} | {"landing_sessions": "参考 · "}
     rows: list[dict[str, Any]] = []
     for series in cells.values():
         index = next(i for i, cell in enumerate(series) if cell.period == latest)
@@ -576,7 +614,7 @@ def _change_rows(site, cells, versions) -> list[dict[str, Any]]:
                     "comparison_mode": mode.name,
                     "item_order": order[key],
                     # The order prefix keeps the dashboard bar chart in funnel order.
-                    "item": f"{order[key]}. " + (label if scale == 1 else f"{label}（%）"),
+                    "item": prefix[key] + (label if scale == 1 else f"{label}（%）"),
                     "current": _scaled(current[key], scale),
                     "baseline": _scaled(base.values.get(key), scale),
                     "change": _round(changes[key]),

@@ -100,7 +100,7 @@ def weekly_digest(change_rows: Sequence[Mapping[str, Any]], dashboard_url: str) 
     lines = [
         f"**官网产品诊断 · {period} 周提醒**",
         f"最近完整周 {start:%m/%d}–{end:%m/%d}，对照{ALERT_MODE[WEEK]}。",
-        "规则：偏离基准 30% 以上且基准量达标；落地会话、到站转化率、有效会话率受爬虫影响，不参与提醒。",
+        "规则：偏离基准 30% 以上且基准量达标；落地会话（含剔除爬虫后的）、到站转化率、有效会话率暂不参与提醒。",
         "",
     ]
     if not ordered:

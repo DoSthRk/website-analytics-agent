@@ -21,6 +21,7 @@ from website_analytics.daily_facts_store import last_day, load_days  # noqa: E40
 from website_analytics.feishu_tables import lark_runtime, run_lark  # noqa: E402
 from website_analytics.period_alerts import load_alert_config, send_weekly_alert, weekly_digest  # noqa: E402
 from website_analytics.period_facts import build_period_facts, load_exclusions  # noqa: E402
+from website_analytics.period_facts_job import crawler_for  # noqa: E402
 from website_analytics.product_mapping import load_product_mapping  # noqa: E402
 
 
@@ -30,6 +31,8 @@ def _arguments() -> argparse.Namespace:
     parser.add_argument("--mapping", type=Path, required=True)
     parser.add_argument("--store", type=Path, required=True)
     parser.add_argument("--exclusions", type=Path, required=True)
+    parser.add_argument("--crawler-store", type=Path, required=True, help="saved GA4 fingerprint days")
+    parser.add_argument("--crawler-rule", type=Path, required=True)
     parser.add_argument("--alert-config", type=Path, required=True)
     parser.add_argument("--alert-state", type=Path, required=True)
     parser.add_argument("--apply", action="store_true", help="send the message (default: print it only)")
@@ -48,6 +51,7 @@ def main() -> int:
         funnel_daily=records["product_funnel_daily"],
         overview_daily=records["overview_daily"],
         last_final=last_day(records),
+        crawler=crawler_for(records, site=args.site, store=args.crawler_store, rule=args.crawler_rule),
         exclusions=load_exclusions(args.exclusions, args.site),
     )
     config = load_alert_config(args.alert_config)

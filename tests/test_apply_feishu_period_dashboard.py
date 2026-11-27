@@ -23,7 +23,9 @@ def test_manifest_matches_the_period_contract():
     blocks = manifest["dashboards"][0]["blocks"]
     trends = [block for block in blocks if block["type"] == "line" and not block["name"].startswith("同比")]
     year_over_year = [block for block in blocks if block["name"].startswith("同比")]
-    assert len(trends) == 9 and len(year_over_year) == 4
+    assert len(trends) == 10 and len(year_over_year) == 4
+    assert [block["name"][:2] for block in trends][:9] == [f"{n}." for n in range(1, 10)]
+    assert trends[-1]["name"].startswith("参考 · ")
     # Every trend chart pairs a value with its own baseline column.
     for block in trends:
         value, baseline = (series["field_name"] for series in block["data_config"]["series"])

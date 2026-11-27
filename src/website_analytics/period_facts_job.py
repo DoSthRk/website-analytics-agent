@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from datetime import datetime
+from collections.abc import Callable, Mapping
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from website_analytics.crawler_traffic import load_crawler_sessions
 from website_analytics.daily_facts_store import last_day, load_days
 from website_analytics.feishu_period_facts import (
     PeriodTarget,
@@ -27,15 +28,20 @@ def refresh_period_tables(
     mapping: ProductMapping,
     store: Path,
     exclusions: Path,
+    crawler_store: Path,
+    crawler_rule: Path,
     target: Path,
     client_factory: Callable[[PeriodTarget], RecordClient],
     apply: bool,
     after_write: Callable[[dict[str, list[dict[str, Any]]]], dict[str, Any]] | None = None,
+    crawler_extra: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Full rebuild from every stored day; only changed rows reach Feishu.
 
     ``after_write`` runs only once every row was written and read back. Its
     failure is reported in the result and does not undo or fail the write.
+    ``crawler_extra`` adds fingerprint days fetched in this run but not saved
+    (dry runs).
     """
     records = load_days(store)
     if not records["overview_daily"]:
@@ -47,6 +53,7 @@ def refresh_period_tables(
         funnel_daily=records["product_funnel_daily"],
         overview_daily=records["overview_daily"],
         last_final=last_final,
+        crawler=crawler_for(records, site=site, store=crawler_store, rule=crawler_rule, extra=crawler_extra),
         exclusions=load_exclusions(exclusions, site),
     )
     period_target = load_period_target(target)
@@ -68,3 +75,16 @@ def refresh_period_tables(
     else:
         result["plan"] = {plan.logical_name: plan.counts() for plan in plans}
     return result
+
+
+def crawler_for(
+    records: Mapping[str, list[dict[str, Any]]], *, site: str, store: Path, rule: Path,
+    extra: Mapping[str, Mapping[str, Any]] | None = None,
+) -> dict[date, dict[str, float]]:
+    """Suspected crawler sessions for every day in the daily facts."""
+    funnel = records["product_funnel_daily"]
+    versions = {str(row["mapping_version"]) for row in funnel}
+    if len(versions) != 1:
+        raise ValueError(f"daily facts mix product mapping versions: {sorted(versions)}")
+    days = {date.fromisoformat(str(row["data_date"])[:10]) for row in records["overview_daily"]}
+    return load_crawler_sessions(store, rule, site=site, days=days, mapping_version=versions.pop(), extra=extra)

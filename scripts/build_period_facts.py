@@ -19,6 +19,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from website_analytics.daily_facts_store import load_days, merge_recompute_outputs  # noqa: E402
 from website_analytics.period_facts import build_period_facts, load_exclusions  # noqa: E402
+from website_analytics.period_facts_job import crawler_for  # noqa: E402
 from website_analytics.product_mapping import load_product_mapping  # noqa: E402
 
 
@@ -30,6 +31,8 @@ def _arguments() -> argparse.Namespace:
     source.add_argument("--daily-facts-dir", type=Path)
     parser.add_argument("--mapping", type=Path, required=True)
     parser.add_argument("--exclusions", type=Path, required=True)
+    parser.add_argument("--crawler-store", type=Path, required=True, help="saved GA4 fingerprint days")
+    parser.add_argument("--crawler-rule", type=Path, required=True)
     parser.add_argument("--last-final", type=date.fromisoformat)
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
@@ -49,6 +52,7 @@ def main() -> int:
         funnel_daily=daily["product_funnel_daily"],
         overview_daily=daily["overview_daily"],
         last_final=last_final,
+        crawler=crawler_for(daily, site=args.site, store=args.crawler_store, rule=args.crawler_rule),
         exclusions=load_exclusions(args.exclusions, args.site),
     )
     summary = dict(build.summary)
