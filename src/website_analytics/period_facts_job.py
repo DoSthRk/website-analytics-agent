@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from website_analytics.crawler_traffic import load_crawler_sessions
+from website_analytics.crawler_traffic import load_crawler_shares
 from website_analytics.daily_facts_store import last_day, load_days
 from website_analytics.feishu_period_facts import (
     PeriodTarget,
@@ -81,10 +81,10 @@ def crawler_for(
     records: Mapping[str, list[dict[str, Any]]], *, site: str, store: Path, rule: Path,
     extra: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[date, dict[str, float]]:
-    """Suspected crawler sessions for every day in the daily facts."""
+    """Suspected crawler share per report line for every day in the daily facts."""
     funnel = records["product_funnel_daily"]
     versions = {str(row["mapping_version"]) for row in funnel}
     if len(versions) != 1:
         raise ValueError(f"daily facts mix product mapping versions: {sorted(versions)}")
     days = {date.fromisoformat(str(row["data_date"])[:10]) for row in records["overview_daily"]}
-    return load_crawler_sessions(store, rule, site=site, days=days, mapping_version=versions.pop(), extra=extra)
+    return load_crawler_shares(store, rule, site=site, days=days, mapping_version=versions.pop(), extra=extra)

@@ -62,7 +62,7 @@ def _records(weeks=10):
     ]
     build = build_period_facts(
         site="genemedi-net", mapping=MAPPING, funnel_daily=funnel, overview_daily=overview,
-        last_final=days[-1] - timedelta(days=1), grains=(WEEK, MONTH), crawler={day: {"A": 2} for day in days},
+        last_final=days[-1] - timedelta(days=1), grains=(WEEK, MONTH), crawler={day: {"A": 0.1} for day in days},
     )
     return build.records
 
@@ -226,7 +226,8 @@ def test_refresh_period_tables_from_store_is_idempotent(tmp_path):
         (crawler_store / f"{d.isoformat()}.json").write_text(json.dumps({
             "data_date": d.isoformat(), "mapping_version": "4",
             "fingerprints": [["Direct", "SG", "SG", "1280x1200", "Chrome", "Windows", 40, 0]],
-            "product": [["A", "Direct", "SG", "SG", "1280x1200", "Chrome", "Windows", 5, 0]]}), encoding="utf-8")
+            "product": [["A", "Direct", "SG", "SG", "1280x1200", "Chrome", "Windows", 5, 0],
+                        ["A", "Organic Search", "DE", "Berlin", "1920x1080", "Chrome", "Windows", 15, 9]]}), encoding="utf-8")
     client = FakeFeishu()
     kwargs = dict(site="genemedi-net", mapping=MAPPING, store=store, exclusions=exclusions, target=target,
                   client_factory=lambda _: client, crawler_store=crawler_store,

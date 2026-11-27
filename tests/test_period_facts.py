@@ -347,9 +347,9 @@ def test_ratio_alert_needs_numerator_volume_too():
 def test_crawler_sessions_are_removed_and_the_session_ratios_use_the_clean_count():
     days = _days(9)
     last = set(days[-7:])
-    # In the last week 15 of A's 20 daily landing sessions are crawlers; the
-    # estimate can exceed the landing count (B), which is capped at zero.
-    build = _build(days, crawler=lambda day: {"A": 15, "B": 25} if day in last else {})
+    # In the last week the fingerprint report says 75% of A's and all of B's
+    # product landing sessions are crawlers; the share applies to item 5.
+    build = _build(days, crawler=lambda day: {"A": 0.75, "B": 1.0} if day in last else {})
     a = _row(build, "2025-W37", "A", "前8周均值")
     assert a["landing_sessions"] == 140 and a["clean_landing_sessions"] == 35
     assert a["baseline_clean_landing_sessions"] == 140
@@ -374,4 +374,8 @@ def test_every_day_needs_a_crawler_estimate():
     with pytest.raises(ValueError, match="unknown product lines"):
         build_period_facts(site="genemedi-net", mapping=MAPPING, funnel_daily=funnel,
                            overview_daily=[_overview(day) for day in days], last_final=days[-1],
-                           crawler={day: {"Z": 1} for day in days})
+                           crawler={day: {"Z": 0.5} for day in days})
+    with pytest.raises(ValueError, match="out of range"):
+        build_period_facts(site="genemedi-net", mapping=MAPPING, funnel_daily=funnel,
+                           overview_daily=[_overview(day) for day in days], last_final=days[-1],
+                           crawler={day: {"A": 1.5} for day in days})

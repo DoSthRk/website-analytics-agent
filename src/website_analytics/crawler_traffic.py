@@ -9,6 +9,13 @@ genemedi.net; dozens of sessions with almost no engagement are not people.
 The window is trailing, not the calendar month, so early-month days are judged
 on enough history and a finished day does not change when the month goes on.
 
+The result is a share per day and report line: suspected crawler sessions
+divided by all product landing sessions in the fingerprint report. The share,
+not the count, is applied to the dashboard's product landing sessions, because
+the two GA4 reports do not always agree on the total (in late 2025 the stored
+daily landing-page report has a third fewer sessions than the fingerprint
+report), and subtracting one report's count from the other's would overshoot.
+
 The GA4 fingerprint report is saved per data date: the site-wide totals per
 fingerprint (the rule looks at the whole site) and the product-page sessions
 already mapped to report lines. Re-running the rule needs no GA4 reads; a URL
@@ -154,14 +161,16 @@ def load_fingerprint_days(store: Path) -> dict[str, dict[str, Any]]:
 # ---------------------------------------------------------------- rule
 
 
-def crawler_sessions(
+def crawler_shares(
     documents: Mapping[str, Mapping[str, Any]],
     days: Iterable[date],
     rule: CrawlerRule,
     *,
     mapping_version: str,
 ) -> dict[date, dict[str, float]]:
-    """Suspected crawler sessions per report line for each requested day.
+    """Suspected crawler share of product landing sessions per report line and day.
+
+    Lines without product sessions in the fingerprint report are left out (share 0).
 
     Every requested day must have a stored document made with the same product
     mapping; earlier days of a window that are not stored are simply absent
@@ -199,34 +208,38 @@ def crawler_sessions(
             add(day - timedelta(days=rule.window_days), -1)
         if day in wanted:
             flagged = {key for key, (sessions, engaged) in window.items() if rule.flags(sessions, engaged)}
-            per_line: dict[str, float] = defaultdict(float)
+            totals: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0])
             for entry in documents[day.isoformat()]["product"]:
+                line = totals[str(entry[0])]
+                line[0] += float(entry[-2])
                 if tuple(entry[1:-2]) in flagged:
-                    per_line[str(entry[0])] += float(entry[-2])
-            result[day] = dict(per_line)
+                    line[1] += float(entry[-2])
+            result[day] = {line: bot / total for line, (total, bot) in totals.items() if total > 0}
         day += timedelta(days=1)
     return result
 
 
-def load_crawler_sessions(
+def load_crawler_shares(
     store: Path, rule_path: Path, *, site: str, days: Iterable[date], mapping_version: str,
     extra: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[date, dict[str, float]]:
     """Stored fingerprint days (plus freshly fetched ``extra`` ones) run through the site rule."""
     documents = load_fingerprint_days(store) | dict(extra or {})
-    return crawler_sessions(documents, days, load_crawler_rule(rule_path, site), mapping_version=mapping_version)
+    return crawler_shares(documents, days, load_crawler_rule(rule_path, site), mapping_version=mapping_version)
 
 
 def monthly_summary(
-    documents: Mapping[str, Mapping[str, Any]], crawler: Mapping[date, Mapping[str, float]],
+    documents: Mapping[str, Mapping[str, Any]], shares: Mapping[date, Mapping[str, float]],
 ) -> list[dict[str, Any]]:
-    """Product landing sessions and suspected crawler share by month, for review."""
+    """Fingerprint-report product landing sessions and suspected crawler share by month."""
     months: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0, 0.0])
-    for day, per_line in crawler.items():
-        document = documents[day.isoformat()]
+    for day, per_line in shares.items():
+        totals: dict[str, float] = defaultdict(float)
+        for entry in documents[day.isoformat()]["product"]:
+            totals[str(entry[0])] += float(entry[-2])
         month = months[day.isoformat()[:7]]
-        month[0] += sum(float(entry[-2]) for entry in document["product"])
-        month[1] += sum(per_line.values())
+        month[0] += sum(totals.values())
+        month[1] += sum(share * totals[line] for line, share in per_line.items())
         month[2] += 1
     return [
         {"month": month, "days": int(days), "product_sessions": round(total), "suspected_crawler": round(bot),

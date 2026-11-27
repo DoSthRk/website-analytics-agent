@@ -311,8 +311,8 @@ def build_period_facts(
     exclusions: Sequence[Exclusion] = (),
     grains: Sequence[str] = (WEEK, MONTH),
 ) -> PeriodBuild:
-    """``crawler`` holds suspected crawler sessions per day and report line
-    (``crawler_traffic.crawler_sessions``); every day up to ``last_final`` needs one."""
+    """``crawler`` holds the suspected crawler share per day and report line
+    (``crawler_traffic.crawler_shares``); every day up to ``last_final`` needs one."""
     funnel_by_day = _with_clean_sessions(_funnel_by_day(funnel_daily, mapping, last_final), crawler)
     overview_by_day = _overview_by_day(overview_daily, last_final)
     if set(funnel_by_day) != set(overview_by_day):
@@ -381,10 +381,10 @@ def _with_clean_sessions(
         result[day] = {}
         for line, row in lines.items():
             landing = _number(row.get("ga4_product_landing_sessions_all_channels"))
-            # The fingerprint report can count a session or two more than the
-            # landing-page report; never let the cleaned count go below zero.
-            suspected = min(float(crawler[day].get(line, 0.0)), landing)
-            result[day][line] = {**row, CLEAN_SOURCE: landing - suspected}
+            share = float(crawler[day].get(line, 0.0))
+            if not 0 <= share <= 1:
+                raise ValueError(f"crawler share out of range for {day} {line}")
+            result[day][line] = {**row, CLEAN_SOURCE: landing * (1 - share)}
     return result
 
 

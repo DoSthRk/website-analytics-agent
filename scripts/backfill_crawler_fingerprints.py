@@ -25,7 +25,7 @@ from run_period_refresh import _load_env, fetch_fingerprints, ga4_adapter  # noq
 from website_analytics.adapters.page_dimension import create_page_dimension_adapter  # noqa: E402
 from website_analytics.config import load_sites, require_site  # noqa: E402
 from website_analytics.crawler_traffic import (  # noqa: E402
-    crawler_sessions,
+    crawler_shares,
     load_crawler_rule,
     load_fingerprint_days,
     monthly_summary,
@@ -86,7 +86,7 @@ def main() -> int:
         print(json.dumps({"fetched": f"{chunk[0]}..{chunk[-1]}", "days": len(documents)}), file=sys.stderr, flush=True)
     documents = load_fingerprint_days(args.crawler_store) | fetched
     days = [date.fromisoformat(day) for day in sorted(fetched)]
-    crawler = crawler_sessions(documents, days, rule, mapping_version=mapping.version)
+    crawler = crawler_shares(documents, days, rule, mapping_version=mapping.version)
     summary = {
         "mode": "apply" if args.apply else "dry_run",
         "rule": rule.version,

@@ -6,7 +6,7 @@ import pytest
 from website_analytics import crawler_traffic
 from website_analytics.crawler_traffic import (
     CrawlerRule,
-    crawler_sessions,
+    crawler_shares,
     fingerprint_days,
     load_crawler_rule,
     load_fingerprint_days,
@@ -37,30 +37,30 @@ def test_fingerprint_is_flagged_on_its_trailing_window_only():
             DAY0 + timedelta(days=i), {BOT: (10, 0), HUMAN: (40, 25)}, {("A", BOT): 6, ("A", HUMAN): 20})
         for i in range(4)
     }
-    result = crawler_sessions(docs, [DAY0 + timedelta(days=i) for i in range(4)], RULE, mapping_version="4")
-    assert [result[DAY0 + timedelta(days=i)].get("A", 0) for i in range(4)] == [0, 0, 6, 6]
+    result = crawler_shares(docs, [DAY0 + timedelta(days=i) for i in range(4)], RULE, mapping_version="4")
+    assert [result[DAY0 + timedelta(days=i)]["A"] for i in range(4)] == [0, 0, pytest.approx(6 / 26), pytest.approx(6 / 26)]
 
 
 def test_old_days_leave_the_window():
     days = [DAY0 + timedelta(days=i) for i in range(10)]
-    docs = {day.isoformat(): _doc(day, {BOT: (40 if i == 0 else 0, 0)}, {("A", BOT): 40 if i == 0 else 1})
+    docs = {day.isoformat(): _doc(day, {BOT: (40 if i == 0 else 0, 0)}, {("A", BOT): 1, ("A", HUMAN): 3})
             for i, day in enumerate(days)}
-    result = crawler_sessions(docs, days, RULE, mapping_version="4")
+    result = crawler_shares(docs, days, RULE, mapping_version="4")
     # Flagged while day 0 is inside the 7-day window (days 0-6), not after.
-    assert [result[day].get("A", 0) for day in days] == [40, 1, 1, 1, 1, 1, 1, 0, 0, 0]
+    assert [result[day]["A"] for day in days] == [0.25] * 7 + [0.0] * 3
 
 
 def test_engaged_fingerprints_are_never_flagged():
     docs = {DAY0.isoformat(): _doc(DAY0, {HUMAN: (500, 300)}, {("A", HUMAN): 200})}
-    assert crawler_sessions(docs, [DAY0], RULE, mapping_version="4") == {DAY0: {}}
+    assert crawler_shares(docs, [DAY0], RULE, mapping_version="4") == {DAY0: {"A": 0.0}}
 
 
 def test_missing_day_and_other_mapping_are_refused():
     docs = {DAY0.isoformat(): _doc(DAY0, {}, {})}
     with pytest.raises(ValueError, match="missing 1 days"):
-        crawler_sessions(docs, [DAY0, DAY0 + timedelta(days=1)], RULE, mapping_version="4")
+        crawler_shares(docs, [DAY0, DAY0 + timedelta(days=1)], RULE, mapping_version="4")
     with pytest.raises(ValueError, match="product mapping"):
-        crawler_sessions(docs, [DAY0], RULE, mapping_version="5")
+        crawler_shares(docs, [DAY0], RULE, mapping_version="5")
 
 
 def test_report_rows_become_daily_documents_without_paths(monkeypatch, tmp_path):
@@ -96,7 +96,7 @@ def test_report_rows_become_daily_documents_without_paths(monkeypatch, tmp_path)
 
 def test_monthly_summary_reports_share():
     docs = {DAY0.isoformat(): _doc(DAY0, {BOT: (90, 0)}, {("A", BOT): 90, ("A", HUMAN): 10})}
-    crawler = crawler_sessions(docs, [DAY0], RULE, mapping_version="4")
+    crawler = crawler_shares(docs, [DAY0], RULE, mapping_version="4")
     assert monthly_summary(docs, crawler) == [
         {"month": "2026-11", "days": 1, "product_sessions": 100, "suspected_crawler": 90, "share": 0.9}]
 
